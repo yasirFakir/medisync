@@ -1,0 +1,14 @@
+@import "../../packages/ui/src/styles/globals.css";
+
+/* Doctor specific overrides */
+:root {
+  --color-brand-500: #059669; /* Emerald Green for Doctors */
+  --color-brand-600: #047857;
+  --color-brand-400: #34d399;
+}
+
+body {
+  background: radial-gradient(ellipse at 30% 0%, rgba(5,150,105,0.12) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 80%, rgba(139,92,246,0.08) 0%, transparent 60%),
+              var(--bg-base);
+}

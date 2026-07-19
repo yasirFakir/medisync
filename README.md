@@ -85,30 +85,52 @@ pip install -r requirements.txt
 
 ### Running the Application
 
-Open **two separate terminals**.
+Open separate terminals to run each service as needed.
 
-#### Terminal 1 — AI Service (FastAPI)
+#### 1. AI Service (FastAPI)
 ```bash
 cd apps/ai-service
-
-# Activate the virtual environment
-source venv/bin/activate          # Linux / macOS
-# venv\Scripts\activate           # Windows
-
-# Start the server using the Python interpreter inside the venv
+source venv/bin/activate
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
-AI Service runs at: **http://127.0.0.1:8000**
+Runs at: **http://127.0.0.1:8000** (Swagger documentation: `/docs`)
 
-#### Terminal 2 — Node.js Backend (Express API)
+#### 2. Node.js Backend (Express API)
 ```bash
-# From the root directory
-~/.local/share/pnpm/bin/pnpm dev
-
-# Or if pnpm is in PATH:
-pnpm dev
+# Run from root workspace
+pnpm --filter @medisync/backend dev
 ```
-Backend API runs at: **http://localhost:3001**
+Runs at: **http://localhost:3001**
+
+#### 3. Web Portals (Frontend Portals)
+
+You can run individual portals using the following workspace filters from the project root:
+
+*   **Patient Portal (Port 3100)**:
+    ```bash
+    pnpm --filter @medisync/portal-patient dev
+    ```
+    Runs at: **http://localhost:3100**
+
+*   **Doctor Portal (Port 3101)**:
+    ```bash
+    pnpm --filter @medisync/portal-doctor dev
+    ```
+    Runs at: **http://localhost:3101**
+
+*   **Pharmacy Portal (Port 3102)**:
+    ```bash
+    pnpm --filter @medisync/portal-pharmacy dev
+    ```
+    Runs at: **http://localhost:3102**
+
+*   **Admin Portal (Port 3103)**:
+    ```bash
+    pnpm --filter @medisync/portal-admin dev
+    ```
+    Runs at: **http://localhost:3103**
+
+> 💡 **Tip:** You can start all active developers servers (Backend + Portals) simultaneously by running `pnpm dev` from the root workspace folder.
 
 ---
 

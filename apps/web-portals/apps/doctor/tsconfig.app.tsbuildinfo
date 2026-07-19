@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/components/DoctorLayout.tsx","./src/components/ProtectedRoute.tsx","./src/pages/DashboardPage.tsx","./src/pages/EHRAccessPage.tsx","./src/pages/EHRViewerPage.tsx","./src/pages/LoginPage.tsx","./src/pages/PatientsPage.tsx","./src/pages/ProfilePage.tsx","./src/pages/SessionsPage.tsx","./src/store/authStore.ts"],"version":"5.9.3"}

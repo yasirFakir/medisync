@@ -1,0 +1,14 @@
+@import "../../packages/ui/src/styles/globals.css";
+
+/* Pharmacy specific overrides */
+:root {
+  --color-brand-500: #f59e0b; /* Amber/Orange for Pharmacy */
+  --color-brand-600: #d97706;
+  --color-brand-400: #fbbf24;
+}
+
+body {
+  background: radial-gradient(ellipse at 30% 0%, rgba(245,158,11,0.12) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 80%, rgba(139,92,246,0.08) 0%, transparent 60%),
+              var(--bg-base);
+}

@@ -2,8 +2,18 @@
   "name": "@medisync/web-portals",
   "version": "1.0.0",
   "private": true,
+  "description": "MediSync AI — Web Portals monorepo (Patient, Doctor, Pharmacy, Admin)",
   "scripts": {
-    "dev": "echo 'Web portals coming soon — scaffolding in progress'",
-    "build": "echo 'TODO: Build web portals'"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "preview": "turbo run preview",
+    "dev:patient": "turbo run dev --filter=@medisync/portal-patient",
+    "dev:doctor": "turbo run dev --filter=@medisync/portal-doctor",
+    "dev:pharmacy": "turbo run dev --filter=@medisync/portal-pharmacy",
+    "dev:admin": "turbo run dev --filter=@medisync/portal-admin"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3"
   }
 }
