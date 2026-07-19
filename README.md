@@ -102,35 +102,14 @@ pnpm --filter @medisync/backend dev
 ```
 Runs at: **http://localhost:3001**
 
-#### 3. Web Portals (Frontend Portals)
+#### 3. Unified Web Portal (Frontend Layouts)
+```bash
+# Run from root workspace
+pnpm --filter @medisync/web-portals dev
+```
+Runs at: **http://localhost:3000** (Dynamically renders the Dashboard layout for Patients, Doctors, Pharmacy partners, or Admins depending on credentials inputed on the login screen).
 
-You can run individual portals using the following workspace filters from the project root:
-
-*   **Patient Portal (Port 3100)**:
-    ```bash
-    pnpm --filter @medisync/portal-patient dev
-    ```
-    Runs at: **http://localhost:3100**
-
-*   **Doctor Portal (Port 3101)**:
-    ```bash
-    pnpm --filter @medisync/portal-doctor dev
-    ```
-    Runs at: **http://localhost:3101**
-
-*   **Pharmacy Portal (Port 3102)**:
-    ```bash
-    pnpm --filter @medisync/portal-pharmacy dev
-    ```
-    Runs at: **http://localhost:3102**
-
-*   **Admin Portal (Port 3103)**:
-    ```bash
-    pnpm --filter @medisync/portal-admin dev
-    ```
-    Runs at: **http://localhost:3103**
-
-> 💡 **Tip:** You can start all active developers servers (Backend + Portals) simultaneously by running `pnpm dev` from the root workspace folder.
+> 💡 **Tip:** You can start all active developer servers (Backend API + Web Portal) simultaneously by running `pnpm dev` from the root workspace folder.
 
 ---
 

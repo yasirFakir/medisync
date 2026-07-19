@@ -1,3 +1,5 @@
 packages:
-  - "apps/*"
+  - "apps/backend"
+  - "apps/mobile-app"
+  - "apps/web-portals"
   - "packages/*"

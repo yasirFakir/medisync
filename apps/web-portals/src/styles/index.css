@@ -1,0 +1,26 @@
+@import "../../packages/ui/src/styles/globals.css";
+
+/* Dynamic style colors based on user role */
+.role-patient {
+  --color-brand-500: #0ea5e9;
+  --color-brand-600: #0284c7;
+  --color-brand-400: #38bdf8;
+}
+
+.role-doctor {
+  --color-brand-500: #059669;
+  --color-brand-600: #047857;
+  --color-brand-400: #34d399;
+}
+
+.role-pharmacy {
+  --color-brand-500: #f59e0b;
+  --color-brand-600: #d97706;
+  --color-brand-400: #fbbf24;
+}
+
+.role-admin {
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-400: #a78bfa;
+}

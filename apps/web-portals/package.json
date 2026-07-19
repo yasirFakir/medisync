@@ -1,19 +1,33 @@
 {
   "name": "@medisync/web-portals",
-  "version": "1.0.0",
   "private": true,
-  "description": "MediSync AI — Web Portals monorepo (Patient, Doctor, Pharmacy, Admin)",
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "preview": "turbo run preview",
-    "dev:patient": "turbo run dev --filter=@medisync/portal-patient",
-    "dev:doctor": "turbo run dev --filter=@medisync/portal-doctor",
-    "dev:pharmacy": "turbo run dev --filter=@medisync/portal-pharmacy",
-    "dev:admin": "turbo run dev --filter=@medisync/portal-admin"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@medisync/shared-types": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.1",
+    "zustand": "^5.0.3",
+    "lucide-react": "^0.471.1",
+    "axios": "^1.7.9"
   },
   "devDependencies": {
-    "turbo": "^2.3.3"
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "oxlint": "^0.15.5",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
   }
 }
