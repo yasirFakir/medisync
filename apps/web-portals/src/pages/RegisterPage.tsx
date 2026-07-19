@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button, Input, Card } from '../../packages/ui/src/index';
-import { apiClient } from '../../packages/ui/src/lib/apiClient';
+import { Button, Input, Card, apiClient } from '@medisync/ui';
 import { Mail, Lock, User, Phone, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 

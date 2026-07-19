@@ -21,7 +21,8 @@
     "noFallthroughCasesInSwitch": true,
     
     "paths": {
-      "@medisync/shared-types": ["../../packages/shared-types/src/index.ts"]
+      "@medisync/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@medisync/ui": ["./packages/ui/src/index.ts"]
     }
   },
   "include": ["src"]

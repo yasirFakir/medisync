@@ -7,13 +7,13 @@
 -- bcrypt hash of "Test@1234" with 12 rounds
 INSERT INTO users (user_id, email, password_hash, role, full_name, phone_number) VALUES
   ('00000000-0000-0000-0000-000000000001', 'admin@medisync.ai',
-   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeAoXqvWQ1WToE.1i', 'ADMIN', 'System Admin', '+880-1700-000001'),
+   '$2a$12$WWEmuMso6.fVwct5zPix.O.llIVv.u/ERmU5TMPfssRvZb7jSYkaS', 'ADMIN', 'System Admin', '+880-1700-000001'),
   ('00000000-0000-0000-0000-000000000002', 'patient@medisync.ai',
-   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeAoXqvWQ1WToE.1i', 'PATIENT', 'Md. Yasir Arafat', '+880-1700-000002'),
+   '$2a$12$WWEmuMso6.fVwct5zPix.O.llIVv.u/ERmU5TMPfssRvZb7jSYkaS', 'PATIENT', 'Md. Yasir Arafat', '+880-1700-000002'),
   ('00000000-0000-0000-0000-000000000003', 'doctor@medisync.ai',
-   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeAoXqvWQ1WToE.1i', 'DOCTOR', 'Dr. Roman Mia', '+880-1700-000003'),
+   '$2a$12$WWEmuMso6.fVwct5zPix.O.llIVv.u/ERmU5TMPfssRvZb7jSYkaS', 'DOCTOR', 'Dr. Roman Mia', '+880-1700-000003'),
   ('00000000-0000-0000-0000-000000000004', 'pharmacy@medisync.ai',
-   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeAoXqvWQ1WToE.1i', 'PHARMACY', 'MediCare Pharmacy', '+880-1700-000004')
+   '$2a$12$WWEmuMso6.fVwct5zPix.O.llIVv.u/ERmU5TMPfssRvZb7jSYkaS', 'PHARMACY', 'MediCare Pharmacy', '+880-1700-000004')
 ON CONFLICT (email) DO NOTHING;
 
 -- ─── Seed Pharmacy Profile ────────────────────────────────────────────────────

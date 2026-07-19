@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TriagePage } from './pages/TriagePage';
 import { PrescriptionsPage } from './pages/PrescriptionsPage';
@@ -25,7 +24,7 @@ const App: React.FC = () => {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register" element={<LoginPage />} />
 
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>

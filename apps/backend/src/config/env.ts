@@ -1,4 +1,8 @@
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load root .env
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 dotenv.config();
 
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET', 'ENCRYPTION_KEY'];
@@ -12,7 +16,7 @@ for (const envVar of requiredEnvVars) {
 
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT || '3001', 10),
+  port: parseInt(process.env.PORT || '3000', 10),
 
   // JWT
   jwtSecret: process.env.JWT_SECRET as string,

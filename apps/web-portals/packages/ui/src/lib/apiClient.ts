@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const BASE_URL = import.meta.env.VITE_API_URL || '';
+
+console.log(`[MediSync API Client] Connecting to backend at: ${BASE_URL}/api`);
 
 export const apiClient = axios.create({
   baseURL: `${BASE_URL}/api`,
@@ -16,11 +18,11 @@ apiClient.interceptors.request.use(config => {
   return config;
 });
 
-// On 401 — clear token and redirect to login
+// On 401 — clear token and redirect to login (except on login page itself)
 apiClient.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && !err.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('medisync_token');
       localStorage.removeItem('medisync_user');
       window.location.href = '/login';

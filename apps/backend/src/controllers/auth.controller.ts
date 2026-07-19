@@ -7,6 +7,7 @@ import { config } from '../config/env';
 import { AppError } from '../middleware/errorHandler';
 import { setCache, getCache, deleteCache } from '../config/redis';
 import { AuthTokenPayload, UserProfile } from '@medisync/shared-types';
+import { logger } from '../config/logger';
 
 const SALT_ROUNDS = 12;
 
@@ -24,9 +25,14 @@ const signTokens = (payload: Omit<AuthTokenPayload, 'iat' | 'exp'>) => {
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { fullName, email, password, role, phoneNumber } = req.body;
 
+  console.log(`[BACKEND AUTH] 📝 Registration attempt received for email: ${email} [Role: ${role}]`);
+  logger.info(`📝 Registration attempt received for email: ${email} [Role: ${role}]`);
+
   // Check duplicate email
   const existing = await queryOne('SELECT user_id FROM users WHERE email = $1', [email]);
   if (existing) {
+    console.warn(`[BACKEND AUTH] ❌ Registration failed: ${email} is already registered`);
+    logger.warn(`❌ Registration failed: ${email} is already registered`);
     throw new AppError('Email already registered', 409);
   }
 
@@ -48,6 +54,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   // Cache refresh token
   await setCache(`refresh:${user.id}`, refreshToken, 30 * 24 * 60 * 60);
 
+  console.log(`[BACKEND AUTH] ✅ Registration successful for user: ${email} [Role: ${role}]`);
+  logger.info(`✅ Registration successful for user: ${email} [Role: ${role}]`);
+
   res.status(201).json({
     success: true,
     message: 'Registration successful',
@@ -60,6 +69,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
+  console.log(`[BACKEND AUTH] 🔑 Login attempt received for email: ${email}`);
+  logger.info(`🔑 Login attempt received for email: ${email}`);
+
   const user = await queryOne<{
     user_id: string;
     email: string;
@@ -71,6 +83,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }>('SELECT * FROM users WHERE email = $1', [email]);
 
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    console.warn(`[BACKEND AUTH] ❌ Login failed for email: ${email} - Invalid credentials`);
+    logger.warn(`❌ Login failed for email: ${email} - Invalid credentials`);
     throw new AppError('Invalid email or password', 401);
   }
 
@@ -82,6 +96,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   const { accessToken, refreshToken } = signTokens(payload);
   await setCache(`refresh:${user.user_id}`, refreshToken, 30 * 24 * 60 * 60);
+
+  console.log(`[BACKEND AUTH] ✅ Login successful for email: ${email} [Role: ${user.role}]`);
+  logger.info(`✅ Login successful for email: ${email} [Role: ${user.role}]`);
 
   res.json({
     success: true,

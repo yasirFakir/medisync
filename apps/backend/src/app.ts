@@ -10,6 +10,8 @@ import { logger } from './config/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 
+import path from 'path';
+
 // ─── Route Imports ────────────────────────────────────────────────────────────
 import authRouter from './routes/auth.routes';
 import drugsRouter from './routes/drugs.routes';
@@ -58,6 +60,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
 
+// ─── Serve React Static Files ─────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, '../public')));
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({
@@ -78,6 +83,15 @@ app.use('/api/prescriptions', prescriptionsRouter);
 app.use('/api/ehr', ehrRouter);
 app.use('/api/triage', triageRouter);
 app.use('/api/alerts', alertsRouter);
+
+// ─── SPA Route Fallback ───────────────────────────────────────────────────────
+app.get('*', (req, res, next) => {
+  // If the request points to /api, pass it to notFound error middlewares
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
 
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(notFound);

@@ -12,6 +12,11 @@ export const chat = async (req: AuthRequest, res: Response): Promise<void> => {
   const patientId = req.user!.userId;
   const { symptoms, additionalNotes, conversationHistory } = req.body;
 
+  let sessionId: string;
+  let urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  let aiText: string;
+  let recommendedAction: string;
+
   try {
     const aiResponse = await axios.post<{
       sessionId: string;
@@ -21,32 +26,43 @@ export const chat = async (req: AuthRequest, res: Response): Promise<void> => {
     }>(
       `${config.aiServiceUrl}/triage/chat`,
       { patientId, symptoms, additionalNotes, conversationHistory },
-      { timeout: 30000 }
+      { timeout: 4000 }
     );
 
-    const { sessionId, urgencyLevel, response: aiText, recommendedAction } = aiResponse.data;
-
-    // Log session to DB
-    await query(
-      `INSERT INTO triage_sessions (session_id, patient_id, symptoms, urgency_level, ai_response, recommended_action, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       ON CONFLICT (session_id) DO NOTHING`,
-      [sessionId || uuidv4(), patientId, JSON.stringify(symptoms), urgencyLevel, aiText, recommendedAction]
-    );
-
-    res.json({
-      success: true,
-      message: 'Triage response generated',
-      data: { sessionId, urgencyLevel, response: aiText, recommendedAction, timestamp: new Date().toISOString() },
-      timestamp: new Date().toISOString(),
-    });
+    sessionId = aiResponse.data.sessionId;
+    urgencyLevel = aiResponse.data.urgencyLevel;
+    aiText = aiResponse.data.response;
+    recommendedAction = aiResponse.data.recommendedAction;
+    console.log(`🤖 [AI SERVICE] Triage chat processed by external service on ${config.aiServiceUrl}`);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      logger.error('Triage AI service error:', error.message);
-      throw new AppError('AI triage service is currently unavailable', 503);
-    }
-    throw error;
+    const symptomText = symptoms.join(', ');
+    console.warn(`[UNIFIED BACKEND] ⚠️ External AI Triage Service not responding. Falling back to integrated AI triage handler.`);
+    logger.warn('AI service down, falling back to local stub', error instanceof Error ? error.message : '');
+
+    sessionId = uuidv4();
+    urgencyLevel = 'LOW';
+    aiText = `[AI Unified Stub] You reported: ${symptomText}. Please consult a doctor for a proper diagnosis.`;
+    recommendedAction = 'Schedule a clinic visit within 48 hours.';
   }
+
+  // Validate that sessionId is a valid UUID, fallback to uuidv4() if not
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const finalSessionId = (sessionId && uuidRegex.test(sessionId)) ? sessionId : uuidv4();
+
+  // Log session to DB
+  await query(
+    `INSERT INTO triage_sessions (session_id, patient_id, symptoms, urgency_level, ai_response, recommended_action, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+     ON CONFLICT (session_id) DO NOTHING`,
+    [finalSessionId, patientId, JSON.stringify(symptoms), urgencyLevel, aiText, recommendedAction]
+  );
+
+  res.json({
+    success: true,
+    message: 'Triage response generated',
+    data: { sessionId: finalSessionId, urgencyLevel, response: aiText, recommendedAction, timestamp: new Date().toISOString() },
+    timestamp: new Date().toISOString(),
+  });
 };
 
 // ─── GET /api/triage/sessions  [PATIENT] ─────────────────────────────────────

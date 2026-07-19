@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
+import uuid
 
 app = FastAPI(
     title="MediSync AI Service",
@@ -22,6 +23,7 @@ app.add_middleware(
 # ─── Health Check ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
+    print("🔍 [AI-SERVICE] Received GET /health request")
     return {"status": "operational", "service": "medisync-ai", "version": "1.0.0"}
 
 
@@ -33,6 +35,7 @@ async def digitize_prescription(file: UploadFile = File(...)):
     TODO: Integrate Tesseract OCR + NLP parsing
     """
     contents = await file.read()
+    print(f"📷 [AI-SERVICE] Received POST /ocr/digitize request for file: {file.filename} ({len(contents)} bytes)")
 
     # Stub response — replace with real Tesseract + NLP logic
     return {
@@ -70,10 +73,11 @@ async def triage_chat(request: TriageRequest):
     TODO: Integrate LLM (Gemini/OpenAI) for real triage logic
     """
     symptom_text = ", ".join(request.symptoms)
+    print(f"🤖 [AI-SERVICE] Received POST /triage/chat request for patient: {request.patientId} (Symptoms: {symptom_text})")
 
     # Stub response — replace with real AI model call
     return {
-        "sessionId": "stub-session-001",
+        "sessionId": str(uuid.uuid4()),
         "urgencyLevel": "LOW",
         "response": f"[AI Stub] You reported: {symptom_text}. Please consult a doctor for a proper diagnosis.",
         "recommendedAction": "Schedule a clinic visit within 48 hours."
