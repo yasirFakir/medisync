@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-07-19  
 > **Current Phase:** Phase 3 — AI Service Integration (OCR + Triage)  
-> **Overall Status:** 🟢 Phase 2 Complete — Portals Scaffolding Finished
+> **Overall Status:** 🟢 Phase 2 Complete & Unified Ports Integrated
 
 ---
 
@@ -12,7 +12,7 @@
 |-------|------|--------|--------|
 | 1 | Monorepo Setup + Backend API | ✅ Complete | Week 1-2 |
 | 2 | Web Portals (Admin / Doctor / Pharmacy / Patient) | ✅ Complete | Week 3-5 |
-| 3 | AI Service Integration (OCR + Triage) | 🟡 In Progress | Week 6-7 |
+| 3 | AI Service Integration (OCR + Triage) | ✅ Completed Fallback Stub/Proxy | Week 6-7 |
 | 4 | Mobile App (React Native) | ⬜ Not Started | Week 8-10 |
 | 5 | Testing, Security Audit & Deployment | ⬜ Not Started | Week 11-12 |
 
@@ -25,6 +25,7 @@
 - [x] Reusable component exports: `Button`, `Input`, `Card`, `Badge`, `Spinner`, `Modal`, `Sidebar`, `TopBar`, `StatCard`, `EmptyState`, `Avatar`, `Table`
 - [x] Axios Client with automatic Bearer JWT header injection
 - [x] React `useAuth` session hook
+- [x] Unified auth pages & corrected 401 invalid credentials redirect bug
 
 ### Patient Portal (`apps/patient` - Port 3100)
 - [x] Routing layout structure with `PatientLayout`
@@ -57,5 +58,4 @@
 
 | # | Issue | Status | Priority |
 |---|-------|--------|----------|
-| 1 | `.env` not yet created — real DB/Redis credentials needed | Open | High |
-| 2 | Python 3.14 Pillow wheel compatibility | Open | Medium |
+| 1 | Python 3.14 Pillow wheel compatibility | Open | Medium |

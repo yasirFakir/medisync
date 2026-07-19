@@ -38,7 +38,7 @@ async function runTests() {
     const res = await fetch(`${BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'patient@medisync.ai', password: 'Test@1234' }),
+      body: JSON.stringify({ email: 'patient@medisync.ai', password: 'password123' }),
     });
     assert.strictEqual(res.status, 200, 'Seed login should return status 200');
     const data = await res.json();
@@ -102,7 +102,7 @@ async function runTests() {
     const loginRes = await fetch(`${BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'patient@medisync.ai', password: 'Test@1234' }),
+      body: JSON.stringify({ email: 'patient@medisync.ai', password: 'password123' }),
     });
     const loginData = await loginRes.json();
     const token = loginData.data.accessToken;
