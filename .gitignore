@@ -1,0 +1,10 @@
+**/node_modules
+**/.turbo
+**/dist
+**/build
+**/.env
+*.log
+*.pem
+.DS_Store
+coverage/
+apps/ai-service/venv/

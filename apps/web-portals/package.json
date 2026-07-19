@@ -1,0 +1,9 @@
+{
+  "name": "@medisync/web-portals",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Web portals coming soon — scaffolding in progress'",
+    "build": "echo 'TODO: Build web portals'"
+  }
+}
