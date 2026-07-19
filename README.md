@@ -10,11 +10,10 @@ Follow these steps to set up and run the application on your local machine.
 ### Prerequisites
 
 - **Node.js** (v18+)
-- **pnpm** (v9.0.0+)
-- **Python** (v3.11+)
-- **Tesseract OCR** (Must be installed on the host OS)
+- **pnpm** (v9.0.0+) — installed at `~/.local/share/pnpm/bin/pnpm`
+- **Python** (v3.11–3.13 recommended; v3.14 has limited library support)
 - **PostgreSQL** (v15+)
-- **Redis**
+- **Redis** (optional for development)
 
 ---
 
@@ -35,66 +34,200 @@ CREATE DATABASE medisync_db;
 ```
 
 #### 2. Environment Configuration
-Copy the example environment files to their active versions.
+Copy the example environment file to its active version.
 
-**Linux / Windows:**
+**Linux:**
 ```bash
 cp .env.example .env
 ```
 
-Set your active database connection strings and configuration values in the newly created `.env` file.
+**Windows (PowerShell):**
+```powershell
+copy .env.example .env
+```
 
-#### 3. Install Dependencies
+Open `.env` and fill in at minimum:
+- `DATABASE_URL` — your PostgreSQL connection string
+- `JWT_SECRET` — any strong random string
+- `ENCRYPTION_KEY` — exactly 32 characters
 
-**Monorepo Workspaces (Root Directory):**
+#### 3. Install Node.js Dependencies
+
+From the **root directory** of the project:
 ```bash
-# If pnpm is not globally installed, use the local path:
+# If pnpm is not yet in your PATH:
 ~/.local/share/pnpm/bin/pnpm install
 
-# Or if pnpm is in your PATH:
+# Or if pnpm is available globally:
 pnpm install
 ```
 
-**AI Service (Python FastAPI):**
+#### 4. Install Python AI Service Dependencies
+
 ```bash
+# Navigate to the AI service directory
 cd apps/ai-service
+
+# Create the virtual environment
 python3 -m venv venv
-source venv/bin/activate
+
+# Activate it
+source venv/bin/activate          # Linux / macOS
+# venv\Scripts\activate           # Windows
+
+# Install dependencies
 pip install -r requirements.txt
 ```
+
+> ⚠️ **Python 3.14 users:** `Pillow` and `pytesseract` do not yet have pre-built wheels for Python 3.14. The OCR feature will be unavailable until compatible wheels are released. All other features work normally.
 
 ---
 
 ### Running the Application
 
-#### Terminal 1: AI Service (FastAPI)
+Open **two separate terminals**.
+
+#### Terminal 1 — AI Service (FastAPI)
 ```bash
 cd apps/ai-service
-source venv/bin/activate
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-```
 
-#### Terminal 2: Monorepo Orchestration (Node.js Backend & Apps)
+# Activate the virtual environment
+source venv/bin/activate          # Linux / macOS
+# venv\Scripts\activate           # Windows
+
+# Start the server using the Python interpreter inside the venv
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+AI Service runs at: **http://127.0.0.1:8000**
+
+#### Terminal 2 — Node.js Backend (Express API)
 ```bash
-# Run from the root directory
+# From the root directory
+~/.local/share/pnpm/bin/pnpm dev
+
+# Or if pnpm is in PATH:
 pnpm dev
 ```
-Turborepo will spin up the backend server on port `3001` and run workspaces concurrently.
+Backend API runs at: **http://localhost:3001**
 
 ---
 
 ### Database Migration and Seeding
 
 #### Apply Schema
-Apply the DDL schemas to set up your PostgreSQL relational tables:
 ```bash
-psql -d medisync_db -f database/init.sql
+psql -U postgres -d medisync_db -f database/init.sql
 ```
 
 #### Seed Mock Data
-Seed the database with development users, pharmacy profiles, master drug catalogs, and inventory:
+Seeds the database with dev users, pharmacy profiles, drugs, and inventory:
 ```bash
-psql -d medisync_db -f database/seed.sql
+psql -U postgres -d medisync_db -f database/seed.sql
+```
+
+**Seed Users** (all have password: `Test@1234`):
+
+| Email | Role |
+|-------|------|
+| `admin@medisync.ai` | ADMIN |
+| `patient@medisync.ai` | PATIENT |
+| `doctor@medisync.ai` | DOCTOR |
+| `pharmacy@medisync.ai` | PHARMACY |
+
+> ⚠️ Seed user passwords use a placeholder hash. Register a fresh user via the API to get a working account immediately.
+
+---
+
+### Testing the Application
+
+#### Step 1 — Verify Both Services are Running
+```bash
+# Backend health check
+curl http://localhost:3001/health
+
+# AI service health check
+curl http://127.0.0.1:8000/health
+```
+
+Expected responses:
+```json
+{ "success": true, "message": "MediSync AI Backend is operational" }
+{ "status": "operational", "service": "medisync-ai", "version": "1.0.0" }
+```
+
+---
+
+#### Step 2 — Register a New User
+```bash
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullName": "Test Patient",
+    "email": "testpatient@test.com",
+    "password": "Test@1234",
+    "role": "PATIENT"
+  }'
+```
+Save the `accessToken` from the response for the next steps.
+
+---
+
+#### Step 3 — Login and Get Token
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "testpatient@test.com",
+    "password": "Test@1234"
+  }'
+```
+
+---
+
+#### Step 4 — Test Protected Endpoints
+
+Replace `<TOKEN>` with your `accessToken` from Step 2 or 3.
+
+**Get your profile:**
+```bash
+curl http://localhost:3001/api/users/me \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**Search for generic drug substitutes:**
+```bash
+curl "http://localhost:3001/api/drugs/substitutes?saltComposition=Paracetamol" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**Find pharmacies with a medicine in stock:**
+```bash
+curl "http://localhost:3001/api/inventory/locate?saltComposition=Paracetamol&city=Dhaka" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**Create a medication reminder alert:**
+```bash
+curl -X POST http://localhost:3001/api/alerts \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "medicineName": "Napa",
+    "dosage": "500mg",
+    "frequency": "Twice daily",
+    "scheduledTime": "08:00"
+  }'
+```
+
+**Test AI triage chat:**
+```bash
+curl -X POST http://localhost:3001/api/triage/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "symptoms": ["fever", "headache", "sore throat"],
+    "additionalNotes": "Symptoms started 2 days ago"
+  }'
 ```
 
 ---

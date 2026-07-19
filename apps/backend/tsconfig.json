@@ -14,7 +14,7 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@medisync/shared-types": ["../../packages/shared-types/src/index.ts"]
+      "@medisync/shared-types": ["../../packages/shared-types/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*"],
