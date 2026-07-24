@@ -98,7 +98,7 @@ Runs at: **http://127.0.0.1:8000** (Swagger documentation: `/docs`)
 #### 2. Node.js Backend (Express API)
 ```bash
 # Run from root workspace
-npm run dev:backend
+./run_backend.sh
 ```
 Runs at: **http://localhost:3001**
 
