@@ -4,7 +4,9 @@
   "private": true,
   "description": "MediSync AI - AI-Powered Triage Chatbot, Prescription Digitizer, EHR & Pharmacy Portal",
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "pnpm --filter @medisync/web-portals dev",
+    "dev:backend": "pnpm --filter @medisync/backend dev",
+    "dev:all": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",

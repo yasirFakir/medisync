@@ -98,18 +98,18 @@ Runs at: **http://127.0.0.1:8000** (Swagger documentation: `/docs`)
 #### 2. Node.js Backend (Express API)
 ```bash
 # Run from root workspace
-pnpm --filter @medisync/backend dev
+npm run dev:backend
 ```
 Runs at: **http://localhost:3001**
 
 #### 3. Unified Web Portal (Frontend Layouts)
 ```bash
 # Run from root workspace
-pnpm --filter @medisync/web-portals dev
+npm run dev
 ```
 Runs at: **http://localhost:3000** (Dynamically renders the Dashboard layout for Patients, Doctors, Pharmacy partners, or Admins depending on credentials inputed on the login screen).
 
-> 💡 **Tip:** You can start all active developer servers (Backend API + Web Portal) simultaneously by running `pnpm dev` from the root workspace folder.
+> 💡 **Tip:** You can start all active developer servers (Backend API + Web Portal) simultaneously by running `npm run dev:all` from the root workspace folder.
 
 ---
 

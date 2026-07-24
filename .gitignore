@@ -8,3 +8,5 @@
 .DS_Store
 coverage/
 apps/ai-service/venv/
+**/__pycache__/
+*.pyc
