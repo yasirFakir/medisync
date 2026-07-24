@@ -88,8 +88,8 @@ export const LoginPage: React.FC = () => {
       {/* Brand panel */}
       <div style={{
         flex: 1.1,
-        background: 'linear-gradient(135deg, rgba(5,13,26,1) 0%, rgba(10,22,40,1) 100%)',
-        borderRight: '1px solid var(--border-default)',
+        background: 'var(--bg-login-brand)',
+        borderRight: '1px solid var(--border-login-brand)',
         padding: '48px',
         display: 'flex',
         flexDirection: 'column',

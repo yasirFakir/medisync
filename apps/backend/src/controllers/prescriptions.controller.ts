@@ -49,9 +49,9 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
     medicines = aiResponse.data.medicines;
     digitizedNotes = aiResponse.data.digitizedNotes;
     doctorName = aiResponse.data.doctorName || 'Unknown';
-    console.log(`📷 [AI SERVICE] Prescription digitized by external service on ${config.aiServiceUrl}`);
+    console.log(`[AI SERVICE] Prescription digitized by external service on ${config.aiServiceUrl}`);
   } catch (error) {
-    console.warn(`[UNIFIED BACKEND] ⚠️ External AI OCR Service not responding. Falling back to integrated OCR handler.`);
+    console.warn(`[UNIFIED BACKEND] External AI OCR Service not responding. Falling back to integrated OCR handler.`);
     logger.warn('AI OCR service down, falling back to local stub', error instanceof Error ? error.message : '');
 
     digitizedNotes = `[OCR Unified Stub] Successfully digitized prescription file: ${req.file.originalname} (${req.file.size} bytes)`;

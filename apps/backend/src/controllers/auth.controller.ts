@@ -54,8 +54,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   // Cache refresh token
   await setCache(`refresh:${user.id}`, refreshToken, 30 * 24 * 60 * 60);
 
-  console.log(`\x1b[32m✅ Success: User registration completed\x1b[0m`);
-  logger.info(`✅ Registration successful for user: ${email} [Role: ${role}]`);
+  console.log(`\x1b[32mSuccess: User registration completed\x1b[0m`);
+  logger.info(`Registration successful for user: ${email} [Role: ${role}]`);
 
   res.status(201).json({
     success: true,
@@ -69,8 +69,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
-  console.log(`\x1b[36m🔑 Login attempt: user ${email}\x1b[0m`);
-  logger.info(`🔑 Login attempt: user ${email}`);
+  console.log(`\x1b[36mLogin attempt: user ${email}\x1b[0m`);
+  logger.info(`Login attempt: user ${email}`);
 
   const user = await queryOne<{
     user_id: string;
@@ -83,8 +83,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }>('SELECT * FROM users WHERE email = $1', [email]);
 
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-    console.warn(`\x1b[31m❌ Error: Invalid login credentials\x1b[0m`);
-    logger.warn(`❌ Login failed for email: ${email} - Invalid credentials`);
+    console.warn(`\x1b[31mError: Invalid login credentials\x1b[0m`);
+    logger.warn(`Login failed for email: ${email} - Invalid credentials`);
     throw new AppError('Invalid email or password', 401);
   }
 
@@ -97,8 +97,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   const { accessToken, refreshToken } = signTokens(payload);
   await setCache(`refresh:${user.user_id}`, refreshToken, 30 * 24 * 60 * 60);
 
-  console.log(`\x1b[32m✅ Success: User login completed\x1b[0m`);
-  logger.info(`✅ Login successful for email: ${email} [Role: ${user.role}]`);
+  console.log(`\x1b[32mSuccess: User login completed\x1b[0m`);
+  logger.info(`Login successful for email: ${email} [Role: ${user.role}]`);
 
   res.json({
     success: true,

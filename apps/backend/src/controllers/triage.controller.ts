@@ -33,10 +33,10 @@ export const chat = async (req: AuthRequest, res: Response): Promise<void> => {
     urgencyLevel = aiResponse.data.urgencyLevel;
     aiText = aiResponse.data.response;
     recommendedAction = aiResponse.data.recommendedAction;
-    console.log(`🤖 [AI SERVICE] Triage chat processed by external service on ${config.aiServiceUrl}`);
+    console.log(`[AI SERVICE] Triage chat processed by external service on ${config.aiServiceUrl}`);
   } catch (error) {
     const symptomText = symptoms.join(', ');
-    console.warn(`[UNIFIED BACKEND] ⚠️ External AI Triage Service not responding. Falling back to integrated AI triage handler.`);
+    console.warn(`[UNIFIED BACKEND] External AI Triage Service not responding. Falling back to integrated AI triage handler.`);
     logger.warn('AI service down, falling back to local stub', error instanceof Error ? error.message : '');
 
     sessionId = uuidv4();

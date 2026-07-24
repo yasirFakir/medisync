@@ -17,7 +17,7 @@ db.on('error', (err) => {
 export const connectDB = async (): Promise<void> => {
   const client = await db.connect();
   client.release();
-  logger.info('✅ PostgreSQL connection established');
+  logger.info('PostgreSQL connection established');
 };
 
 /**

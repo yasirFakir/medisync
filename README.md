@@ -117,13 +117,13 @@ Runs at: **http://localhost:3000** (Dynamically renders the Dashboard layout for
 
 #### Apply Schema
 ```bash
-psql -U postgres -d medisync_db -f database/init.sql
+npm run db:init
 ```
 
 #### Seed Mock Data
 Seeds the database with dev users, pharmacy profiles, drugs, and inventory:
 ```bash
-psql -U postgres -d medisync_db -f database/seed.sql
+npm run db:seed
 ```
 
 **Seed Users** (all have password: `Test@1234`):

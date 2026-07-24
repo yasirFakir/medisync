@@ -12,9 +12,9 @@ const bootstrap = async (): Promise<void> => {
 
     // Start HTTP server
     const server = app.listen(config.port, () => {
-      logger.info(`🚀 MediSync Backend running on port ${config.port} [${config.nodeEnv}]`);
-      logger.info(`📖 API Base URL: http://localhost:${config.port}/api`);
-      logger.info(`❤️  Health check: http://localhost:${config.port}/health`);
+      logger.info(`MediSync Backend running on port ${config.port} [${config.nodeEnv}]`);
+      logger.info(`API Base URL: http://localhost:${config.port}/api`);
+      logger.info(`Health check: http://localhost:${config.port}/health`);
     });
 
     // Graceful shutdown

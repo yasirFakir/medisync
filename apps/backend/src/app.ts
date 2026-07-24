@@ -11,6 +11,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 
 import path from 'path';
+import http from 'http';
 
 // ─── Route Imports ────────────────────────────────────────────────────────────
 import authRouter from './routes/auth.routes';
@@ -58,7 +59,18 @@ app.use('/api', limiter);
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(morgan('dev'));
+morgan.token('remote-port', (req) => {
+  return req.socket.remotePort?.toString() || '';
+});
+morgan.token('status-text', (_req, res) => {
+  return http.STATUS_CODES[res.statusCode] || '';
+});
+
+app.use(
+  morgan(
+    'INFO:     :remote-addr::remote-port - ":method :url HTTP/:http-version" :status :status-text'
+  )
+);
 
 // ─── Serve React Static Files ─────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../public')));

@@ -5,8 +5,8 @@ import { logger } from './logger';
 let redis: IORedis | null = null;
 
 export const connectRedis = (): IORedis | null => {
-  if (!config.redisUrl) {
-    logger.warn('⚠️  REDIS_URL not configured — Redis features disabled');
+  if (!config.redisUrl || config.redisUrl.includes('your-upstash-host')) {
+    logger.warn('REDIS_URL not configured — Redis features disabled');
     return null;
   }
 
@@ -16,7 +16,7 @@ export const connectRedis = (): IORedis | null => {
     enableAutoPipelining: true,
   });
 
-  redis.on('connect', () => logger.info('✅ Redis connection established'));
+  redis.on('connect', () => logger.info('Redis connection established'));
   redis.on('error', (err) => logger.error('Redis error:', err));
 
   return redis;

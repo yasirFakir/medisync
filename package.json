@@ -4,20 +4,22 @@
   "private": true,
   "description": "MediSync AI - AI-Powered Triage Chatbot, Prescription Digitizer, EHR & Pharmacy Portal",
   "scripts": {
-    "dev": "pnpm --filter @medisync/web-portals dev",
-    "dev:backend": "pnpm --filter @medisync/backend dev",
-    "dev:all": "turbo run dev",
+    "dev": "npx pnpm --filter @medisync/web-portals dev",
+    "dev:backend": "npx pnpm --filter @medisync/backend dev",
+    "dev:all": "npx turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",
-    "db:init": "psql $DATABASE_URL -f database/init.sql",
-    "db:seed": "psql $DATABASE_URL -f database/seed.sql",
+    "db:init": "node database/init.js",
+    "db:seed": "node database/seed.js",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.0",
     "prettier": "^3.3.3",
+    "turbo": "^2.3.3",
     "typescript": "^5.6.2"
   },
   "engines": {
