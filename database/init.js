@@ -29,7 +29,9 @@ const initDatabase = async () => {
 
     console.log('Database schema initialized successfully.');
   } catch (err) {
-    console.error('Error during database initialization:', err.message);
+    console.error('Error during database initialization:', err.message || err);
+    console.error('\n💡 Tip: If running inside Docker, make sure PostgreSQL is accessible or run:');
+    console.error('   sudo docker exec -i medisync-db psql -U postgres -d medisync_db < database/init.sql');
     process.exit(1);
   } finally {
     await client.end();

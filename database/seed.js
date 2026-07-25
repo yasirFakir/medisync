@@ -29,7 +29,9 @@ const seedDatabase = async () => {
 
     console.log('Database seeded successfully.');
   } catch (err) {
-    console.error('Error during database seeding:', err.message);
+    console.error('Error during database seeding:', err.message || err);
+    console.error('\n💡 Tip: If running inside Docker, make sure PostgreSQL is accessible or run:');
+    console.error('   sudo docker exec -i medisync-db psql -U postgres -d medisync_db < database/seed.sql');
     process.exit(1);
   } finally {
     await client.end();

@@ -6,7 +6,7 @@
 
 **Priority:** Critical
 
-**Status:** Todo
+**Status:** Completed
 
 **Estimated Time:** 6–8 Hours
 
@@ -70,14 +70,12 @@ Refresh Tokens are **not** required for MVP.
 
 ## Authorization
 
-Support role-based authorization.
+Support role-based authorization for all 4 system user types:
 
-Initial roles:
-
-* User
-* Admin
-
-Design the system so additional roles can be added later without structural changes.
+* `PATIENT` (Patient / End User)
+* `DOCTOR` (Medical Practitioner)
+* `PHARMACY` (Pharmacy / Inventory Manager)
+* `ADMIN` (System Administrator)
 
 ---
 

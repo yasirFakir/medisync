@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller';
+import { getMe } from '../controllers/users.controller';
+import { authenticate } from '../middleware/auth.middleware';
 import { validateBody } from '../middleware/validate.middleware';
 import Joi from 'joi';
 
@@ -35,5 +37,8 @@ router.post('/refresh', validateBody(refreshSchema), authController.refreshToken
 
 // POST /api/auth/logout
 router.post('/logout', authController.logout);
+
+// GET /api/auth/me — returns the authenticated user's profile
+router.get('/me', authenticate, getMe);
 
 export default router;

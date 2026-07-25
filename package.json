@@ -13,6 +13,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "db:init": "node database/init.js",
     "db:seed": "node database/seed.js",
+    "db:seed:drugs": "node database/seed.js && psql $DATABASE_URL -f database/drugs_seed.sql",
+    "db:migrate:drugs": "psql $DATABASE_URL -f apps/backend/prisma/migrations/20260726_task003_medicine_database/migration.sql",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {

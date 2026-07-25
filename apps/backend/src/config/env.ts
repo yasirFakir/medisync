@@ -1,9 +1,11 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load root .env
-dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
-dotenv.config();
+// Load root .env (for local dev)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+  dotenv.config();
+}
 
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET', 'ENCRYPTION_KEY'];
 

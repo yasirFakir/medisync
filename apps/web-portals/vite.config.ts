@@ -11,14 +11,27 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3001,
+    port: 3000,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3000',
+        target: process.env.VITE_API_URL || 'http://backend:3001',
         changeOrigin: true,
       },
       '/health': {
-        target: 'http://127.0.0.1:3000',
+        target: process.env.VITE_API_URL || 'http://backend:3001',
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'http://backend:3001',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: process.env.VITE_API_URL || 'http://backend:3001',
         changeOrigin: true,
       },
     },

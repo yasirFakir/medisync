@@ -6,7 +6,7 @@
 
 **Priority:** Critical
 
-**Status:** Todo
+**Status:** Completed
 
 **Estimated Time:** 6–8 Hours
 

@@ -1,0 +1,186 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+enum UserRole {
+  PATIENT
+  DOCTOR
+  ADMIN
+  PHARMACY
+}
+
+enum AlertStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+model User {
+  userId       String    @id @default(dbgenerated("uuid_generate_v4()")) @map("user_id") @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  role         UserRole  @default(PATIENT)
+  fullName     String    @map("full_name") @db.VarChar(255)
+  phoneNumber  String?   @map("phone_number") @db.VarChar(50)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  pharmacy         Pharmacy?
+  prescriptions    Prescription[]
+  ehrAsPatient     EhrRecord[]       @relation("PatientEHR")
+  ehrAsDoctor      EhrRecord[]       @relation("DoctorEHR")
+  totpSecret       PatientTotpSecret?
+  triageSessions   TriageSession[]
+  medicationAlerts MedicationAlert[]
+
+  @@map("users")
+}
+
+// ─── Master Drug Catalog ──────────────────────────────────────────────────────
+model Drug {
+  drugId               String    @id @default(dbgenerated("uuid_generate_v4()")) @map("drug_id") @db.Uuid
+  brandName            String    @map("brand_name") @db.VarChar(255)
+  saltComposition      String    @map("salt_composition") @db.VarChar(255)
+  strength             String    @db.VarChar(50)
+  dosageForm           String?   @map("dosage_form") @db.VarChar(100)
+  manufacturer         String?   @db.VarChar(255)
+  uses                 String?   @db.Text
+  sideEffects          String?   @map("side_effects") @db.Text
+  contraindications    String?   @db.Text
+  drugInteractions     String?   @map("drug_interactions") @db.Text
+  storageInstructions  String?   @map("storage_instructions") @db.Text
+  prescriptionRequired Boolean   @default(false) @map("prescription_required")
+  estimatedPrice       Decimal   @map("estimated_price") @db.Decimal(10, 2)
+  isGeneric            Boolean   @default(false) @map("is_generic")
+  trustRating          Decimal   @default(5.00) @map("trust_rating") @db.Decimal(3, 2)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  inventory PharmacyInventory[]
+
+  @@map("master_pharmacy")
+}
+
+// ─── Pharmacies ───────────────────────────────────────────────────────────────
+model Pharmacy {
+  pharmacyId    String   @id @map("pharmacy_id") @db.Uuid
+  storeName     String   @map("store_name") @db.VarChar(255)
+  licenseNumber String   @unique @map("license_number") @db.VarChar(100)
+  streetAddress String   @map("street_address") @db.Text
+  city          String   @db.VarChar(100)
+  isVerified    Boolean  @default(false) @map("is_verified")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User               @relation(fields: [pharmacyId], references: [userId], onDelete: Cascade)
+  inventory PharmacyInventory[]
+
+  @@map("pharmacies")
+}
+
+// ─── Pharmacy Inventory ───────────────────────────────────────────────────────
+model PharmacyInventory {
+  inventoryId  String    @id @default(dbgenerated("uuid_generate_v4()")) @map("inventory_id") @db.Uuid
+  pharmacyId   String    @map("pharmacy_id") @db.Uuid
+  drugId       String    @map("drug_id") @db.Uuid
+  inStock      Boolean   @default(true) @map("in_stock")
+  currentPrice Decimal?  @map("current_price") @db.Decimal(10, 2)
+  lastUpdated  DateTime  @default(now()) @map("last_updated") @db.Timestamptz
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [pharmacyId], onDelete: Cascade)
+  drug     Drug     @relation(fields: [drugId], references: [drugId], onDelete: Cascade)
+
+  @@unique([pharmacyId, drugId])
+  @@map("pharmacy_inventory")
+}
+
+// ─── Prescriptions ────────────────────────────────────────────────────────────
+model Prescription {
+  prescriptionId String   @id @default(dbgenerated("uuid_generate_v4()")) @map("prescription_id") @db.Uuid
+  patientId      String   @map("patient_id") @db.Uuid
+  doctorName     String?  @map("doctor_name") @db.VarChar(255)
+  rawImageUrl    String?  @map("raw_image_url") @db.Text
+  digitizedNotes String?  @map("digitized_notes") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  patient    User        @relation(fields: [patientId], references: [userId], onDelete: Cascade)
+  ehrRecords EhrRecord[]
+
+  @@map("prescriptions")
+}
+
+// ─── EHR Records ─────────────────────────────────────────────────────────────
+model EhrRecord {
+  recordId       String    @id @default(dbgenerated("uuid_generate_v4()")) @map("record_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  doctorId       String    @map("doctor_id") @db.Uuid
+  diagnosis      String    @db.Text
+  observations   String    @db.Text
+  followUpDate   DateTime? @map("follow_up_date") @db.Date
+  prescriptionId String?   @map("prescription_id") @db.Uuid
+  sessionDate    DateTime  @default(now()) @map("session_date") @db.Timestamptz
+
+  patient      User          @relation("PatientEHR", fields: [patientId], references: [userId], onDelete: Cascade)
+  doctor       User          @relation("DoctorEHR", fields: [doctorId], references: [userId])
+  prescription Prescription? @relation(fields: [prescriptionId], references: [prescriptionId])
+
+  @@map("ehr_records")
+}
+
+// ─── TOTP Secrets ─────────────────────────────────────────────────────────────
+model PatientTotpSecret {
+  patientId  String   @id @map("patient_id") @db.Uuid
+  totpSecret String   @map("totp_secret") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  patient User @relation(fields: [patientId], references: [userId], onDelete: Cascade)
+
+  @@map("patient_totp_secrets")
+}
+
+// ─── Triage Sessions ─────────────────────────────────────────────────────────
+model TriageSession {
+  sessionId         String       @id @default(dbgenerated("uuid_generate_v4()")) @map("session_id") @db.Uuid
+  patientId         String       @map("patient_id") @db.Uuid
+  symptoms          Json
+  urgencyLevel      UrgencyLevel @default(LOW) @map("urgency_level")
+  aiResponse        String       @map("ai_response") @db.Text
+  recommendedAction String       @map("recommended_action") @db.Text
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  patient User @relation(fields: [patientId], references: [userId], onDelete: Cascade)
+
+  @@map("triage_sessions")
+}
+
+// ─── Medication Alerts ────────────────────────────────────────────────────────
+model MedicationAlert {
+  alertId       String      @id @default(dbgenerated("uuid_generate_v4()")) @map("alert_id") @db.Uuid
+  patientId     String      @map("patient_id") @db.Uuid
+  medicineName  String      @map("medicine_name") @db.VarChar(255)
+  dosage        String      @db.VarChar(100)
+  frequency     String      @db.VarChar(100)
+  scheduledTime String      @map("scheduled_time") @db.VarChar(10)
+  status        AlertStatus @default(ACTIVE)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  patient User @relation(fields: [patientId], references: [userId], onDelete: Cascade)
+
+  @@map("medication_alerts")
+}
