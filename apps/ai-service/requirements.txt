@@ -3,6 +3,7 @@ uvicorn==0.51.0
 python-multipart==0.0.32
 pydantic==2.13.4
 httpx==0.27.2
-# NOTE: pytesseract and Pillow require manual installation on Python 3.14+
-# due to missing pre-built wheels. Install them separately when available:
-# pip install pytesseract Pillow
+paddlepaddle==2.6.2
+paddleocr==2.9.1
+Pillow==10.4.0
+numpy==1.26.4

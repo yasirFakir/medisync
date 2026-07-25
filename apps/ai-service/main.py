@@ -5,10 +5,12 @@ from typing import List, Optional
 import uvicorn
 import uuid
 
+from ocr.router import router as ocr_router
+
 app = FastAPI(
     title="MediSync AI Service",
     description="FastAPI AI microservice for OCR prescription digitization and symptom triage",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 app.add_middleware(
@@ -24,38 +26,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ─── OCR Routes ────────────────────────────────────────────────────────────────
+app.include_router(ocr_router)
+
 
 # ─── Health Check ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
     print("🔍 [AI-SERVICE] Received GET /health request")
-    return {"status": "operational", "service": "medisync-ai", "version": "1.0.0"}
-
-
-# ─── OCR Endpoint ─────────────────────────────────────────────────────────────
-@app.post("/ocr/digitize")
-async def digitize_prescription(file: UploadFile = File(...)):
-    """
-    Receives prescription image and returns structured medicine data.
-    TODO: Integrate Tesseract OCR + NLP parsing
-    """
-    contents = await file.read()
-    print(f"📷 [AI-SERVICE] Received POST /ocr/digitize request for file: {file.filename} ({len(contents)} bytes)")
-
-    # Stub response — replace with real Tesseract + NLP logic
-    return {
-        "digitizedNotes": f"[OCR stub] Received {len(contents)} bytes from {file.filename}",
-        "doctorName": "Dr. Stub",
-        "medicines": [
-            {
-                "brandName": "Napa",
-                "saltComposition": "Paracetamol",
-                "dosage": "500mg",
-                "frequency": "Twice daily",
-                "duration": "5 days"
-            }
-        ]
-    }
+    return {"status": "operational", "service": "medisync-ai", "version": "2.0.0"}
 
 
 # ─── Triage Chat Endpoint ────────────────────────────────────────────────────
