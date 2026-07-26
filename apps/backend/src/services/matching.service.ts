@@ -165,23 +165,26 @@ export class MedicineMatchingService {
 
     // 3. PostgreSQL Trigram / Partial Fuzzy Match on Brand Name
     if (rawBrand.length >= 3) {
+      const firstWord = rawBrand.split(/\s+/)[0];
       const fuzzyBrandMatches = await query<MatchedDrug>(
         `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
                 strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
          FROM master_pharmacy
-         WHERE LOWER(brand_name) LIKE LOWER($1)
-         LIMIT 10`,
-        [`%${rawBrand}%`]
+         WHERE LOWER(brand_name) LIKE LOWER($1) OR LOWER(brand_name) LIKE LOWER($2)
+         LIMIT 30`,
+        [`%${rawBrand}%`, `%${firstWord}%`]
       );
 
       if (fuzzyBrandMatches.length > 0) {
-        // Calculate Levenshtein similarity score for best candidate
         let bestMatch: MatchedDrug | null = null;
         let bestScore = 0;
         const alts: MatchedDrug[] = [];
 
         for (const item of fuzzyBrandMatches) {
-          const score = similarityScore(rawBrand, item.brandName);
+          const score = Math.max(
+            similarityScore(rawBrand, item.brandName),
+            similarityScore(firstWord, item.brandName)
+          );
           if (score > bestScore) {
             if (bestMatch) alts.push(bestMatch);
             bestMatch = item;
@@ -191,7 +194,7 @@ export class MedicineMatchingService {
           }
         }
 
-        if (bestMatch && bestScore >= 0.6) {
+        if (bestMatch && bestScore >= 0.4) {
           return {
             input,
             matched: true,
@@ -208,13 +211,14 @@ export class MedicineMatchingService {
 
     // 4. PostgreSQL Trigram / Partial Fuzzy Match on Generic Name
     if (rawGeneric.length >= 3) {
+      const firstGenericWord = rawGeneric.split(/\s+/)[0];
       const fuzzyGenericMatches = await query<MatchedDrug>(
         `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
                 strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
          FROM master_pharmacy
-         WHERE LOWER(salt_composition) LIKE LOWER($1)
-         LIMIT 10`,
-        [`%${rawGeneric}%`]
+         WHERE LOWER(salt_composition) LIKE LOWER($1) OR LOWER(salt_composition) LIKE LOWER($2)
+         LIMIT 30`,
+        [`%${rawGeneric}%`, `%${firstGenericWord}%`]
       );
 
       if (fuzzyGenericMatches.length > 0) {
@@ -223,7 +227,10 @@ export class MedicineMatchingService {
         const alts: MatchedDrug[] = [];
 
         for (const item of fuzzyGenericMatches) {
-          const score = similarityScore(rawGeneric, item.saltComposition);
+          const score = Math.max(
+            similarityScore(rawGeneric, item.saltComposition),
+            similarityScore(firstGenericWord, item.saltComposition)
+          );
           if (score > bestScore) {
             if (bestMatch) alts.push(bestMatch);
             bestMatch = item;
@@ -233,7 +240,7 @@ export class MedicineMatchingService {
           }
         }
 
-        if (bestMatch && bestScore >= 0.55) {
+        if (bestMatch && bestScore >= 0.4) {
           return {
             input,
             matched: true,

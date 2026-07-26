@@ -33,6 +33,9 @@ class OCRResult(BaseModel):
     prescription_id:  Optional[str]         = None
     raw_text:         str                   = ""
     doctor_name:      ExtractedField
+    prescription_date: ExtractedField                # Date written on prescription
+    clinical_tests:   List[ExtractedField]  = []   # Diagnostic tests / lab work requested
+    follow_up_date:   ExtractedField               # Follow up date / next visit
     medicines:        List[ParsedMedicine]  = []
     low_confidence_fields: List[str]        = []   # field paths needing user review
     ocr_engine:       str                   = "paddleocr"

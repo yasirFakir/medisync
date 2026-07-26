@@ -35,4 +35,7 @@ router.get('/', authenticate, prescriptionsController.listPrescriptions);
 // GET /api/prescriptions/:id
 router.get('/:id', authenticate, prescriptionsController.getPrescriptionById);
 
+// DELETE /api/prescriptions/:id
+router.delete('/:id', authenticate, prescriptionsController.deletePrescription);
+
 export default router;

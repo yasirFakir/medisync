@@ -6,7 +6,7 @@
 
 **Priority:** High
 
-**Status:** Todo
+**Status:** Completed
 
 **Estimated Time:** 10–14 Hours
 

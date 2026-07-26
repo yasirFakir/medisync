@@ -132,7 +132,7 @@ npm run db:seed:drugs
 - **Admin**: `admin@medisync.ai`
 
 ---
-
+c
 ## 🧪 Testing
 
 ```bash

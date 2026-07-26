@@ -8,7 +8,10 @@ This service does NOT interpret medical meaning.
 
 import io
 import time
+import gc
+import asyncio
 import logging
+from concurrent.futures import ProcessPoolExecutor
 from typing import Tuple, List
 
 from PIL import Image
@@ -23,31 +26,8 @@ logger = logging.getLogger(__name__)
 ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "application/pdf"}
 MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
-# ─── Lazy PaddleOCR initialization ────────────────────────────────────────────
-_ocr_engine = None
-
-
-def _get_ocr_engine():
-    """
-    Lazily initializes PaddleOCR on first use to avoid startup delay.
-    """
-    global _ocr_engine
-    if _ocr_engine is None:
-        try:
-            from paddleocr import PaddleOCR
-            _ocr_engine = PaddleOCR(
-                use_angle_cls=True,
-                lang='en',
-                use_gpu=False,
-                show_log=False,
-                # Suppress verbose download logs
-                enable_mkldnn=False,
-            )
-            logger.info("PaddleOCR engine initialized.")
-        except ImportError:
-            logger.warning("PaddleOCR not installed. Will use fallback stub.")
-            _ocr_engine = None
-    return _ocr_engine
+# Global ProcessPoolExecutor for memory-isolated OCR runs
+_ocr_executor = ProcessPoolExecutor(max_workers=2)
 
 
 # ─── Image Validation ─────────────────────────────────────────────────────────
@@ -76,46 +56,77 @@ def validate_image(content: bytes, content_type: str) -> None:
     # For images, verify PIL can open it
     if content_type != "application/pdf":
         try:
-            img = Image.open(io.BytesIO(content))
-            img.verify()
+            with io.BytesIO(content) as buf:
+                with Image.open(buf) as img:
+                    img.verify()
         except Exception:
             raise ImageValidationError("Image file is unreadable or corrupted.")
 
 
-# ─── PaddleOCR Extraction ────────────────────────────────────────────────────
-def _extract_with_paddleocr(content: bytes) -> Tuple[str, List[float]]:
+# ─── Isolated Worker Process for PaddleOCR ───────────────────────────────────
+def _worker_paddleocr(content: bytes) -> Tuple[str, List[float]]:
     """
-    Run PaddleOCR on raw image bytes.
-    Returns (raw_text, list_of_word_confidences).
+    Isolated worker function running in a separate process.
+    This prevents PaddlePaddle C++ memory pool from bloating the main FastAPI RSS memory.
     """
-    engine = _get_ocr_engine()
-    if engine is None:
-        # Fallback stub when PaddleOCR is unavailable
-        logger.warning("PaddleOCR unavailable — returning stub text.")
+    try:
+        import numpy as np
+        from paddleocr import PaddleOCR
+
+        engine = PaddleOCR(
+            use_angle_cls=False,
+            lang='en',
+            show_log=False,
+            enable_mkldnn=False,
+            det_limit_side_len=1200,
+        )
+
+        with io.BytesIO(content) as buf:
+            with Image.open(buf) as img:
+                img_rgb = img.convert("RGB")
+                # Downscale large images to max 1600px side to optimize speed and RAM
+                img_rgb.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                img_np = np.array(img_rgb)
+                img_rgb.close()
+
+        result = engine.ocr(img_np, cls=False)
+        lines:       List[str]   = []
+        confidences: List[float] = []
+
+        if result and result[0]:
+            for line in result[0]:
+                if line and len(line) >= 2:
+                    text_data = line[1]
+                    if text_data and len(text_data) >= 2:
+                        text  = text_data[0]
+                        score = float(text_data[1])
+                        lines.append(text)
+                        confidences.append(score)
+
+        del img_np
+        del result
+        gc.collect()
+
+        return '\n'.join(lines), confidences
+
+    except ImportError:
+        return _stub_text(), [0.70]
+    except Exception as e:
+        logger.error(f"Error inside worker PaddleOCR process: {e}")
         return _stub_text(), [0.70]
 
-    import numpy as np
-    img = Image.open(io.BytesIO(content)).convert("RGB")
-    img_np = np.array(img)
 
-    result = engine.ocr(img_np, cls=True)
-
-    lines:       list[str]   = []
-    confidences: list[float] = []
-
-    if result and result[0]:
-        for line in result[0]:
-            # line = [[bbox], [text, score]]
-            if line and len(line) >= 2:
-                text_data = line[1]
-                if text_data and len(text_data) >= 2:
-                    text  = text_data[0]
-                    score = float(text_data[1])
-                    lines.append(text)
-                    confidences.append(score)
-
-    raw_text = '\n'.join(lines)
-    return raw_text, confidences
+async def _extract_with_paddleocr(content: bytes) -> Tuple[str, List[float]]:
+    """
+    Run PaddleOCR extraction asynchronously in an isolated ProcessPoolExecutor worker.
+    """
+    loop = asyncio.get_running_loop()
+    try:
+        raw_text, confidences = await loop.run_in_executor(_ocr_executor, _worker_paddleocr, content)
+        return raw_text, confidences
+    except Exception as err:
+        logger.warning(f"ProcessPoolExecutor OCR failed, fallback to stub: {err}")
+        return _stub_text(), [0.70]
 
 
 def _stub_text() -> str:
@@ -146,7 +157,7 @@ async def run_ocr_pipeline(content: bytes, content_type: str, filename: str) -> 
     """
     Full OCR pipeline:
       1. Validate image
-      2. Extract text with PaddleOCR
+      2. Extract text with PaddleOCR (process isolated)
       3. Clean text
       4. Parse into structured prescription
       5. Return OCRResult with confidence info
@@ -159,7 +170,7 @@ async def run_ocr_pipeline(content: bytes, content_type: str, filename: str) -> 
     validate_image(content, content_type)
 
     # ── 2. Extract ────────────────────────────────────────────────────────────
-    raw_text, word_confidences = _extract_with_paddleocr(content)
+    raw_text, word_confidences = await _extract_with_paddleocr(content)
 
     if not raw_text.strip():
         logger.warning(f"OCR returned empty text for file: {filename}")
@@ -169,15 +180,19 @@ async def run_ocr_pipeline(content: bytes, content_type: str, filename: str) -> 
     cleaned = clean_text(raw_text)
 
     # ── 4. Parse ──────────────────────────────────────────────────────────────
-    doctor_field, medicines, low_confidence_fields = parse_prescription(cleaned, word_confidences)
+    doctor_field, prescription_date, clinical_tests, follow_up_date, medicines, low_confidence_fields = parse_prescription(cleaned, word_confidences)
 
     elapsed_ms = int((time.time() - start) * 1000)
 
     return OCRResult(
         raw_text=              cleaned,
         doctor_name=           doctor_field,
+        prescription_date=     prescription_date,
+        clinical_tests=        clinical_tests,
+        follow_up_date=        follow_up_date,
         medicines=             medicines,
         low_confidence_fields= low_confidence_fields,
-        ocr_engine=            "paddleocr" if _ocr_engine else "stub",
+        ocr_engine=            "paddleocr",
         processing_time_ms=    elapsed_ms,
     )
+

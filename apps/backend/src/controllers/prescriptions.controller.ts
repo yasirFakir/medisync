@@ -39,9 +39,12 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
       form,
       {
         headers: form.getHeaders(),
-        timeout: 15000, // Allow PaddleOCR engine processing time
+        timeout: 25000, // Allow PaddleOCR engine processing time
       }
     );
+
+    // Free memory buffer for GC
+    (req.file as any).buffer = Buffer.alloc(0);
 
     ocrResult = aiResponse.data;
     digitizedNotes = ocrResult.raw_text || '';
@@ -157,4 +160,27 @@ export const getPrescriptionById = async (req: AuthRequest, res: Response): Prom
   }
 
   res.json({ success: true, message: 'Prescription retrieved', data: prescription, timestamp: new Date().toISOString() });
+};
+
+// ─── DELETE /api/prescriptions/:id ────────────────────────────────────────────
+export const deletePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { userId, role } = req.user!;
+
+  const [prescription] = await query<{ patient_id?: string; patientId?: string }>(
+    `SELECT patient_id AS "patientId", patient_id FROM prescriptions WHERE prescription_id = $1`,
+    [id]
+  );
+
+  if (!prescription) throw new AppError('Prescription not found', 404);
+
+  const ownerId = prescription.patientId || prescription.patient_id;
+  if (role === 'PATIENT' && ownerId !== userId) {
+    throw new AppError('Access denied', 403);
+  }
+
+  await query(`DELETE FROM prescriptions WHERE prescription_id = $1`, [id]);
+  logger.info(`Prescription deleted: ${id}`);
+
+  res.json({ success: true, message: 'Prescription deleted successfully', timestamp: new Date().toISOString() });
 };

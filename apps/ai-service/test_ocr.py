@@ -45,7 +45,7 @@ def test_prescription_parser():
         "2. Moxacil 250mg\n"
         "   Three times daily for 7 days"
     )
-    doc, medicines, low_conf = parse_prescription(cleaned, [0.95, 0.92])
+    doc, p_date, tests, f_up, medicines, low_conf = parse_prescription(cleaned, [0.95, 0.92])
 
     assert doc.value == "Ahmed Khan"
     assert len(medicines) >= 2

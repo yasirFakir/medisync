@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Table, Modal, Badge, Spinner } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
-import { Upload, Eye, Calendar, FlaskConical, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Eye, Calendar, FlaskConical, AlertTriangle, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ConfidenceLevel = 'high' | 'medium' | 'low';
@@ -24,6 +25,9 @@ interface ParsedMedicine {
 interface OCRResult {
   raw_text:              string;
   doctor_name:           ExtractedField;
+  prescription_date?:    ExtractedField;
+  clinical_tests?:       ExtractedField[];
+  follow_up_date?:       ExtractedField;
   medicines:             ParsedMedicine[];
   low_confidence_fields: string[];
   ocr_engine:            string;
@@ -118,6 +122,242 @@ const UploadProgress: React.FC<{ progress: number }> = ({ progress }) => (
   </div>
 );
 
+// ─── Prescription Result Modal ────────────────────────────────────────────────
+const PrescriptionResultModal: React.FC<{
+  prescription: Prescription;
+  onClose: () => void;
+  onDelete: (id: string) => void;
+}> = ({ prescription, onClose, onDelete }) => {
+  const [tab, setTab] = useState<'overview' | 'medicines' | 'raw'>('overview');
+  const ocr = prescription.ocrResult;
+  const vs  = prescription.validationSummary;
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    padding: '6px 16px',
+    fontSize: '0.8125rem',
+    fontWeight: 600,
+    borderRadius: 'var(--radius-sm)',
+    border: 'none',
+    cursor: 'pointer',
+    background: active ? 'var(--color-brand-500)' : 'transparent',
+    color: active ? '#fff' : 'var(--text-secondary)',
+    transition: 'all 0.18s',
+  });
+
+  const medicines = ocr?.medicines ?? prescription.medicines?.map(m => ({
+    brand_name: { value: m.brandName, confidence: 'medium' as ConfidenceLevel, score: 0.6 },
+    strength:   { value: m.dosage,    confidence: 'medium' as ConfidenceLevel, score: 0.6 },
+    dosage:     { value: m.dosage,    confidence: 'medium' as ConfidenceLevel, score: 0.6 },
+    frequency:  { value: m.frequency, confidence: 'medium' as ConfidenceLevel, score: 0.6 },
+    duration:   { value: m.duration ?? null, confidence: 'low' as ConfidenceLevel, score: 0.3 },
+    special_instructions: { value: null, confidence: 'low' as ConfidenceLevel, score: 0 },
+  })) ?? [];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+
+      {/* ── Header info strip ────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: '8px',
+        marginBottom: '12px',
+      }}>
+        {[
+          { icon: '👨‍⚕️', label: 'Doctor',          value: ocr?.doctor_name?.value || '—' },
+          { icon: '📋', label: 'Date',             value: ocr?.prescription_date?.value || '—' },
+          { icon: '📅', label: 'Follow-up',        value: ocr?.follow_up_date?.value || '—' },
+        ].map(({ icon, label, value }) => (
+          <div key={label} style={{
+            padding: '8px 12px',
+            background: 'var(--bg-elevated)',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-default)',
+          }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '2px' }}>{icon} {label}</div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Tabs ──────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', gap: '4px',
+        background: 'var(--bg-elevated)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '4px',
+        marginBottom: '12px',
+      }}>
+        <button style={tabStyle(tab === 'overview')}  onClick={() => setTab('overview')}>Overview</button>
+        <button style={tabStyle(tab === 'medicines')} onClick={() => setTab('medicines')}>
+          Medicines {medicines.length > 0 ? `(${medicines.length})` : ''}
+        </button>
+        <button style={tabStyle(tab === 'raw')}       onClick={() => setTab('raw')}>Raw Text</button>
+      </div>
+
+      {/* ── Tab content (fixed height, scrollable) ───────────────── */}
+      <div style={{ minHeight: '220px', maxHeight: '320px', overflowY: 'auto' }}>
+
+        {/* OVERVIEW tab */}
+        {tab === 'overview' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+            {/* DB verification row */}
+            {vs && (
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '8px 12px',
+                background: 'rgba(16,185,129,0.08)',
+                border: '1px solid rgba(16,185,129,0.2)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.8rem',
+              }}>
+                <span style={{ color: 'var(--color-success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle size={13} />
+                  {vs.matchedCount}/{vs.totalMedicines} medicines verified in DB
+                </span>
+                <Badge variant="green">{Math.round(vs.overallConfidence * 100)}% match</Badge>
+              </div>
+            )}
+
+            {/* Low confidence warning */}
+            {ocr?.low_confidence_fields?.length ? (
+              <div style={{
+                padding: '8px 12px',
+                background: 'rgba(234,179,8,0.08)',
+                border: '1px solid rgba(234,179,8,0.2)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.775rem',
+                color: 'var(--color-warning)',
+                display: 'flex', gap: '6px', alignItems: 'flex-start',
+              }}>
+                <AlertTriangle size={13} style={{ marginTop: '1px', flexShrink: 0 }} />
+                <span><strong>{ocr.low_confidence_fields.length}</strong> field(s) need review: {ocr.low_confidence_fields.slice(0,4).join(', ')}{ocr.low_confidence_fields.length > 4 ? '…' : ''}</span>
+              </div>
+            ) : null}
+
+            {/* Lab tests */}
+            {ocr?.clinical_tests?.length ? (
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>🧪 Lab Tests &amp; Investigations</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {ocr.clinical_tests.map((t, i) => (
+                    <Badge key={i} variant="blue">{t.value}</Badge>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '8px 0' }}>No lab tests detected on this prescription.</div>
+            )}
+
+            {/* Quick medicine summary */}
+            {medicines.length > 0 && (
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>💊 Medicines Summary</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {medicines.map((m, i) => (
+                    <Badge key={i} variant="blue">{m.brand_name.value ?? 'Unknown'}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MEDICINES tab */}
+        {tab === 'medicines' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {medicines.length === 0 && (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '24px 0', textAlign: 'center' }}>No medicines detected.</div>
+            )}
+            {medicines.map((med, i) => {
+              const dbMatch = vs?.medicines[i];
+              return (
+                <div key={i} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-default)',
+                }}>
+                  <div>
+                    {/* Name row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>
+                        {med.brand_name.value ?? 'Unknown'}
+                      </span>
+                      {med.strength.value && <Badge variant="blue">{med.strength.value}</Badge>}
+                      <ConfidenceBadge
+                        level={dbMatch?.matched ? 'high' : med.brand_name.confidence}
+                        score={dbMatch?.confidence ?? med.brand_name.score}
+                      />
+                    </div>
+                    {/* Detail chips */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      {med.frequency.value  && <span>🕐 {med.frequency.value}</span>}
+                      {med.duration.value   && <span>⏱ {med.duration.value}</span>}
+                      {dbMatch?.matchedDrug && (
+                        <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>
+                          ✓ {dbMatch.matchedDrug.saltComposition}
+                        </span>
+                      )}
+                      {med.special_instructions.value && <span>ℹ️ {med.special_instructions.value}</span>}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm" variant="ghost"
+                    icon={<FlaskConical size={12} />}
+                    onClick={() => window.location.href = `/locator?saltComposition=${dbMatch?.matchedDrug?.saltComposition || med.brand_name.value || ''}`}
+                  >Alt</Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* RAW TEXT tab */}
+        {tab === 'raw' && (
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: '0.775rem',
+            lineHeight: 1.65,
+            color: 'var(--text-secondary)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            padding: '2px 4px',
+          }}>
+            {ocr?.raw_text || prescription.digitizedNotes || 'No raw text available.'}
+          </div>
+        )}
+      </div>
+
+      {/* ── Footer ───────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        paddingTop: '12px', marginTop: '12px',
+        borderTop: '1px solid var(--border-default)',
+      }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {ocr && (
+            <>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Engine: <strong>{ocr.ocr_engine}</strong></span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{ocr.processing_time_ms}ms</span>
+            </>
+          )}
+        </div>
+        <Button
+          size="sm" variant="danger"
+          icon={<Trash2 size={13} />}
+          onClick={(e) => { e.stopPropagation(); onDelete(prescription.prescriptionId); }}
+        >Delete</Button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export const PrescriptionsPage: React.FC = () => {
   const [prescriptions, setPrescriptions]           = useState<Prescription[]>([]);
@@ -143,6 +383,19 @@ export const PrescriptionsPage: React.FC = () => {
   useEffect(() => {
     fetchPrescriptions();
   }, []);
+
+  const handleDeletePrescription = async (prescriptionId: string) => {
+    try {
+      await apiClient.delete(`/prescriptions/${prescriptionId}`);
+      setPrescriptions(prev => prev.filter(p => p.prescriptionId !== prescriptionId));
+      if (selectedPrescription?.prescriptionId === prescriptionId) {
+        setSelectedPrescription(null);
+      }
+    } catch (err: any) {
+      console.error('Failed to delete prescription', err);
+      setError(err.response?.data?.message || 'Failed to delete prescription record');
+    }
+  };
 
   const simulateProgress = () => {
     setUploadProgress(0);
@@ -223,9 +476,22 @@ export const PrescriptionsPage: React.FC = () => {
       key: 'prescriptionId',
       label: 'Actions',
       render: (_val: any, row: Prescription) => (
-        <Button size="sm" variant="secondary" icon={<Eye size={14} />} onClick={() => setSelectedPrescription(row)}>
-          View Results
-        </Button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button size="sm" variant="secondary" icon={<Eye size={14} />} onClick={() => setSelectedPrescription(row)}>
+            View Results
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            icon={<Trash2 size={14} />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeletePrescription(row.prescriptionId);
+            }}
+          >
+            Delete
+          </Button>
+        </div>
       )
     }
   ];
@@ -324,175 +590,24 @@ export const PrescriptionsPage: React.FC = () => {
             keyExtractor={row => row.prescriptionId}
           />
         </Card>
+
+        {/* ── Result Modal ─────────────────────────────────────────────────── */}
+        <Modal
+          isOpen={!!selectedPrescription}
+          onClose={() => setSelectedPrescription(null)}
+          title="OCR Extraction Results"
+          size="lg"
+        >
+          {selectedPrescription && (
+            <PrescriptionResultModal
+              prescription={selectedPrescription}
+              onClose={() => setSelectedPrescription(null)}
+              onDelete={handleDeletePrescription}
+            />
+          )}
+        </Modal>
       </div>
-
-      {/* ── Result Modal ─────────────────────────────────────────────────── */}
-      <Modal
-        isOpen={!!selectedPrescription}
-        onClose={() => setSelectedPrescription(null)}
-        title="OCR Extraction Results"
-        size="lg"
-      >
-        {selectedPrescription && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-            {/* Low-confidence warning banner */}
-            {selectedPrescription.ocrResult?.low_confidence_fields?.length ? (
-              <div style={{
-                padding:      '10px 14px',
-                background:   'rgba(234,179,8,0.10)',
-                border:       '1px solid rgba(234,179,8,0.25)',
-                borderRadius: 'var(--radius-md)',
-                fontSize:     '0.75rem',
-                color:        'var(--color-warning)',
-                display:      'flex',
-                gap:          '8px',
-                alignItems:   'flex-start',
-              }}>
-                <AlertTriangle size={14} style={{ marginTop: '1px', flexShrink: 0 }} />
-                <span>
-                  <strong>Review required:</strong> {selectedPrescription.ocrResult.low_confidence_fields.length} field(s) have low confidence and need manual verification:&nbsp;
-                  {selectedPrescription.ocrResult.low_confidence_fields.join(', ')}.
-                </span>
-              </div>
-            ) : null}
-
-            {/* TASK-005 Database Verification Status */}
-            {selectedPrescription.validationSummary && (
-              <div style={{
-                padding: '12px 16px',
-                background: 'rgba(34,197,94,0.08)',
-                border: '1px solid rgba(34,197,94,0.2)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <CheckCircle size={14} /> Database Verification (Deterministic Engine)
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Verified {selectedPrescription.validationSummary.matchedCount} of {selectedPrescription.validationSummary.totalMedicines} medicine(s) against 21,200+ Master Drug Records.
-                  </div>
-                </div>
-                <Badge variant="emerald">{Math.round(selectedPrescription.validationSummary.overallConfidence * 100)}% Confidence</Badge>
-              </div>
-            )}
-
-
-            {/* Raw OCR text */}
-            <div>
-              <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Extracted Raw Text
-              </h4>
-              <div style={{
-                background:   'var(--bg-elevated)',
-                border:       '1px solid var(--border-default)',
-                padding:      '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                fontSize:     '0.8125rem',
-                color:        'var(--text-primary)',
-                whiteSpace:   'pre-line',
-                lineHeight:   1.6,
-                maxHeight:    '120px',
-                overflowY:    'auto',
-              }}>
-                {selectedPrescription.ocrResult?.raw_text || selectedPrescription.digitizedNotes || 'No OCR text available.'}
-              </div>
-            </div>
-
-            {/* Parsed medicines with confidence */}
-            <div>
-              <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                Structured Medication Schedule
-              </h4>
-
-              {selectedPrescription.ocrResult?.medicines?.length ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {selectedPrescription.ocrResult.medicines.map((med, index) => (
-                    <div key={index} style={{
-                      padding:      '14px 16px',
-                      background:   'var(--bg-surface)',
-                      border:       '1px solid var(--border-default)',
-                      borderRadius: 'var(--radius-md)',
-                    }}>
-                      {/* Medicine header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-                          {med.brand_name.value ?? 'Unknown Medicine'}
-                        </span>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <ConfidenceBadge level={med.brand_name.confidence} score={med.brand_name.score} />
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            icon={<FlaskConical size={12} />}
-                            onClick={() => window.location.href = `/locator?saltComposition=${med.brand_name.value ?? ''}`}
-                          >
-                            Substitutes
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Field rows */}
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <FieldRow label="Strength"     field={med.strength} />
-                        <FieldRow label="Dosage"       field={med.dosage} />
-                        <FieldRow label="Frequency"    field={med.frequency} />
-                        <FieldRow label="Duration"     field={med.duration} />
-                        <FieldRow label="Instructions" field={med.special_instructions} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                /* Fallback for legacy flat prescriptions without ocrResult */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {selectedPrescription.medicines.map((med, index) => (
-                    <div key={index} style={{
-                      display:        'flex',
-                      justifyContent: 'space-between',
-                      alignItems:     'center',
-                      padding:        '12px 16px',
-                      background:     'var(--bg-surface)',
-                      border:         '1px solid var(--border-default)',
-                      borderRadius:   'var(--radius-md)',
-                    }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>{med.brandName}</span>
-                          <Badge variant="blue">{med.dosage}</Badge>
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '8px' }}>
-                          <span>Frequency: {med.frequency}</span>
-                          {med.duration && <span>• Duration: {med.duration}</span>}
-                        </div>
-                      </div>
-                      <Button size="sm" variant="secondary" icon={<FlaskConical size={12} />}
-                        onClick={() => window.location.href = `/locator?saltComposition=${med.brandName}`}>
-                        Find Substitutes
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* OCR metadata footer */}
-            {selectedPrescription.ocrResult && (
-              <div style={{ display: 'flex', gap: '16px', paddingTop: '8px', borderTop: '1px solid var(--border-default)' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                  Engine: <strong>{selectedPrescription.ocrResult.ocr_engine}</strong>
-                </span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                  Processed in: <strong>{selectedPrescription.ocrResult.processing_time_ms}ms</strong>
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };
+
