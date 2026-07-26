@@ -5,163 +5,147 @@ CSE327 Software Engineering Project under faculty Intisar Tahmid Naheen [ITN].
 
 ---
 
-## Architecture Overview
+## 🏗️ Architecture & Port Allocation
 
-MediSync AI leverages a modern, distributed microservices architecture designed to integrate AI capabilities with clinical workflows:
+MediSync AI is a monorepo consisting of 3 distinct runtimes:
 
-```mermaid
-graph TD
-    Client[Web Portals / Client] -->|HTTP / CORS| Gateway[Node.js Express API Gateway]
-    Gateway -->|DB Queries| DB[(PostgreSQL Database)]
-    Gateway -->|Internal RPC/HTTP| AIService[FastAPI AI Service]
-```
-
-- **Frontend (Web Portals):** React with Vite, styled using Tailwind CSS, structured as a monorepo workspace.
-- **Backend (API Gateway):** Node.js Express API Gateway handles client authorization, request routing, database access, session hook management, and medication alerts.
-- **AI Microservice:** Python 3.12 FastAPI service executing OCR prescriptions, symptoms triage, and local AI logic stubbing.
-- **Database:** PostgreSQL storing relational clinical records, master drugs catalog, pharmacy inventory, and sessions.
-- **Orchestration:** Managed via Docker Compose for easy local bootstrap and execution.
+| Service | Technology | Default Port | URL | Description |
+|---|---|---|---|---|
+| **Web Portals** | React + Vite + TypeScript | **`3000`** | `http://localhost:3000` | Frontend UI (Patient / Doctor / Pharmacy / Admin) |
+| **Main API Gateway** | Node.js + Express | **`3001`** | `http://localhost:3001` | REST API Gateway, Auth, Database, Alerts, EHR |
+| **AI Microservice** | Python 3.12 + FastAPI | **`8000`** | `http://127.0.0.1:8000` | OCR Prescription Extraction & AI Symptom Triage |
 
 ---
 
-## Getting Started
+## 🚀 Quick Start Guide
 
 ### Prerequisites
-
-To build and run the services locally outside Docker:
 - **Node.js** (v18+)
-- **pnpm** (v9.0.0+)
-- **Python** (v3.12)
+- **pnpm** or **npm**
+- **Python** (v3.12 or `uv` manager)
 - **PostgreSQL** (v15+)
 
 ---
 
-### Run with Docker Compose (Recommended)
+### Option A: Run Everything Concurrently (Recommended)
 
-Start all services (database, backend, frontend, and AI service) automatically with a single command:
+From the project root directory, run these scripts to start the complete stack:
 
+#### 1. Start AI Microservice & Backend Gateway:
 ```bash
-docker-compose up --build
+./run_backend.sh
 ```
+*(This starts the FastAPI AI service on port `8000` and the Express Backend on port `3001` in your current terminal).*
 
-- Web Portal: **http://localhost:3000**
-- API Gateway: **http://localhost:3001**
-- AI Service: **http://localhost:8000**
+#### 2. Start Frontend Web Portals (in a second terminal):
+```bash
+npm run dev
+# OR with pnpm
+pnpm dev
+```
+Open **`http://localhost:3000`** in your browser!
 
 ---
 
-### Local Manual Installation
+### Option B: Run Services Individually
 
-If you prefer to run services individually for development:
+If you prefer to start each service manually in its own terminal window:
 
-#### 1. Database Initialization
-Ensure PostgreSQL is running. Create a database named `medisync_db`.
+#### Terminal 1 — Python AI Microservice (Port 8000)
+```bash
+cd apps/ai-service
 
-**Linux:**
+# Option 1: Standard Python venv
+python3.12 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
+
+# Option 2: Using uv (Python 3.12)
+uv venv --python 3.12 venv
+source venv/bin/activate
+uv pip install -r requirements.txt
+python main.py
+```
+
+#### Terminal 2 — Express Backend API (Port 3001)
+```bash
+# From root or apps/backend
+npm run dev:backend
+```
+
+#### Terminal 3 — React Frontend Web Portals (Port 3000)
+```bash
+# From project root
+npm run dev
+```
+
+---
+
+### Option C: Run with Docker Compose
+
+Start all services automatically inside Docker containers:
+
+```bash
+sudo docker compose up --build
+```
+- Web Portal: **`http://localhost:3000`**
+- API Gateway: **`http://localhost:3001`**
+- AI Service: **`http://localhost:8000`**
+
+---
+
+## 🗄️ Database Setup & Seeding
+
+### 1. Initialize PostgreSQL Database
+Make sure PostgreSQL is running, then create `medisync_db`:
 ```bash
 createdb -U postgres medisync_db
 ```
 
-**Windows:**
-```sql
-CREATE DATABASE medisync_db;
-```
-
-#### 2. Environment Configuration
-Copy the example environment file:
+### 2. Configure `.env`
+Copy the template file:
 ```bash
 cp .env.example .env
 ```
-Open `.env` and define:
-- `DATABASE_URL` — your PostgreSQL connection string
-- `JWT_SECRET` — a strong random string
-- `ENCRYPTION_KEY` — exactly 32 characters
-
-#### 3. Install Node.js Dependencies
-From the **root directory**:
-```bash
-pnpm install
+Ensure your `DATABASE_URL` matches your local setup:
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/medisync_db
 ```
 
-#### 4. Install Python AI Service Dependencies
+### 3. Initialize Schema & Seed Data
 ```bash
-cd apps/ai-service
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
----
-
-### Running Locally (Without Docker)
-
-#### 1. Start AI Service (FastAPI)
-```bash
-cd apps/ai-service
-source venv/bin/activate
-python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-#### 2. Start Backend API & Web Portal
-From the **root directory**:
-```bash
-# Run both Backend and Frontend simultaneously
-pnpm dev:all
-```
-Alternatively:
-```bash
-pnpm dev:backend   # Start API Gateway (Port 3001)
-pnpm dev           # Start Web Portals (Port 3000)
-```
-
----
-
-### Database Migration and Seeding
-
-#### Apply Schema
-```bash
+# Initialize DB tables
 npm run db:init
-```
 
-#### Seed Mock Data
-```bash
+# Seed initial users, pharmacies, and alerts
 npm run db:seed
+
+# Seed master medicine database (80 drugs)
+npm run db:seed:drugs
 ```
 
-**Seed Users** (all passwords: `Test@1234`):
-- Admin: `admin@medisync.ai`
-- Patient: `patient@medisync.ai`
-- Doctor: `doctor@medisync.ai`
-- Pharmacy: `pharmacy@medisync.ai`
+### 🔑 Test User Credentials (Password for all: `password123`)
+- **Patient**: `patient@medisync.ai`
+- **Doctor**: `doctor@medisync.ai`
+- **Pharmacy**: `pharmacy@medisync.ai`
+- **Admin**: `admin@medisync.ai`
 
 ---
 
-### Testing the Application
+## 🧪 Testing
 
-#### Step 1 — Health Checks
 ```bash
-curl http://localhost:3001/health
-curl http://127.0.0.1:8000/health
-```
+# Run backend & database unit verification tests
+node database/test_runner.js
 
-#### Step 2 — Register & Authenticate
-```bash
-curl -X POST http://localhost:3001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fullName": "Test Patient",
-    "email": "testpatient@test.com",
-    "password": "Test@1234",
-    "role": "PATIENT"
-  }'
+# Run Python OCR unit tests
+cd apps/ai-service && ./venv/bin/python test_ocr.py
 ```
 
 ---
 
-## Documentation
-- [Setup & Installation Guide](docs/SETUP_GUIDE.md)
-- [API Reference Manual](docs/API_REFERENCE.md)
-- [System Architecture](docs/ARCHITECTURE.md)
-
-## Versioning
-This project follows strict Semantic Versioning (SemVer) guidelines. The base version is **`0.1.0`**.
+## 📚 Related Documentation
+- [OCR Pipeline & RAG Guide](docs/OCR_RAG_GUIDE.md)
+- [Docker Configuration Guide](ISSUE_DOCKER_CONFIG.md)
+- [Project Progress Tracker](progress.md)
