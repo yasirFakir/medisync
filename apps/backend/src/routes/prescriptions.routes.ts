@@ -17,17 +17,16 @@ const upload = multer({
   },
 });
 
-// POST /api/prescriptions/digitize  — OCR upload [PATIENT]
+// POST /api/prescriptions/digitize — OCR upload [All authenticated roles]
 router.post(
   '/digitize',
   authenticate,
-  authorize('PATIENT'),
   upload.single('file'),
   prescriptionsController.digitizePrescription
 );
 
-// GET /api/prescriptions — list patient's prescriptions [PATIENT, DOCTOR]
-router.get('/', authenticate, authorize('PATIENT', 'DOCTOR'), prescriptionsController.listPrescriptions);
+// GET /api/prescriptions — list patient's prescriptions [All authenticated roles]
+router.get('/', authenticate, prescriptionsController.listPrescriptions);
 
 // GET /api/prescriptions/:id
 router.get('/:id', authenticate, prescriptionsController.getPrescriptionById);

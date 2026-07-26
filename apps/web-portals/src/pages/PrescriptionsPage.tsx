@@ -179,23 +179,26 @@ export const PrescriptionsPage: React.FC = () => {
       render: (val: any) => (
         <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
-          {new Date(val).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
+          {val ? new Date(val).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recent'}
         </span>
       )
     },
     {
       key: 'medicines',
       label: 'Identified Medicines',
-      render: (val: any) => (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-          {(val as Prescription['medicines']).slice(0, 3).map((med, i) => (
-            <Badge key={i} variant="blue">{med.brandName}</Badge>
-          ))}
-          {(val as Prescription['medicines']).length > 3 && (
-            <Badge variant="purple">+{(val as Prescription['medicines']).length - 3} more</Badge>
-          )}
-        </div>
-      )
+      render: (val: any) => {
+        const list = Array.isArray(val) ? val : [];
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            {list.slice(0, 3).map((med: any, i: number) => (
+              <Badge key={i} variant="blue">{med?.brandName || 'Medicine'}</Badge>
+            ))}
+            {list.length > 3 && (
+              <Badge variant="purple">+{list.length - 3} more</Badge>
+            )}
+          </div>
+        );
+      }
     },
     {
       key: 'prescriptionId',

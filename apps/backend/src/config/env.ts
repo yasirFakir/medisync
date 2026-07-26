@@ -18,7 +18,7 @@ for (const envVar of requiredEnvVars) {
 
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT || '3000', 10),
+  port: parseInt(process.env.PORT || '3001', 10),
 
   // JWT
   jwtSecret: process.env.JWT_SECRET as string,

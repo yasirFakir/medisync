@@ -18,11 +18,14 @@ apiClient.interceptors.request.use(config => {
   return config;
 });
 
-// On 401 — clear token and redirect to login (except on login page itself)
+// On 401 with invalid token error message — clear token and redirect to login
 apiClient.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401 && !err.config?.url?.includes('/auth/login')) {
+    const isAuthError = err.response?.status === 401 && 
+      (err.response?.data?.message?.includes('token') || err.response?.data?.message?.includes('authenticated'));
+    
+    if (isAuthError && !err.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('medisync_token');
       localStorage.removeItem('medisync_user');
       window.location.href = '/login';

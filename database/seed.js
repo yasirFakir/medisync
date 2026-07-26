@@ -16,22 +16,23 @@ const seedDatabase = async () => {
     ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
   });
 
+  // Target SQL file passed as optional CLI argument or default to seed.sql
+  const targetFile = process.argv[2] || 'seed.sql';
+  const seedSqlPath = path.join(__dirname, targetFile);
+
   try {
     console.log('Connecting to PostgreSQL database...');
     await client.connect();
 
-    const seedSqlPath = path.join(__dirname, 'seed.sql');
     console.log(`Reading SQL seed file from: ${seedSqlPath}`);
     const seedSql = fs.readFileSync(seedSqlPath, 'utf8');
 
     console.log('Executing seed queries...');
     await client.query(seedSql);
 
-    console.log('Database seeded successfully.');
+    console.log(`Database script (${targetFile}) executed successfully.`);
   } catch (err) {
-    console.error('Error during database seeding:', err.message || err);
-    console.error('\n💡 Tip: If running inside Docker, make sure PostgreSQL is accessible or run:');
-    console.error('   sudo docker exec -i medisync-db psql -U postgres -d medisync_db < database/seed.sql');
+    console.error(`Error executing ${targetFile}:`, err.message || err);
     process.exit(1);
   } finally {
     await client.end();

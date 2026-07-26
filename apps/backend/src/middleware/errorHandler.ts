@@ -16,12 +16,12 @@ export class AppError extends Error {
 
 export const errorHandler = (
   err: Error | AppError,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ): void => {
   if (err instanceof AppError) {
-    logger.warn(`Operational error [${err.statusCode}]: ${err.message}`);
+    logger.warn(`Operational error [${err.statusCode}] on ${req.method} ${req.originalUrl}: ${err.message}`);
     res.status(err.statusCode).json({
       success: false,
       message: err.message,
@@ -31,7 +31,7 @@ export const errorHandler = (
   }
 
   // Unexpected / programming errors
-  logger.error('Unexpected error:', err);
+  logger.error(`Unexpected error on ${req.method} ${req.originalUrl}:`, err);
   res.status(500).json({
     success: false,
     message: 'An unexpected internal server error occurred',
