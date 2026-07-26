@@ -6,6 +6,8 @@ import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
+import { MedicineMatchingService, ExtractedMedicineInput } from '../services/matching.service';
+
 
 // ─── POST /api/prescriptions/digitize ────────────────────────────────────────
 export const digitizePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -71,6 +73,17 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
     ];
   }
 
+  // TASK-005 Deterministic Medicine Matching & Validation
+  const formattedInputs: ExtractedMedicineInput[] = medicines.map(m => ({
+    brandName: m.brandName,
+    genericName: m.saltComposition,
+    strength: m.dosage,
+    dosage: m.dosage,
+    frequency: m.frequency,
+    duration: m.duration,
+  }));
+  const validationSummary = await MedicineMatchingService.validatePrescriptionPayload(formattedInputs);
+
   // Save prescription to DB
   const prescriptionId = uuidv4();
   const [prescription] = await query(
@@ -83,8 +96,25 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
 
   res.json({
     success: true,
-    message: 'Prescription digitized successfully',
-    data: { ...prescription, medicines, ocrResult },
+    message: 'Prescription digitized and validated successfully',
+    data: { ...prescription, medicines, validationSummary, ocrResult },
+    timestamp: new Date().toISOString(),
+  });
+};
+
+// ─── POST /api/prescriptions/validate ────────────────────────────────────────
+export const validatePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { medicines } = req.body;
+  if (!Array.isArray(medicines) || medicines.length === 0) {
+    throw new AppError('Medicines array is required for validation', 400);
+  }
+
+  const validationSummary = await MedicineMatchingService.validatePrescriptionPayload(medicines);
+
+  res.json({
+    success: true,
+    message: 'Prescription validation complete',
+    data: validationSummary,
     timestamp: new Date().toISOString(),
   });
 };

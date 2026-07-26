@@ -30,10 +30,29 @@ interface OCRResult {
   processing_time_ms:    number;
 }
 
+interface ValidatedItem {
+  input: { brandName?: string; genericName?: string; dosage?: string };
+  matched: boolean;
+  matchType: 'EXACT_BRAND' | 'EXACT_GENERIC' | 'FUZZY_BRAND' | 'FUZZY_GENERIC' | 'UNKNOWN';
+  confidence: number;
+  matchedDrug?: { drugId: string; brandName: string; saltComposition: string; strength: string; estimatedPrice: number } | null;
+  normalizedStrength?: string | null;
+  strengthVerified?: boolean;
+}
+
+interface ValidationSummary {
+  totalMedicines: number;
+  matchedCount: number;
+  unknownCount: number;
+  overallConfidence: number;
+  medicines: ValidatedItem[];
+}
+
 interface Prescription {
   prescriptionId: string;
   digitizedNotes: string;
   medicines:      Array<{ brandName: string; dosage: string; frequency: string; duration?: string }>;
+  validationSummary?: ValidationSummary;
   ocrResult?:     OCRResult;
   createdAt:      string;
 }
@@ -337,6 +356,30 @@ export const PrescriptionsPage: React.FC = () => {
                 </span>
               </div>
             ) : null}
+
+            {/* TASK-005 Database Verification Status */}
+            {selectedPrescription.validationSummary && (
+              <div style={{
+                padding: '12px 16px',
+                background: 'rgba(34,197,94,0.08)',
+                border: '1px solid rgba(34,197,94,0.2)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle size={14} /> Database Verification (Deterministic Engine)
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Verified {selectedPrescription.validationSummary.matchedCount} of {selectedPrescription.validationSummary.totalMedicines} medicine(s) against 21,200+ Master Drug Records.
+                  </div>
+                </div>
+                <Badge variant="emerald">{Math.round(selectedPrescription.validationSummary.overallConfidence * 100)}% Confidence</Badge>
+              </div>
+            )}
+
 
             {/* Raw OCR text */}
             <div>

@@ -25,6 +25,10 @@ router.post(
   prescriptionsController.digitizePrescription
 );
 
+// POST /api/prescriptions/validate — Validate extracted medicines [All authenticated roles]
+router.post('/validate', authenticate, prescriptionsController.validatePrescription);
+
+
 // GET /api/prescriptions — list patient's prescriptions [All authenticated roles]
 router.get('/', authenticate, prescriptionsController.listPrescriptions);
 
