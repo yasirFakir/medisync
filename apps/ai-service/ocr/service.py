@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "application/pdf"}
 MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
-# Global ProcessPoolExecutor for memory-isolated OCR runs
-_ocr_executor = ProcessPoolExecutor(max_workers=2)
+# Global ProcessPoolExecutor with max_tasks_per_child=1 to guarantee process termination and 100% RAM release per task
+_ocr_executor = ProcessPoolExecutor(max_workers=2, max_tasks_per_child=1)
 
 
 # ─── Image Validation ─────────────────────────────────────────────────────────
@@ -63,13 +63,16 @@ def validate_image(content: bytes, content_type: str) -> None:
             raise ImageValidationError("Image file is unreadable or corrupted.")
 
 
-# ─── Isolated Worker Process for PaddleOCR ───────────────────────────────────
+# ─── Isolated Worker Process for Dual-Pass PaddleOCR ──────────────────────────
 def _worker_paddleocr(content: bytes) -> Tuple[str, List[float]]:
     """
-    Isolated worker function running in a separate process.
-    This prevents PaddlePaddle C++ memory pool from bloating the main FastAPI RSS memory.
+    Isolated worker process running Dual-Pass OCR:
+      - Pass 1: Standard contrast RGB image
+      - Pass 2: CLAHE contrast enhanced & sharpened image
+    Guarantees worker process recycling via max_tasks_per_child=1.
     """
     try:
+        import cv2
         import numpy as np
         from paddleocr import PaddleOCR
 
@@ -81,30 +84,44 @@ def _worker_paddleocr(content: bytes) -> Tuple[str, List[float]]:
             det_limit_side_len=1200,
         )
 
+        lines: List[str] = []
+        confidences: List[float] = []
+
+        # ── Pass 1: Raw Image Extraction ──────────────────────────────────────
         with io.BytesIO(content) as buf:
             with Image.open(buf) as img:
                 img_rgb = img.convert("RGB")
-                # Downscale large images to max 1600px side to optimize speed and RAM
                 img_rgb.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
-                img_np = np.array(img_rgb)
+                img_np1 = np.array(img_rgb)
                 img_rgb.close()
 
-        result = engine.ocr(img_np, cls=False)
-        lines:       List[str]   = []
-        confidences: List[float] = []
+        res1 = engine.ocr(img_np1, cls=False)
+        if res1 and res1[0]:
+            for line in res1[0]:
+                if line and len(line) >= 2 and line[1]:
+                    lines.append(line[1][0])
+                    confidences.append(float(line[1][1]))
 
-        if result and result[0]:
-            for line in result[0]:
-                if line and len(line) >= 2:
-                    text_data = line[1]
-                    if text_data and len(text_data) >= 2:
-                        text  = text_data[0]
-                        score = float(text_data[1])
-                        lines.append(text)
-                        confidences.append(score)
+        # ── Pass 2: CLAHE Contrast Enhanced & Sharpened Extraction ─────────────
+        img_np2 = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+        if img_np2 is not None:
+            gray = cv2.cvtColor(img_np2, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+            sharpened = cv2.filter2D(enhanced, -1, kernel)
 
-        del img_np
-        del result
+            res2 = engine.ocr(sharpened, cls=False)
+            if res2 and res2[0]:
+                for line in res2[0]:
+                    if line and len(line) >= 2 and line[1]:
+                        text_val = line[1][0]
+                        if text_val not in lines:  # Deduplicate identical lines
+                            lines.append(text_val)
+                            confidences.append(float(line[1][1]))
+
+        del img_np1
+        del img_np2
         gc.collect()
 
         return '\n'.join(lines), confidences

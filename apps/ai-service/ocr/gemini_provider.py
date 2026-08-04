@@ -51,7 +51,7 @@ class GeminiProvider:
         if self.client and hasattr(self.client, 'models'):
             try:
                 response = self.client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-flash-latest',
                     contents=full_prompt,
                 )
                 if response and hasattr(response, 'text'):
@@ -62,7 +62,7 @@ class GeminiProvider:
         # 2. Try raw REST HTTP call as robust fallback
         try:
             import httpx
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={self.api_key}"
             payload = {
                 "contents": [{
                     "parts": [{"text": full_prompt}]
