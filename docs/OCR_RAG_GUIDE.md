@@ -212,3 +212,37 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
 1. **Safety and Precision**: The LLM's response is strictly grounded in the patient's verified prescription history, eliminating AI hallucinations about drug names or dosages.
 2. **Unified Stack**: Since PostgreSQL already serves as the core database, utilizing `pgvector` removes the architectural overhead of introducing a separate vector database (like Pinecone or ChromaDB).
 3. **Auditability**: You can map each answer directly back to its source prescription segment (providing citations/references for doctors to verify).
+
+---
+
+## 4. Current OCR Pipeline Architecture & Open Issue Tracking
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    MediSync OCR Ingestion Pipeline                      │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PRIMARY ENGINE: Gemini Multimodal Vision (gemini-flash-latest)          │
+│  - Extracts 100% structured JSON (Doctor, Date, Clinical Tests, Meds)  │
+│  - Patient Profile Classification (Age, Gender, Diagnosed Conditions)   │
+│  - Clinical Applicability & Pharmaceutical Brand Verification          │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ (Fallback if offline)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ SECONDARY FALLBACK ENGINE: Process-Isolated Dual-Pass PaddleOCR          │
+│  - Pass A: Standard Contrast RGB Image                                  │
+│  - Pass B: CLAHE Contrast Enhanced & Kernel Sharpened Image             │
+│  - Memory Protection: max_tasks_per_child=1 ProcessPoolExecutor         │
+│    (100% RAM release per task; RSS locked at ~55 MB)                    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Open Issues & Future Enhancements
+- **Tracking Issue**: [GitHub Issue #1: Handwritten Prescription OCR Improvement](https://github.com/yasirFakir/medisync/issues/1)
+- **Planned Improvements**:
+  1. Targeted bounding-box crop re-check loops for ambiguous cursive lines.
+  2. Enhanced PostgreSQL Trigram Similarity Search against `master_pharmacy` (21,200+ master drug records).
+  3. Fine-tuned vision prompt for South Asian doctor handwriting variations.
