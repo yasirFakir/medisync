@@ -224,17 +224,10 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ PRIMARY ENGINE: Gemini Multimodal Vision (gemini-flash-latest)          │
-│  - Extracts 100% structured JSON (Doctor, Date, Clinical Tests, Meds)  │
-│  - Patient Profile Classification (Age, Gender, Diagnosed Conditions)   │
-│  - Clinical Applicability & Pharmaceutical Brand Verification          │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │ (Fallback if offline)
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ SECONDARY FALLBACK ENGINE: Process-Isolated Dual-Pass PaddleOCR          │
-│  - Pass A: Standard Contrast RGB Image                                  │
-│  - Pass B: CLAHE Contrast Enhanced & Kernel Sharpened Image             │
+│ DETERMINISTIC LOCAL ENGINE: Process-Isolated Dual-Pass PaddleOCR        │
+│  - Pass A: Standard Contrast RGB Image Extraction                       │
+│  - Pass B: CLAHE Contrast Enhanced & Kernel Sharpened Image Extraction  │
+│  - Noise Cleaner & Medical Regex Parser (cleaner.py & parser.py)        │
 │  - Memory Protection: max_tasks_per_child=1 ProcessPoolExecutor         │
 │    (100% RAM release per task; RSS locked at ~55 MB)                    │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -242,7 +235,7 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
 
 ### Open Issues & Future Enhancements
 - **Tracking Issue**: [GitHub Issue #1: Handwritten Prescription OCR Improvement](https://github.com/yasirFakir/medisync/issues/1)
-- **Planned Improvements**:
+- **Planned Enhancements**:
   1. Targeted bounding-box crop re-check loops for ambiguous cursive lines.
-  2. Enhanced PostgreSQL Trigram Similarity Search against `master_pharmacy` (21,200+ master drug records).
-  3. Fine-tuned vision prompt for South Asian doctor handwriting variations.
+  2. Enhanced PostgreSQL Trigram Similarity Search (`master_pharmacy` 21,200+ master drug records).
+  3. Patient classification & clinical applicability verification step.
