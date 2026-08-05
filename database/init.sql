@@ -70,12 +70,15 @@ CREATE INDEX IF NOT EXISTS idx_inventory_pharmacy ON pharmacy_inventory (pharmac
 
 -- ─── Prescriptions ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS prescriptions (
-  prescription_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  patient_id      UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  doctor_name     VARCHAR(255),
-  raw_image_url   TEXT,
-  digitized_notes TEXT,
-  created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  prescription_id    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  patient_id         UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  doctor_name        VARCHAR(255),
+  raw_image_url      TEXT,
+  digitized_notes    TEXT,
+  ocr_result         JSONB,
+  medicines          JSONB,
+  validation_summary JSONB,
+  created_at         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions (patient_id);

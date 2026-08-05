@@ -271,7 +271,7 @@ export const TriagePage: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', marginRight: '8px' }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{new Date(sess.timestamp).toLocaleDateString()}</span>
-                      <Badge variant={getUrgencyColor(sess.urgencyLevel)} size="sm">{sess.urgencyLevel}</Badge>
+                      <Badge variant={getUrgencyColor(sess.urgencyLevel)}>{sess.urgencyLevel}</Badge>
                     </div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
                       {Array.isArray(sess.symptoms) ? sess.symptoms.join(', ') : sess.symptoms}

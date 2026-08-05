@@ -90,17 +90,27 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
   // Save prescription to DB
   const prescriptionId = uuidv4();
   const [prescription] = await query(
-    `INSERT INTO prescriptions (prescription_id, patient_id, doctor_name, raw_image_url, digitized_notes, created_at)
-     VALUES ($1, $2, $3, $4, $5, NOW())
+    `INSERT INTO prescriptions (prescription_id, patient_id, doctor_name, raw_image_url, digitized_notes, medicines, validation_summary, ocr_result, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
      RETURNING prescription_id AS "prescriptionId", patient_id AS "patientId", doctor_name AS "doctorName",
-               digitized_notes AS "digitizedNotes", created_at AS "createdAt"`,
-    [prescriptionId, patientId, doctorName, '', digitizedNotes]
+               digitized_notes AS "digitizedNotes", medicines, validation_summary AS "validationSummary",
+               ocr_result AS "ocrResult", created_at AS "createdAt"`,
+    [
+      prescriptionId,
+      patientId,
+      doctorName,
+      '',
+      digitizedNotes,
+      JSON.stringify(medicines),
+      JSON.stringify(validationSummary),
+      JSON.stringify(ocrResult)
+    ]
   );
 
   res.json({
     success: true,
     message: 'Prescription digitized and validated successfully',
-    data: { ...prescription, medicines, validationSummary, ocrResult },
+    data: { ...prescription },
     timestamp: new Date().toISOString(),
   });
 };
@@ -129,10 +139,12 @@ export const listPrescriptions = async (req: AuthRequest, res: Response): Promis
 
   const sql = patientId
     ? `SELECT prescription_id AS "prescriptionId", patient_id AS "patientId", doctor_name AS "doctorName",
-              digitized_notes AS "digitizedNotes", created_at AS "createdAt"
+              digitized_notes AS "digitizedNotes", medicines, validation_summary AS "validationSummary",
+              ocr_result AS "ocrResult", created_at AS "createdAt"
        FROM prescriptions WHERE patient_id = $1 ORDER BY created_at DESC`
     : `SELECT prescription_id AS "prescriptionId", patient_id AS "patientId", doctor_name AS "doctorName",
-              digitized_notes AS "digitizedNotes", created_at AS "createdAt"
+              digitized_notes AS "digitizedNotes", medicines, validation_summary AS "validationSummary",
+              ocr_result AS "ocrResult", created_at AS "createdAt"
        FROM prescriptions ORDER BY created_at DESC LIMIT 50`;
 
   const params = patientId ? [patientId] : [];
@@ -148,7 +160,8 @@ export const getPrescriptionById = async (req: AuthRequest, res: Response): Prom
 
   const [prescription] = await query(
     `SELECT prescription_id AS "prescriptionId", patient_id AS "patientId", doctor_name AS "doctorName",
-            digitized_notes AS "digitizedNotes", created_at AS "createdAt"
+            digitized_notes AS "digitizedNotes", medicines, validation_summary AS "validationSummary",
+            ocr_result AS "ocrResult", created_at AS "createdAt"
      FROM prescriptions WHERE prescription_id = $1`,
     [id]
   );
