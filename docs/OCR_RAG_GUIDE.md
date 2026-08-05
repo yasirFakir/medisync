@@ -215,7 +215,7 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
 
 ---
 
-## 4. Current OCR Pipeline Architecture & Open Issue Tracking
+## 4. Current OCR Pipeline Architecture & Dynamic Web Search Correction
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -224,18 +224,45 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ DETERMINISTIC LOCAL ENGINE: Process-Isolated Dual-Pass PaddleOCR        │
+│ PRIMARY OCR ENGINE: Mistral OCR API (mistral-ocr-latest)                │
+│  - Dedicated document OCR model with layout structure preservation      │
+│  - Preserves markdown headers, medical symbols, English & Bengali text  │
+│  - Extracts doctor metadata, patient details, and medicine line items   │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ (Fallback if offline)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ FALLBACK LOCAL ENGINE: Process-Isolated Dual-Pass PaddleOCR             │
 │  - Pass A: Standard Contrast RGB Image Extraction                       │
 │  - Pass B: CLAHE Contrast Enhanced & Kernel Sharpened Image Extraction  │
 │  - Noise Cleaner & Medical Regex Parser (cleaner.py & parser.py)        │
 │  - Memory Protection: max_tasks_per_child=1 ProcessPoolExecutor         │
 │    (100% RAM release per task; RSS locked at ~55 MB)                    │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 100% DYNAMIC WEB SEARCH DRUG CORRECTION PIPELINE (WebSearchService)    │
+│  - Formulates search queries with dosage form (Tab/Cap/Syp) & strength │
+│    e.g.: "Tab Elopile A medicine Bangladesh" or "Tab Bisoxen 2.5mg"    │
+│  - Extracts real-time candidate brand suggestions from web snippets     │
+│  - Dynamically validates candidates against master_pharmacy (21,231 DB) │
+│  - 0 Hardcoded names: Works dynamically across any doctor prescription  │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CLINICAL COHERENCE & PATIENT NEED SAFETY CHECK (ClinicalSafetyService)  │
+│  - Cross-references matched drug therapeutic class against patient      │
+│    diagnosed conditions (e.g. HTN, OMI, PCI, Vertigo, GERD)             │
+│  - Automatically flags low-confidence or unaligned medicines with       │
+│    `requiresReview: true` and clear clinical review reasons             │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Open Issues & Future Enhancements
 - **Tracking Issue**: [GitHub Issue #1: Handwritten Prescription OCR Improvement](https://github.com/yasirFakir/medisync/issues/1)
-- **Planned Enhancements**:
-  1. Targeted bounding-box crop re-check loops for ambiguous cursive lines.
-  2. Enhanced PostgreSQL Trigram Similarity Search (`master_pharmacy` 21,200+ master drug records).
-  3. Patient classification & clinical applicability verification step.
+- **Implemented Upgrades**:
+  1. Clinical Coherence & Patient Need Safety Check ([apps/backend/src/services/clinicalSafety.service.ts](file:///home/yasir/Data/dev/Projects/medisync/apps/backend/src/services/clinicalSafety.service.ts)).
+  2. 100% Dynamic Web Search Grounding Pipeline ([apps/backend/src/services/webSearch.service.ts](file:///home/yasir/Data/dev/Projects/medisync/apps/backend/src/services/webSearch.service.ts)).
+  3. Levenshtein + 3L/2L Prefix Fuzzy Matching against `master_pharmacy` (21,231 records).

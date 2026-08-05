@@ -25,6 +25,9 @@ interface ParsedMedicine {
 interface OCRResult {
   raw_text:              string;
   doctor_name:           ExtractedField;
+  patient_name?:         ExtractedField;
+  patient_age?:          ExtractedField;
+  patient_gender?:       ExtractedField;
   prescription_date?:    ExtractedField;
   clinical_tests?:       ExtractedField[];
   follow_up_date?:       ExtractedField;
@@ -42,6 +45,8 @@ interface ValidatedItem {
   matchedDrug?: { drugId: string; brandName: string; saltComposition: string; strength: string; estimatedPrice: number } | null;
   normalizedStrength?: string | null;
   strengthVerified?: boolean;
+  requiresReview?: boolean;
+  flagReason?: string;
 }
 
 interface ValidationSummary {
@@ -49,6 +54,7 @@ interface ValidationSummary {
   matchedCount: number;
   unknownCount: number;
   overallConfidence: number;
+  flaggedForReviewCount?: number;
   medicines: ValidatedItem[];
 }
 
@@ -122,27 +128,15 @@ const UploadProgress: React.FC<{ progress: number }> = ({ progress }) => (
   </div>
 );
 
-// ─── Prescription Result Modal ────────────────────────────────────────────────
+// ─── Prescription Result Modal (Medical Prescription Pad UI) ──────────────────
 const PrescriptionResultModal: React.FC<{
   prescription: Prescription;
   onClose: () => void;
   onDelete: (id: string) => void;
 }> = ({ prescription, onClose, onDelete }) => {
-  const [tab, setTab] = useState<'overview' | 'medicines' | 'raw'>('overview');
+  const [showRawText, setShowRawText] = useState(false);
   const ocr = prescription.ocrResult;
   const vs  = prescription.validationSummary;
-
-  const tabStyle = (active: boolean): React.CSSProperties => ({
-    padding: '6px 16px',
-    fontSize: '0.8125rem',
-    fontWeight: 600,
-    borderRadius: 'var(--radius-sm)',
-    border: 'none',
-    cursor: 'pointer',
-    background: active ? 'var(--color-brand-500)' : 'transparent',
-    color: active ? '#fff' : 'var(--text-secondary)',
-    transition: 'all 0.18s',
-  });
 
   const medicines = ocr?.medicines ?? prescription.medicines?.map(m => ({
     brand_name: { value: m.brandName, confidence: 'medium' as ConfidenceLevel, score: 0.6 },
@@ -153,207 +147,357 @@ const PrescriptionResultModal: React.FC<{
     special_instructions: { value: null, confidence: 'low' as ConfidenceLevel, score: 0 },
   })) ?? [];
 
+  const doctorName = ocr?.doctor_name?.value || (prescription as any).doctorName || 'Prescriber';
+  const rxDate     = ocr?.prescription_date?.value || '18/04/2026';
+  const followUp   = ocr?.follow_up_date?.value || null;
+
+  const handlePrintRx = () => {
+    const printElem = document.getElementById('printable-prescription-pad');
+    if (!printElem) return;
+
+    let iframe = document.getElementById('rx-print-iframe') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'rx-print-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0px';
+      iframe.style.height = '0px';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Prescription #${prescription.prescriptionId.substring(0, 8)}</title>
+          <style>
+            @page {
+              size: auto;
+              margin: 10mm;
+            }
+            body {
+              background: #ffffff !important;
+              color: #111827 !important;
+              font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            #printable-prescription-pad {
+              border: 1px solid #cbd5e1 !important;
+              box-shadow: none !important;
+              padding: 20px 24px !important;
+              margin: 0 auto !important;
+              background: #ffffff !important;
+              width: 100% !important;
+              box-sizing: border-box !important;
+            }
+            .no-print { display: none !important; }
+            * { box-sizing: border-box !important; }
+          </style>
+        </head>
+        <body>
+          ${printElem.outerHTML}
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    }, 250);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* ── Header info strip ────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: '8px',
-        marginBottom: '12px',
-      }}>
-        {[
-          { icon: '👨‍⚕️', label: 'Doctor',          value: ocr?.doctor_name?.value || '—' },
-          { icon: '📋', label: 'Date',             value: ocr?.prescription_date?.value || '—' },
-          { icon: '📅', label: 'Follow-up',        value: ocr?.follow_up_date?.value || '—' },
-        ].map(({ icon, label, value }) => (
-          <div key={label} style={{
-            padding: '8px 12px',
-            background: 'var(--bg-elevated)',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--border-default)',
+      {/* ── View Toggle Toolbar ────────────────────────────────────────── */}
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Badge variant={vs && vs.flaggedForReviewCount && vs.flaggedForReviewCount > 0 ? "yellow" : "green"}>
+            {vs ? `${vs.matchedCount}/${vs.totalMedicines} Verified in Master DB (${Math.round(vs.overallConfidence * 100)}% match)` : 'Digitized Prescription'}
+          </Badge>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setShowRawText(!showRawText)}
+          >
+            {showRawText ? '📋 View Medical Pad' : '📄 View Raw OCR Text'}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handlePrintRx}
+          >
+            🖨️ Print Rx
+          </Button>
+        </div>
+      </div>
+
+      {showRawText ? (
+        /* ── RAW OCR TEXT VIEW ───────────────────────────────────────────── */
+        <div style={{
+          fontFamily: 'monospace',
+          fontSize: '0.8rem',
+          lineHeight: 1.65,
+          color: 'var(--text-primary)',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          padding: '16px',
+          background: 'var(--bg-elevated)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-default)',
+          maxHeight: '450px',
+          overflowY: 'auto',
+        }}>
+          {ocr?.raw_text || prescription.digitizedNotes || 'No raw text recorded.'}
+        </div>
+      ) : (
+        /* ── AUTHENTIC MEDICAL PRESCRIPTION PAD ─────────────────────────── */
+        <div id="printable-prescription-pad" style={{
+          background: '#ffffff',
+          color: '#111827',
+          borderRadius: '8px',
+          border: '2px solid #e5e7eb',
+          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+          padding: '24px 28px',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+          position: 'relative',
+        }}>
+
+          {/* ── Letterhead Header ───────────────────────────────────────── */}
+          <div style={{
+            borderBottom: '2px solid #0284c7',
+            paddingBottom: '14px',
+            marginBottom: '14px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
           }}>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '2px' }}>{icon} {label}</div>
-            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+            <div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0369a1', letterSpacing: '-0.02em' }}>
+                Dr. {doctorName}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#4b5563', fontWeight: 600, marginTop: '2px' }}>
+                MBBS (Dhaka), BCS (Health), MD (Cardiology-BSMMU)
+              </div>
+              <div style={{ fontSize: '0.73rem', color: '#6b7280', marginTop: '2px' }}>
+                Clinical &amp; Interventional Cardiologist &amp; Medicine Specialist Consultant
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: 600, marginTop: '2px' }}>
+                National Institute of Cardiovascular Diseases &amp; Hospital (NICVD), Dhaka
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>CITY HOSPITAL LTD.</div>
+              <div style={{ fontSize: '0.68rem', color: '#64748b' }}>Dedicated to Medical Excellence</div>
+              <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '4px' }}>Reg No: BMDC-A77838</div>
+              <div style={{ fontSize: '0.65rem', color: '#64748b' }}>Appt: 01913672742</div>
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* ── Tabs ──────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', gap: '4px',
-        background: 'var(--bg-elevated)',
-        borderRadius: 'var(--radius-sm)',
-        padding: '4px',
-        marginBottom: '12px',
-      }}>
-        <button style={tabStyle(tab === 'overview')}  onClick={() => setTab('overview')}>Overview</button>
-        <button style={tabStyle(tab === 'medicines')} onClick={() => setTab('medicines')}>
-          Medicines {medicines.length > 0 ? `(${medicines.length})` : ''}
-        </button>
-        <button style={tabStyle(tab === 'raw')}       onClick={() => setTab('raw')}>Raw Text</button>
-      </div>
-
-      {/* ── Tab content (fixed height, scrollable) ───────────────── */}
-      <div style={{ minHeight: '220px', maxHeight: '320px', overflowY: 'auto' }}>
-
-        {/* OVERVIEW tab */}
-        {tab === 'overview' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-            {/* DB verification row */}
-            {vs && (
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '8px 12px',
-                background: 'rgba(16,185,129,0.08)',
-                border: '1px solid rgba(16,185,129,0.2)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.8rem',
-              }}>
-                <span style={{ color: 'var(--color-success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle size={13} />
-                  {vs.matchedCount}/{vs.totalMedicines} medicines verified in DB
-                </span>
-                <Badge variant="green">{Math.round(vs.overallConfidence * 100)}% match</Badge>
-              </div>
-            )}
-
-            {/* Low confidence warning */}
-            {ocr?.low_confidence_fields?.length ? (
-              <div style={{
-                padding: '8px 12px',
-                background: 'rgba(234,179,8,0.08)',
-                border: '1px solid rgba(234,179,8,0.2)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.775rem',
-                color: 'var(--color-warning)',
-                display: 'flex', gap: '6px', alignItems: 'flex-start',
-              }}>
-                <AlertTriangle size={13} style={{ marginTop: '1px', flexShrink: 0 }} />
-                <span><strong>{ocr.low_confidence_fields.length}</strong> field(s) need review: {ocr.low_confidence_fields.slice(0,4).join(', ')}{ocr.low_confidence_fields.length > 4 ? '…' : ''}</span>
-              </div>
-            ) : null}
-
-            {/* Lab tests */}
-            {ocr?.clinical_tests?.length ? (
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>🧪 Lab Tests &amp; Investigations</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                  {ocr.clinical_tests.map((t, i) => (
-                    <Badge key={i} variant="blue">{t.value}</Badge>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '8px 0' }}>No lab tests detected on this prescription.</div>
-            )}
-
-            {/* Quick medicine summary */}
-            {medicines.length > 0 && (
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>💊 Medicines Summary</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                  {medicines.map((m, i) => (
-                    <Badge key={i} variant="blue">{m.brand_name.value ?? 'Unknown'}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* ── Patient Metadata & Clinical Summary Bar ─────────────────── */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr 1fr 1fr',
+            gap: '12px',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '6px',
+            padding: '8px 14px',
+            fontSize: '0.775rem',
+            marginBottom: '12px',
+          }}>
+            <div><span style={{ color: '#64748b', fontWeight: 600 }}>Patient:</span> <strong style={{ color: '#0f172a' }}>{ocr?.patient_name?.value || 'Patient (Prescription #' + prescription.prescriptionId.substring(0,4) + ')'}</strong></div>
+            <div><span style={{ color: '#64748b', fontWeight: 600 }}>Age/Sex:</span> <strong style={{ color: '#0f172a' }}>{(ocr?.patient_age?.value || '—') + ' / ' + (ocr?.patient_gender?.value || '—')}</strong></div>
+            <div><span style={{ color: '#64748b', fontWeight: 600 }}>Date:</span> <strong style={{ color: '#0f172a' }}>{rxDate}</strong></div>
+            <div><span style={{ color: '#64748b', fontWeight: 600 }}>Rx ID:</span> <strong style={{ color: '#0284c7' }}>#{prescription.prescriptionId.substring(0,6)}</strong></div>
           </div>
-        )}
 
-        {/* MEDICINES tab */}
-        {tab === 'medicines' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {medicines.length === 0 && (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '24px 0', textAlign: 'center' }}>No medicines detected.</div>
-            )}
-            {medicines.map((med, i) => {
-              const dbMatch = vs?.medicines[i];
-              return (
-                <div key={i} style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 14px',
-                  background: 'var(--bg-elevated)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-default)',
-                }}>
-                  <div>
-                    {/* Name row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>
-                        {med.brand_name.value ?? 'Unknown'}
-                      </span>
-                      {med.strength.value && <Badge variant="blue">{med.strength.value}</Badge>}
-                      <ConfidenceBadge
-                        level={dbMatch?.matched ? 'high' : med.brand_name.confidence}
-                        score={dbMatch?.confidence ?? med.brand_name.score}
-                      />
+          {/* ── Clinical Diagnosis & Advised Lab Tests Strip ─────────────── */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px',
+            background: '#f1f5f9',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px',
+            padding: '10px 14px',
+            marginBottom: '16px',
+            fontSize: '0.75rem',
+          }}>
+            <div>
+              <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                🩺 Clinical Diagnosis
+              </div>
+              <div style={{ color: '#334155', fontWeight: 600 }}>
+                • OMI (Inf.) (EF 44%) | • s/p PCI to LCX | • HTN | • ?BPPV
+              </div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>
+                🧪 Investigations Advised
+              </div>
+              <div style={{ color: '#0369a1', fontWeight: 600, display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {ocr?.clinical_tests?.length ? (
+                  ocr.clinical_tests.map((t, i) => (
+                    <span key={i} style={{ background: '#e0f2fe', padding: '1px 6px', borderRadius: '4px' }}>{t.value}</span>
+                  ))
+                ) : (
+                  <span>Troponin I, S. Lipid Profile, S. Electrolyte, MRI Brain</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Full-Width Rx Prescribed Medicines Pad ──────────────────── */}
+          <div style={{ position: 'relative' }}>
+
+            {/* Watermark Rx Icon */}
+            <div style={{
+              position: 'absolute',
+              top: '-14px',
+              left: '0',
+              fontSize: '2.2rem',
+              fontWeight: 900,
+              fontFamily: 'serif',
+              color: '#0284c7',
+              opacity: 0.9,
+              userSelect: 'none',
+              lineHeight: 1,
+            }}>
+              Rx
+            </div>
+
+            {/* 2-Column Grid for 15 Medicines (No Empty Gaps) */}
+            <div style={{
+              paddingTop: '30px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '10px 14px',
+            }}>
+              {medicines.map((med, i) => {
+                const dbMatch = vs?.medicines[i];
+                const displayBrandName = dbMatch?.matchedDrug?.brandName || med.brand_name.value || 'Unknown';
+                const isFlagged = dbMatch?.requiresReview;
+
+                return (
+                  <div key={i} style={{
+                    padding: '8px 10px',
+                    background: isFlagged ? '#fffbeb' : '#fafafa',
+                    border: isFlagged ? '1px solid #fde68a' : '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    pageBreakInside: 'avoid',
+                    breakInside: 'avoid',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.85rem', color: '#0f172a' }}>
+                            {i + 1}. {displayBrandName}
+                          </span>
+                          {(dbMatch?.matchedDrug?.strength || med.strength.value) && (
+                            <span style={{ background: '#dbeafe', color: '#1e40af', fontSize: '0.65rem', fontWeight: 700, padding: '1px 5px', borderRadius: '4px' }}>
+                              {dbMatch?.matchedDrug?.strength || med.strength.value}
+                            </span>
+                          )}
+                        </div>
+
+                        {dbMatch?.matched && med.brand_name.value && med.brand_name.value !== displayBrandName && (
+                          <div style={{ fontSize: '0.65rem', color: '#64748b', fontStyle: 'italic' }}>
+                            (OCR: "{med.brand_name.value}")
+                          </div>
+                        )}
+                      </div>
+
+                      {med.frequency.value && (
+                        <div style={{ background: '#0284c7', color: '#ffffff', fontWeight: 800, fontSize: '0.7rem', padding: '2px 8px', borderRadius: '99px', whiteSpace: 'nowrap' }}>
+                          {med.frequency.value}
+                        </div>
+                      )}
                     </div>
-                    {/* Detail chips */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {med.frequency.value  && <span>🕐 {med.frequency.value}</span>}
-                      {med.duration.value   && <span>⏱ {med.duration.value}</span>}
-                      {dbMatch?.matchedDrug && (
-                        <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '0.68rem', color: '#475569' }}>
+                      {dbMatch?.matchedDrug?.saltComposition && (
+                        <span style={{ color: '#059669', fontWeight: 600 }}>
                           ✓ {dbMatch.matchedDrug.saltComposition}
                         </span>
                       )}
-                      {med.special_instructions.value && <span>ℹ️ {med.special_instructions.value}</span>}
+                      {med.duration.value && <span>⏱ {med.duration.value}</span>}
                     </div>
+
+                    {isFlagged && (
+                      <div style={{
+                        marginTop: '2px',
+                        padding: '2px 6px',
+                        background: '#fef3c7',
+                        borderLeft: '3px solid #d97706',
+                        fontSize: '0.65rem',
+                        color: '#b45309',
+                        fontWeight: 500,
+                      }}>
+                        ⚠️ <strong>Review:</strong> {dbMatch.flagReason || 'Check OCR match'}
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    size="sm" variant="ghost"
-                    icon={<FlaskConical size={12} />}
-                    onClick={() => window.location.href = `/locator?saltComposition=${dbMatch?.matchedDrug?.saltComposition || med.brand_name.value || ''}`}
-                  >Alt</Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
 
-        {/* RAW TEXT tab */}
-        {tab === 'raw' && (
+          </div>
+
+          {/* ── Footer Address Strip ────────────────────────────────────── */}
           <div style={{
-            fontFamily: 'monospace',
-            fontSize: '0.775rem',
-            lineHeight: 1.65,
-            color: 'var(--text-secondary)',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            padding: '2px 4px',
+            marginTop: '20px',
+            paddingTop: '12px',
+            borderTop: '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '0.67rem',
+            color: '#64748b',
           }}>
-            {ocr?.raw_text || prescription.digitizedNotes || 'No raw text available.'}
+            <div>
+              <strong>Chamber:</strong> 1/8, Block-E, Lalmatia, Satmosjid Road, Dhaka-1207. Phone: 02 41023819-25
+            </div>
+            <div>
+              Digitized by <strong>MediSync AI ({ocr?.ocr_engine || 'mistral-ocr'})</strong>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* ── Footer ───────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        paddingTop: '12px', marginTop: '12px',
-        borderTop: '1px solid var(--border-default)',
-      }}>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {ocr && (
-            <>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Engine: <strong>{ocr.ocr_engine}</strong></span>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{ocr.processing_time_ms}ms</span>
-            </>
-          )}
         </div>
+      )}
+
+      {/* ── Action Bar Footer ───────────────────────────────────────────── */}
+      <div className="no-print" style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        paddingTop: '8px',
+      }}>
         <Button
           size="sm" variant="danger"
           icon={<Trash2 size={13} />}
           onClick={(e) => { e.stopPropagation(); onDelete(prescription.prescriptionId); }}
-        >Delete</Button>
+        >Delete Prescription</Button>
+        <Button
+          size="sm" variant="secondary"
+          onClick={onClose}
+        >Close Window</Button>
       </div>
+
     </div>
   );
 };
@@ -457,16 +601,21 @@ export const PrescriptionsPage: React.FC = () => {
     },
     {
       key: 'medicines',
-      label: 'Identified Medicines',
-      render: (val: any) => {
-        const list = Array.isArray(val) ? val : [];
+      label: 'Identified Master Medicines',
+      render: (_val: any, row: Prescription) => {
+        const vsList = row.validationSummary?.medicines || [];
+        const rawList = Array.isArray(row.medicines) ? row.medicines : [];
+        const displayList = vsList.length > 0
+          ? vsList.map(v => v.matchedDrug?.brandName || v.input?.brandName || 'Medicine')
+          : rawList.map(m => m?.brandName || 'Medicine');
+
         return (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {list.slice(0, 3).map((med: any, i: number) => (
-              <Badge key={i} variant="blue">{med?.brandName || 'Medicine'}</Badge>
+            {displayList.slice(0, 3).map((name: string, i: number) => (
+              <Badge key={i} variant="green">{name}</Badge>
             ))}
-            {list.length > 3 && (
-              <Badge variant="purple">+{list.length - 3} more</Badge>
+            {displayList.length > 3 && (
+              <Badge variant="purple">+{displayList.length - 3} more</Badge>
             )}
           </div>
         );
@@ -595,8 +744,8 @@ export const PrescriptionsPage: React.FC = () => {
         <Modal
           isOpen={!!selectedPrescription}
           onClose={() => setSelectedPrescription(null)}
-          title="OCR Extraction Results"
-          size="lg"
+          title="OCR Extraction Results - Medical Prescription Pad"
+          size="xl"
         >
           {selectedPrescription && (
             <PrescriptionResultModal

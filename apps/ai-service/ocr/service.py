@@ -170,41 +170,96 @@ Patient: John Doe    Date: 2026-07-26
 """
 
 
+async def _extract_with_mistral_ocr(content: bytes) -> Tuple[Optional[str], Optional[List[float]]]:
+    """
+    Extracts text using Mistral OCR API (mistral-ocr-latest).
+    Mistral OCR is a dedicated document OCR model that preserves page structure,
+    headers, Bengali/English text, and prescription line items.
+    """
+    api_key = os.getenv("MISTRAL_API_KEY", "")
+    if not api_key:
+        return None, None
+
+    try:
+        import base64
+        import httpx
+
+        img_b64 = base64.b64encode(content).decode("utf-8")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "mistral-ocr-latest",
+            "document": {
+                "type": "image_url",
+                "image_url": f"data:image/jpeg;base64,{img_b64}"
+            }
+        }
+
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            res = await client.post("https://api.mistral.ai/v1/ocr", headers=headers, json=payload)
+            if res.status_code == 200:
+                data = res.json()
+                pages = data.get("pages", [])
+                if pages:
+                    markdown_text = pages[0].get("markdown", "")
+                    if markdown_text.strip():
+                        lines = [line.strip() for line in markdown_text.split('\n') if line.strip()]
+                        confidences = [0.95] * len(lines)
+                        return '\n'.join(lines), confidences
+
+    except Exception as err:
+        logger.warning(f"Mistral OCR API call failed, fallback to PaddleOCR: {err}")
+
+    return None, None
+
+
 # ─── Main OCR Pipeline ────────────────────────────────────────────────────────
 async def run_ocr_pipeline(content: bytes, content_type: str, filename: str) -> OCRResult:
     """
-    Full deterministic OCR pipeline:
+    Full OCR pipeline:
       1. Validate image
-      2. Extract text via process-isolated dual-pass PaddleOCR
-      3. Clean text & normalize medical symbols
-      4. Parse into structured prescription fields via regex parser
+      2. Attempt Mistral OCR API (mistral-ocr-latest)
+      3. Fallback to process-isolated dual-pass PaddleOCR if offline
+      4. Clean text & normalize medical symbols
+      5. Parse into structured prescription fields via regex parser
     """
     start = time.time()
 
     # ── 1. Validate ───────────────────────────────────────────────────────────
     validate_image(content, content_type)
 
-    # ── 2. Deterministic Dual-Pass Local OCR ──────────────────────────────────
-    raw_text, word_confidences = await _extract_with_paddleocr(content)
+    # ── 2. Primary: Mistral OCR API ───────────────────────────────────────────
+    raw_text, word_confidences = await _extract_with_mistral_ocr(content)
+    ocr_engine = "mistral-ocr"
+
+    # ── 3. Fallback: Deterministic Dual-Pass Local OCR ─────────────────────────
+    if not raw_text:
+        raw_text, word_confidences = await _extract_with_paddleocr(content)
+        ocr_engine = "paddleocr-dualpass"
 
     if not raw_text.strip():
         logger.warning(f"OCR returned empty text for file: {filename}")
         raw_text = "[OCR returned no readable text]"
 
     cleaned = clean_text(raw_text)
-    doctor_field, prescription_date, clinical_tests, follow_up_date, medicines, low_confidence_fields = parse_prescription(cleaned, word_confidences)
+    doctor_field, patient_name, patient_age, patient_gender, prescription_date, clinical_tests, follow_up_date, medicines, low_confidence_fields = parse_prescription(cleaned, word_confidences or [0.70])
 
     elapsed_ms = int((time.time() - start) * 1000)
 
     return OCRResult(
         raw_text=              cleaned,
         doctor_name=           doctor_field,
+        patient_name=          patient_name,
+        patient_age=           patient_age,
+        patient_gender=        patient_gender,
         prescription_date=     prescription_date,
         clinical_tests=        clinical_tests,
         follow_up_date=        follow_up_date,
         medicines=             medicines,
         low_confidence_fields= low_confidence_fields,
-        ocr_engine=            "paddleocr-dualpass",
+        ocr_engine=            ocr_engine,
         processing_time_ms=    elapsed_ms,
     )
 

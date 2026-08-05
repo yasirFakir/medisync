@@ -1,5 +1,7 @@
 import { query } from '../config/database';
 import { logger } from '../config/logger';
+import { WebSearchService } from './webSearch.service';
+import { ClinicalSafetyService } from './clinicalSafety.service';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 export interface ExtractedMedicineInput {
@@ -31,6 +33,8 @@ export interface ValidatedMedicineResult {
   normalizedStrength: string | null;
   strengthVerified: boolean;
   alternatives: MatchedDrug[];
+  requiresReview?: boolean;
+  flagReason?: string;
 }
 
 export interface ValidationSummary {
@@ -38,6 +42,7 @@ export interface ValidationSummary {
   matchedCount: number;
   unknownCount: number;
   overallConfidence: number;
+  flaggedForReviewCount: number;
   medicines: ValidatedMedicineResult[];
 }
 
@@ -163,17 +168,34 @@ export class MedicineMatchingService {
       }
     }
 
-    // 3. PostgreSQL Trigram / Partial Fuzzy Match on Brand Name
-    if (rawBrand.length >= 3) {
+    // 3. PostgreSQL Trigram / Fuzzy Match on Brand Name (handles OCR typos like Aztox -> Aztor, Vastaxel -> Vastarel)
+    if (rawBrand.length >= 2) {
       const firstWord = rawBrand.split(/\s+/)[0];
-      const fuzzyBrandMatches = await query<MatchedDrug>(
-        `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
+      const p3 = firstWord.length >= 3 ? `${firstWord.substring(0, 3).toLowerCase()}%` : `${firstWord.toLowerCase()}%`;
+      const p2 = `${firstWord.substring(0, 2).toLowerCase()}%`;
+
+      // Query candidate drugs by substring OR 3-letter/2-letter prefix
+      let fuzzyBrandMatches = await query<MatchedDrug>(
+        `SELECT DISTINCT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
                 strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
          FROM master_pharmacy
-         WHERE LOWER(brand_name) LIKE LOWER($1) OR LOWER(brand_name) LIKE LOWER($2)
-         LIMIT 30`,
-        [`%${rawBrand}%`, `%${firstWord}%`]
+         WHERE LOWER(brand_name) LIKE LOWER($1)
+            OR LOWER(brand_name) LIKE LOWER($2)
+            OR LOWER(brand_name) LIKE LOWER($3)
+            OR LOWER(brand_name) LIKE LOWER($4)
+         LIMIT 200`,
+        [`%${rawBrand}%`, `%${firstWord}%`, p3, p2]
       );
+
+      // If no prefix match found, pull all master drugs to score Levenshtein similarity
+      if (fuzzyBrandMatches.length === 0) {
+        fuzzyBrandMatches = await query<MatchedDrug>(
+          `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
+                  strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
+           FROM master_pharmacy
+           LIMIT 500`
+        );
+      }
 
       if (fuzzyBrandMatches.length > 0) {
         let bestMatch: MatchedDrug | null = null;
@@ -189,12 +211,12 @@ export class MedicineMatchingService {
             if (bestMatch) alts.push(bestMatch);
             bestMatch = item;
             bestScore = score;
-          } else {
+          } else if (score >= 0.4) {
             alts.push(item);
           }
         }
 
-        if (bestMatch && bestScore >= 0.4) {
+        if (bestMatch && bestScore >= 0.50) {
           return {
             input,
             matched: true,
@@ -255,6 +277,34 @@ export class MedicineMatchingService {
       }
     }
 
+    // 4.5. Web / Google Search Grounding Drug Name Correction Pipeline
+    if (rawBrand.length >= 3) {
+      const suggestedBrand = await WebSearchService.suggestCorrectDrugName(rawBrand, 'Tab', input.dosage || input.strength);
+      if (suggestedBrand) {
+        const webMatches = await query<MatchedDrug>(
+          `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
+                  strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
+           FROM master_pharmacy
+           WHERE LOWER(brand_name) = LOWER($1) OR LOWER(brand_name) LIKE LOWER($2)
+           LIMIT 10`,
+          [suggestedBrand, `%${suggestedBrand}%`]
+        );
+        if (webMatches.length > 0) {
+          logger.info(`[WEB SEARCH MATCH SUCCESS] Matched "${rawBrand}" to master drug: "${webMatches[0].brandName}" via web suggestion "${suggestedBrand}"`);
+          return {
+            input,
+            matched: true,
+            matchType: 'FUZZY_BRAND',
+            confidence: 0.90,
+            matchedDrug: webMatches[0],
+            normalizedStrength: normStrength,
+            strengthVerified,
+            alternatives: webMatches.slice(1, 4),
+          };
+        }
+      }
+    }
+
     // 5. Unknown Medicine Handling (never fail or fabricate)
     return {
       input,
@@ -269,9 +319,9 @@ export class MedicineMatchingService {
   }
 
   /**
-   * Batch validates an entire prescription payload
+   * Batch validates an entire prescription payload & runs clinical coherence safety checks
    */
-  public static async validatePrescriptionPayload(medicinesInput: ExtractedMedicineInput[]): Promise<ValidationSummary> {
+  public static async validatePrescriptionPayload(medicinesInput: ExtractedMedicineInput[], diagnosisText: string = ''): Promise<ValidationSummary> {
     const results: ValidatedMedicineResult[] = [];
     let matchedCount = 0;
     let totalConfidenceSum = 0;
@@ -283,6 +333,25 @@ export class MedicineMatchingService {
       totalConfidenceSum += res.confidence;
     }
 
+    // Run TASK-005 / TASK-006 Clinical Safety & Coherence Check
+    const safetyInputs = results.map(r => ({
+      brandName: r.matchedDrug ? r.matchedDrug.brandName : (r.input.brandName || 'Unknown'),
+      genericName: r.matchedDrug ? r.matchedDrug.saltComposition : r.input.genericName,
+      matchScore: r.confidence,
+      matchType: r.matchType,
+    }));
+    const safetyEvaluations = ClinicalSafetyService.evaluateClinicalCoherence(safetyInputs, diagnosisText);
+
+    let flaggedCount = 0;
+    results.forEach((r, idx) => {
+      const evalResult = safetyEvaluations[idx];
+      if (evalResult) {
+        r.requiresReview = evalResult.requiresReview;
+        r.flagReason = evalResult.flagReason;
+        if (evalResult.requiresReview) flaggedCount++;
+      }
+    });
+
     const total = medicinesInput.length;
     const overallConfidence = total > 0 ? Math.round((totalConfidenceSum / total) * 100) / 100 : 0.0;
 
@@ -291,6 +360,7 @@ export class MedicineMatchingService {
       matchedCount,
       unknownCount: total - matchedCount,
       overallConfidence,
+      flaggedForReviewCount: flaggedCount,
       medicines: results,
     };
   }

@@ -33,6 +33,9 @@ class OCRResult(BaseModel):
     prescription_id:  Optional[str]         = None
     raw_text:         str                   = ""
     doctor_name:      ExtractedField
+    patient_name:     ExtractedField               # Patient name extracted from header
+    patient_age:      ExtractedField               # Patient age
+    patient_gender:   ExtractedField               # Patient gender/sex
     prescription_date: ExtractedField                # Date written on prescription
     clinical_tests:   List[ExtractedField]  = []   # Diagnostic tests / lab work requested
     follow_up_date:   ExtractedField               # Follow up date / next visit

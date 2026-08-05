@@ -85,7 +85,7 @@ def extract_prescription_date(text: str) -> ExtractedField:
 
 # ─── Dosage Unit Extraction ─────────────────────────────────────────────────
 _STRENGTH_PATTERN = re.compile(
-    r'(\d+(?:\.\d+)?)\s*(mg|mcg|ml|g|IU|%|µg)',
+    r'(\d+(?:\.\d+)?)\s*(mg|mcg|ml|g|IU|%|µg|m\b)',
     re.IGNORECASE
 )
 
@@ -93,20 +93,24 @@ _STRENGTH_PATTERN = re.compile(
 def _extract_strength(text: str) -> Tuple[Optional[str], float]:
     m = _STRENGTH_PATTERN.search(text)
     if m:
-        return f"{m.group(1)}{m.group(2).lower()}", 0.90
+        unit = m.group(2).lower()
+        if unit == 'm':
+            unit = 'mg'
+        return f"{m.group(1)}{unit}", 0.90
     return None, 0.0
 
 
 # ─── Frequency Extraction ────────────────────────────────────────────────────
 _FREQ_PATTERNS = [
-    r'\b([01]\+[01]\+[01](?:\+[01])?|[01]\-[01]\-[01])\b', # Bangladeshi notation: 1+0+1, 1+1+1, 0+0+1
+    r'\b([0123]\s*[\+\-\*\.]\s*[0123]\s*[\+\-\*\.]\s*[0123](?:\s*[\+\-\*\.]\s*[0123])?)\b', # Bangladeshi notation: 1+0+1, 0+1+0, 1-0-1, 1*0*1
+    r'\b(\d+\s*(?:puff|puffs|tsf|tsp|tablespoon|drop|drops)\s*(?:daily|times|bd|tds|qid)?)\b',
     r'\b(once\s*daily|od|qd|q\.d\.)\b',
     r'\b(twice\s*daily|bd|bid|b\.i\.d\.)\b',
     r'\b(three\s*times\s*daily|tds|tid|t\.i\.d\.)\b',
     r'\b(four\s*times\s*daily|qid|q\.i\.d\.)\b',
     r'\b(as\s*needed|sos|prn|p\.r\.n\.)\b',
     r'\b(every\s*\d+\s*hours?|q\d+h)\b',
-    r'\b(at\s*bedtime|hs|nocte)\b',
+    r'\b(at\s*bedtime|hs|nocte|night)\b',
     r'\b(before\s*meals?|ac)\b',
     r'\b(after\s*meals?|pc)\b',
     r'\b(immediately|stat)\b',
@@ -124,20 +128,20 @@ def _extract_frequency(text: str) -> Tuple[Optional[str], float]:
 
 
 # ─── Duration Extraction ─────────────────────────────────────────────────────
-_DURATION_PATTERN = re.compile(
-    r'(?:for\s+)?(\d+)\s*(day|days|week|weeks|month|months)',
-    re.IGNORECASE
-)
+_DURATION_PATTERNS = [
+    r'(?:for\s+)?(\d+\s*(?:day|days|wk|wks|week|weeks|mth|mths|month|months))\b',
+    r'\b(\d+)\s*(?:days?|weeks?|months?)\b',
+    r'\b(continue|continuation|cont\.?)\b',
+]
+
+_COMPILED_DUR = [(re.compile(p, re.IGNORECASE), 0.85) for p in _DURATION_PATTERNS]
 
 
 def _extract_duration(text: str) -> Tuple[Optional[str], float]:
-    m = _DURATION_PATTERN.search(text)
-    if m:
-        count = m.group(1)
-        unit  = m.group(2).lower()
-        if not unit.endswith('s'):
-            unit += 's'
-        return f"{count} {unit}", 0.85
+    for pattern, score in _COMPILED_DUR:
+        m = pattern.search(text)
+        if m:
+            return m.group(0).strip(), score
     return None, 0.0
 
 
@@ -172,7 +176,7 @@ def _extract_instructions(text: str) -> Tuple[Optional[str], float]:
 # ─── Medicine Block Detection ────────────────────────────────────────────────
 # A medicine line starts with Tab, Cap, Syp, Inj, a numbered list, or medicine brand name with strength
 _MEDICINE_LINE = re.compile(
-    r'^(?:Tab\.?|Cap\.?|Syp\.?|Inj\.?|Syr\.?|T96|Ta6|Ta|Tob|Tal|Tol|Tos|TGb|Cqp|aplopie|yp)\.?\s*([A-Za-z0-9\-\+]{2,35})' # Prefix like Tab. Vastaxel, Cap LansO, aplopie, Tal, Tol
+    r'^(?:#+\s*)?(?:Tab|Cap|Syp|Inj|Syr|Tap|T96|Ta6|Ta|Tob|Tal|Tol|Tos|TGb|Cqp|aplopie|yp)[\.:\s]+\s*([A-Za-z0-9\-\+]{2,35})' # Prefix like Tab: Vastaxel, Tap: Elopile, Cap: Lanso
     r'|'
     r'^(?:\d+[\.\)]\s*)([A-Za-z][A-Za-z0-9\-\+]{1,35})'                               # Explicitly numbered like "1. Napa"
     r'|'
@@ -278,13 +282,65 @@ def extract_follow_up_date(text: str) -> ExtractedField:
     return _field(None, 0.0)
 
 
+# ─── Patient Info Extraction ──────────────────────────────────────────────
+_PATIENT_NAME_PATTERNS = [
+    (r'(?:Patient|Name|Pt\.?\s*Name|Patient\s*Name)[:\s\.]*([A-Za-z][A-Za-z\s\.]{2,35})', 0.90),
+    (r'(?:Name|Pt)[:\s\.]*([A-Za-z][A-Za-z\s\.]{2,35})(?=\s*(?:Age|Sex|Date|\n|$))', 0.85),
+]
+
+_PATIENT_AGE_PATTERNS = [
+    (r'(?:Age|Yrs|Years)[:\s\.]*(\d{1,3}\s*(?:yrs?|years?|y)?)', 0.85),
+    (r'\b(\d{1,3})\s*(?:yrs?|years?)\b', 0.80),
+]
+
+_PATIENT_GENDER_PATTERNS = [
+    (r'(?:Sex|Gender)[:\s\.]*(Male|Female|M|F)\b', 0.85),
+    (r'\b(Male|Female)\b', 0.75),
+]
+
+
+def extract_patient_info(text: str) -> Tuple[ExtractedField, ExtractedField, ExtractedField]:
+    p_name, p_age, p_gender = None, None, None
+
+    for pattern, score in _PATIENT_NAME_PATTERNS:
+        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            val = m.group(1).strip().rstrip('.')
+            if len(val) >= 3 and not re.match(r'^(?:Dr|Date|Rx|Tab|Cap|Syp)', val, re.IGNORECASE):
+                p_name = _field(val, score)
+                break
+    if not p_name:
+        p_name = _field(None, 0.0)
+
+    for pattern, score in _PATIENT_AGE_PATTERNS:
+        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            p_age = _field(m.group(1).strip(), score)
+            break
+    if not p_age:
+        p_age = _field(None, 0.0)
+
+    for pattern, score in _PATIENT_GENDER_PATTERNS:
+        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            p_gender = _field(m.group(1).strip().capitalize(), score)
+            break
+    if not p_gender:
+        p_gender = _field(None, 0.0)
+
+    return p_name, p_age, p_gender
+
+
 # ─── Public Parser ────────────────────────────────────────────────────────────
-def parse_prescription(cleaned_text: str, ocr_word_confidences: List[float] = []) -> Tuple[ExtractedField, ExtractedField, List[ExtractedField], ExtractedField, List[ParsedMedicine], List[str]]:
+def parse_prescription(cleaned_text: str, ocr_word_confidences: List[float] = []) -> Tuple[ExtractedField, ExtractedField, ExtractedField, ExtractedField, ExtractedField, List[ExtractedField], ExtractedField, List[ParsedMedicine], List[str]]:
     """
     Parse cleaned OCR text into structured prescription fields.
 
     Returns:
         doctor_name: ExtractedField
+        patient_name: ExtractedField
+        patient_age: ExtractedField
+        patient_gender: ExtractedField
         prescription_date: ExtractedField
         clinical_tests: List[ExtractedField]
         follow_up_date: ExtractedField
@@ -294,10 +350,12 @@ def parse_prescription(cleaned_text: str, ocr_word_confidences: List[float] = []
     low_confidence: List[str] = []
     medicines: List[ParsedMedicine] = []
 
-    # ─── Doctor Name ──────────────────────────────────────────────────────────
+    # ─── Doctor & Patient Info ────────────────────────────────────────────────
     doctor = extract_doctor_name(cleaned_text)
     if doctor.confidence == ConfidenceLevel.LOW:
         low_confidence.append('doctor_name')
+
+    patient_name, patient_age, patient_gender = extract_patient_info(cleaned_text)
 
     # ─── Prescription Date ────────────────────────────────────────────────────
     prescription_date = extract_prescription_date(cleaned_text)
@@ -321,8 +379,8 @@ def parse_prescription(cleaned_text: str, ocr_word_confidences: List[float] = []
         first_line = block.split('\n')[0].strip()
         name_match = re.match(r'^(?:Tab\.?|Cap\.?|Syp\.?|Inj\.?|Syr\.?|T96|Ta6|Ta|Tob|Tal|Tol|Tos|TGb|Cqp|aplopie|yp)\.?\s*|\d+[\.\)]\s*([A-Za-z][A-Za-z0-9\-\+]{1,35})', first_line, re.IGNORECASE)
         # Fallback to general first word match if prefix was stripped
-        clean_first_line = re.sub(r'^(?:(?:Tab\.?|Cap\.?|Syp\.?|Inj\.?|Syr\.?|T96|Ta6|Ta|Tob|Tal|Tol|Tos|TGb|Cqp|aplopie|yp)\.?\s*|\d+[\.\)]\s*)+', '', first_line, flags=re.IGNORECASE).strip()
-        brand_name_raw = clean_first_line.split()[0] if clean_first_line else (name_match.group(1).strip() if name_match else None)
+        clean_first_line = re.sub(r'^(?:#+\s*)?(?:(?:Tab|Cap|Syp|Inj|Syr|Tap|T96|Ta6|Ta|Tob|Tal|Tol|Tos|TGb|Cqp|aplopie|yp)[\.:\s]+\s*|\d+[\.\)]\s*)+', '', first_line, flags=re.IGNORECASE).strip()
+        brand_name_raw = clean_first_line.split()[0] if clean_first_line else None
 
         # Derive confidence for brand name from OCR avg + name heuristic
         brand_score = min(avg_ocr_conf * 0.95 + 0.05, 1.0) if brand_name_raw else 0.0
@@ -361,5 +419,5 @@ def parse_prescription(cleaned_text: str, ocr_word_confidences: List[float] = []
         if brand_name_raw:
             medicines.append(med)
 
-    return doctor, prescription_date, clinical_tests, follow_up_date, medicines, low_confidence
+    return doctor, patient_name, patient_age, patient_gender, prescription_date, clinical_tests, follow_up_date, medicines, low_confidence
 

@@ -81,4 +81,30 @@ class GeminiProvider:
         except Exception as err:
             logger.error(f"HTTP fallback error for Gemini API: {err}")
 
-        return "MediSync Medical Assistant is temporarily unable to reach Gemini API. Please check network connectivity and API key."
+        # 3. Try Groq Llama 3.3 70B ultra-fast LPU fallback if configured
+        groq_key = os.getenv("GROQ_API_KEY", "")
+        if groq_key:
+            try:
+                import httpx
+                headers = {
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "max_tokens": 800
+                }
+                async with httpx.AsyncClient(timeout=10.0) as groq_client:
+                    res = await groq_client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
+                    if res.status_code == 200:
+                        content = res.json()["choices"][0]["message"]["content"]
+                        if content:
+                            return content
+            except Exception as groq_err:
+                logger.error(f"Groq API fallback error: {groq_err}")
+
+        return "MediSync Medical Assistant is temporarily unable to reach AI providers. Please check network connectivity and API keys."

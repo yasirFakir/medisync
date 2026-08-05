@@ -1,3 +1,16 @@
+import os
+from pathlib import Path
+
+# Auto-load root .env file at startup
+root_env = Path(__file__).resolve().parent.parent.parent / ".env"
+if root_env.exists():
+    with open(root_env, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel

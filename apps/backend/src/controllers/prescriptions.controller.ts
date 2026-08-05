@@ -85,7 +85,7 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
     frequency: m.frequency,
     duration: m.duration,
   }));
-  const validationSummary = await MedicineMatchingService.validatePrescriptionPayload(formattedInputs);
+  const validationSummary = await MedicineMatchingService.validatePrescriptionPayload(formattedInputs, digitizedNotes);
 
   // Save prescription to DB
   const prescriptionId = uuidv4();
