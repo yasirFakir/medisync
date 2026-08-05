@@ -7,6 +7,7 @@ import Joi from 'joi';
 const router = Router();
 
 const chatSchema = Joi.object({
+  sessionId: Joi.string().uuid().optional(),
   symptoms: Joi.array().items(Joi.string()).min(1).required(),
   additionalNotes: Joi.string().optional(),
   conversationHistory: Joi.array()
@@ -35,6 +36,14 @@ router.get(
   authenticate,
   authorize('PATIENT'),
   triageController.getSessions
+);
+
+// DELETE /api/triage/sessions/:sessionId  — Delete triage session history [PATIENT]
+router.delete(
+  '/sessions/:sessionId',
+  authenticate,
+  authorize('PATIENT'),
+  triageController.deleteSession
 );
 
 export default router;

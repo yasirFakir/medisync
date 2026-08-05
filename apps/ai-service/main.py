@@ -67,6 +67,7 @@ class ChatMessage(BaseModel):
 
 class TriageRequest(BaseModel):
     patientId: str
+    sessionId: Optional[str] = None
     symptoms: List[str]
     additionalNotes: Optional[str] = None
     conversationHistory: Optional[List[ChatMessage]] = None
@@ -86,11 +87,19 @@ async def triage_chat(request: TriageRequest):
     AI symptom triage endpoint using Gemini Provider with fallback.
     """
     symptom_text = ", ".join(request.symptoms)
-    print(f"🤖 [AI-SERVICE] Received POST /triage/chat request for patient: {request.patientId} (Symptoms: {symptom_text})")
+    print(f"🤖 [AI-SERVICE] Received POST /triage/chat request for patient: {request.patientId} (Session: {request.sessionId}, Symptoms: {symptom_text})")
+
+    # Format full conversation history if provided
+    history_text = ""
+    if request.conversationHistory and len(request.conversationHistory) > 0:
+        history_lines = [f"{msg.role.upper()}: {msg.content}" for msg in request.conversationHistory]
+        history_text = "\n\nPrevious Conversation History:\n" + "\n".join(history_lines)
 
     prompt = (
-        f"Patient symptoms: {symptom_text}.\n"
-        f"Additional details: {request.additionalNotes or 'None'}.\n"
+        f"Patient symptoms reported: {symptom_text}.\n"
+        f"Additional notes / latest user query: {request.additionalNotes or 'None'}.\n"
+        f"{history_text}\n\n"
+        "Provide a coherent, direct response taking into account the entire conversation history above. "
         "Assess urgency (LOW, MEDIUM, HIGH, CRITICAL), explain educational precautions, and recommend next actions."
     )
 
@@ -109,8 +118,10 @@ async def triage_chat(request: TriageRequest):
     elif "MEDIUM" in upper_resp or "MODERATE" in upper_resp:
         urgency = "MEDIUM"
 
+    session_id = request.sessionId or str(uuid.uuid4())
+
     return {
-        "sessionId": str(uuid.uuid4()),
+        "sessionId": session_id,
         "urgencyLevel": urgency,
         "response": ai_explanation,
         "recommendedAction": "Consult a healthcare provider or clinic for a physical assessment."

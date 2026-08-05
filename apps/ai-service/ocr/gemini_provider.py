@@ -47,41 +47,7 @@ class GeminiProvider:
         sys_prompt = system_instruction or MEDICAL_SYSTEM_PROMPT
         full_prompt = f"{sys_prompt}\n\nUser Question:\n{prompt}"
 
-        # 1. Try google-genai SDK client
-        if self.client and hasattr(self.client, 'models'):
-            try:
-                response = self.client.models.generate_content(
-                    model='gemini-flash-latest',
-                    contents=full_prompt,
-                )
-                if response and hasattr(response, 'text'):
-                    return response.text
-            except Exception as e:
-                logger.error(f"Error calling Gemini genai client: {e}")
-
-        # 2. Try raw REST HTTP call as robust fallback
-        try:
-            import httpx
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={self.api_key}"
-            payload = {
-                "contents": [{
-                    "parts": [{"text": full_prompt}]
-                }]
-            }
-            async with httpx.AsyncClient(timeout=15.0) as http_client:
-                res = await http_client.post(url, json=payload)
-                if res.status_code == 200:
-                    data = res.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        if parts:
-                            return parts[0].get("text", "")
-                logger.error(f"Gemini REST API error {res.status_code}: {res.text}")
-        except Exception as err:
-            logger.error(f"HTTP fallback error for Gemini API: {err}")
-
-        # 3. Try Groq Llama 3.3 70B ultra-fast LPU fallback if configured
+        # 1. Primary Always-Free Provider: Groq Llama 3.3 70B (Fast & No Quota Blocks)
         groq_key = os.getenv("GROQ_API_KEY", "")
         if groq_key:
             try:
@@ -98,13 +64,51 @@ class GeminiProvider:
                     ],
                     "max_tokens": 800
                 }
-                async with httpx.AsyncClient(timeout=10.0) as groq_client:
+                async with httpx.AsyncClient(timeout=12.0) as groq_client:
                     res = await groq_client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
                     if res.status_code == 200:
                         content = res.json()["choices"][0]["message"]["content"]
                         if content:
+                            logger.info("Successfully generated AI response via Groq Llama 3.3.")
                             return content
+                    logger.warning(f"Groq API returned HTTP {res.status_code}: {res.text}")
             except Exception as groq_err:
-                logger.error(f"Groq API fallback error: {groq_err}")
+                logger.warning(f"Groq API provider error: {groq_err}")
+
+        # 2. Secondary Provider: Gemini SDK
+        if self.client and hasattr(self.client, 'models'):
+            for model_name in ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest']:
+                try:
+                    response = self.client.models.generate_content(
+                        model=model_name,
+                        contents=full_prompt,
+                    )
+                    if response and hasattr(response, 'text'):
+                        return response.text
+                except Exception as e:
+                    logger.warning(f"Gemini SDK model {model_name} failed/quota exceeded: {e}")
+
+        # 3. Tertiary Provider: Gemini REST HTTP
+        try:
+            import httpx
+            for model_name in ['gemini-1.5-flash', 'gemini-2.0-flash']:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                payload = {
+                    "contents": [{
+                        "parts": [{"text": full_prompt}]
+                    }]
+                }
+                async with httpx.AsyncClient(timeout=15.0) as http_client:
+                    res = await http_client.post(url, json=payload)
+                    if res.status_code == 200:
+                        data = res.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts:
+                                return parts[0].get("text", "")
+                    logger.warning(f"Gemini REST model {model_name} returned {res.status_code}: {res.text}")
+        except Exception as err:
+            logger.error(f"HTTP fallback error for Gemini API: {err}")
 
         return "MediSync Medical Assistant is temporarily unable to reach AI providers. Please check network connectivity and API keys."

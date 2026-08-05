@@ -36,12 +36,63 @@ export const TriagePage: React.FC = () => {
     setCustomSymptom('');
   };
 
+  const [historySessions, setHistorySessions] = useState<any[]>([]);
+
+  const fetchHistory = async () => {
+    try {
+      const res = await apiClient.get('/triage/sessions');
+      if (res.data && res.data.data) {
+        setHistorySessions(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load past triage sessions', err);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  const loadPastSession = (session: any) => {
+    setActiveSessionId(session.sessionId);
+    setUrgency(session.urgencyLevel);
+    setRecommendation(session.recommendedAction);
+
+    let parsedMessages: ChatMessage[] = [];
+    try {
+      const rawData = typeof session.symptoms === 'string' ? JSON.parse(session.symptoms) : session.symptoms;
+      if (Array.isArray(rawData) && rawData.length > 0 && typeof rawData[0] === 'object' && rawData[0].role) {
+        parsedMessages = rawData.map((item: any) => ({
+          sender: item.role === 'user' ? 'user' : 'ai',
+          text: item.content,
+          timestamp: item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString()
+        }));
+      } else {
+        const syms = Array.isArray(rawData) ? rawData : [];
+        setSymptoms(syms);
+        parsedMessages = [
+          { sender: 'user', text: `[History Record] Symptoms reported: ${syms.join(', ')}`, timestamp: new Date(session.timestamp).toLocaleDateString() },
+          { sender: 'ai', text: session.response, timestamp: new Date(session.timestamp).toLocaleDateString() }
+        ];
+      }
+    } catch (e) {
+      parsedMessages = [
+        { sender: 'ai', text: session.response, timestamp: new Date(session.timestamp).toLocaleDateString() }
+      ];
+    }
+    setMessages(parsedMessages);
+  };
+
   const handleStartTriage = async () => {
     if (symptoms.length === 0) return;
     setLoading(true);
+    setActiveSessionId(null);
 
     const userQuery = `I am experiencing: ${symptoms.join(', ')}.`;
-    setMessages(prev => [...prev, { sender: 'user', text: userQuery, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    const initialMessages: ChatMessage[] = [{ sender: 'user', text: userQuery, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }];
+    setMessages(initialMessages);
 
     try {
       const res = await apiClient.post('/triage/chat', {
@@ -49,11 +100,13 @@ export const TriagePage: React.FC = () => {
         additionalNotes: 'Triage session initiated from unified web patient portal.'
       });
       
-      const { response, urgencyLevel, recommendedAction } = res.data;
-      
+      const { sessionId, response, urgencyLevel, recommendedAction } = res.data.data || res.data;
+      if (sessionId) setActiveSessionId(sessionId);
+
       setMessages(prev => [...prev, { sender: 'ai', text: response, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       setUrgency(urgencyLevel);
       setRecommendation(recommendedAction);
+      fetchHistory();
     } catch (err) {
       setMessages(prev => [...prev, { sender: 'ai', text: 'Sorry, the AI Triage Service is currently busy or unreachable. Please try again shortly.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
     } finally {
@@ -68,6 +121,63 @@ export const TriagePage: React.FC = () => {
       case 'HIGH': return 'red';
       case 'EMERGENCY': return 'red';
       default: return 'blue';
+    }
+  };
+
+  const handleDeleteSession = async (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    try {
+      await apiClient.delete(`/triage/sessions/${sessionId}`);
+      fetchHistory();
+      if (activeSessionId === sessionId) {
+        setActiveSessionId(null);
+        setMessages([]);
+        setUrgency(null);
+        setRecommendation(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete session', err);
+    }
+  };
+
+  const [followUpText, setFollowUpText] = useState('');
+
+  const handleSendFollowUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!followUpText.trim() || loading) return;
+
+    const userText = followUpText.trim();
+    setFollowUpText('');
+
+    const newMessages = [...messages, { sender: 'user' as const, text: userText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }];
+    setMessages(newMessages);
+    setLoading(true);
+
+    try {
+      const historyPayload = newMessages.map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text,
+        timestamp: m.timestamp
+      }));
+
+      const res = await apiClient.post('/triage/chat', {
+        sessionId: activeSessionId || undefined,
+        symptoms: symptoms.length > 0 ? symptoms : ['Follow-up consultation'],
+        additionalNotes: userText,
+        conversationHistory: historyPayload
+      });
+
+      const { sessionId, response, urgencyLevel, recommendedAction } = res.data.data || res.data;
+      if (sessionId) setActiveSessionId(sessionId);
+
+      setMessages(prev => [...prev, { sender: 'ai', text: response, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+      if (urgencyLevel) setUrgency(urgencyLevel);
+      if (recommendedAction) setRecommendation(recommendedAction);
+      fetchHistory();
+    } catch (err) {
+      setMessages(prev => [...prev, { sender: 'ai', text: 'Failed to send follow-up response. Please try again.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -137,6 +247,57 @@ export const TriagePage: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Previous Chat History */}
+        {historySessions.length > 0 && (
+          <div style={{ marginTop: '12px' }}>
+            <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>Previous AI Sessions:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+              {historySessions.map((sess, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => loadPastSession(sess)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-default)',
+                    background: 'var(--bg-elevated)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', marginRight: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{new Date(sess.timestamp).toLocaleDateString()}</span>
+                      <Badge variant={getUrgencyColor(sess.urgencyLevel)} size="sm">{sess.urgencyLevel}</Badge>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                      {Array.isArray(sess.symptoms) ? sess.symptoms.join(', ') : sess.symptoms}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={(e) => handleDeleteSession(e, sess.sessionId)}
+                    title="Delete Chat Session"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-danger)',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: 700,
+                      padding: '4px'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Button onClick={handleStartTriage} disabled={symptoms.length === 0 || loading} style={{ width: '100%' }}>
           {loading ? <Spinner size={16} /> : 'Begin Triage Diagnostic'}
@@ -242,6 +403,46 @@ export const TriagePage: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Interactive Follow-up Chat Input bar */}
+          {messages.length > 0 && (
+            <form onSubmit={handleSendFollowUp} style={{ padding: '16px 24px', borderTop: '1px solid var(--border-default)', display: 'flex', gap: '12px', alignItems: 'flex-end', background: 'var(--bg-elevated)', width: '100%' }}>
+              <textarea
+                placeholder="Ask follow-up questions to AI Assistant... (Press Enter to send, Shift+Enter for new line)"
+                value={followUpText}
+                onChange={e => setFollowUpText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (followUpText.trim() && !loading) {
+                      handleSendFollowUp(e);
+                    }
+                  }
+                }}
+                disabled={loading}
+                rows={3}
+                style={{
+                  flex: 1,
+                  width: '100%',
+                  minHeight: '75px',
+                  maxHeight: '180px',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-default)',
+                  background: 'var(--bg-surface)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.4',
+                  resize: 'vertical',
+                  outline: 'none',
+                  fontFamily: 'inherit'
+                }}
+              />
+              <Button type="submit" disabled={!followUpText.trim() || loading} icon={<Send size={16} />} style={{ height: '42px' }}>
+                Send
+              </Button>
+            </form>
+          )}
         </Card>
       </div>
 
