@@ -1,8 +1,8 @@
+@import "../../packages/ui/src/styles/globals.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import "../../packages/ui/src/styles/globals.css";
 
 /* Dynamic style colors based on user role */
 .role-patient {

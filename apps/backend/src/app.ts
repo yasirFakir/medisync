@@ -22,6 +22,9 @@ import ehrRouter from './routes/ehr.routes';
 import triageRouter from './routes/triage.routes';
 import alertsRouter from './routes/alerts.routes';
 import usersRouter from './routes/users.routes';
+import alternativesRouter from './routes/alternatives.routes';
+import pharmaciesRouter from './routes/pharmacies.routes';
+import availabilityRouter from './routes/availability.routes';
 
 const app = express();
 
@@ -91,6 +94,9 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/drugs', drugsRouter);
 app.use('/api/inventory', inventoryRouter);
+app.use('/api/alternatives', alternativesRouter);
+app.use('/api/pharmacies', pharmaciesRouter);
+app.use('/api/availability', availabilityRouter);
 app.use('/api/prescriptions', prescriptionsRouter);
 app.use('/api/ehr', ehrRouter);
 app.use('/api/triage', triageRouter);

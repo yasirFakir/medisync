@@ -12,7 +12,7 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ user, actions, onSearch }) => (
-  <header className="flex justify-between items-center w-full px-10 h-16 bg-[#f9f9ff] border-b border-[#bcc9c6]/30 sticky top-0 z-10 font-sans">
+  <header className="flex justify-between items-center w-full px-6 lg:px-12 h-16 bg-[#f9f9ff] border-b border-[#bcc9c6]/30 sticky top-0 z-10 font-sans">
     {/* Left: Mobile Title or Search bar */}
     <div className="flex items-center gap-4">
       <div className="relative hidden sm:block">
@@ -29,7 +29,7 @@ export const TopBar: React.FC<TopBarProps> = ({ user, actions, onSearch }) => (
     </div>
 
     {/* Right: Notifications, Settings, Profile */}
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-4 pr-4">
       {actions}
       <button className="text-[#3d4947] hover:text-[#00685f] transition-all relative cursor-pointer p-1.5 rounded-full hover:bg-gray-100">
         <span className="material-symbols-outlined text-[24px]">notifications</span>

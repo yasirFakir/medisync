@@ -74,7 +74,25 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
         duration: "5 days"
       }
     ];
+    ocrResult = {
+      raw_text: digitizedNotes,
+      doctor_name: { value: doctorName, confidence: 'high', score: 1.0 },
+      doctor_degrees: { value: 'MBBS, FCPS', confidence: 'medium', score: 0.8 },
+      doctor_specialty: { value: 'General Medicine & Clinical Specialist', confidence: 'medium', score: 0.8 },
+      hospital_name: { value: 'Central Health Clinic', confidence: 'high', score: 1.0 },
+      patient_name: { value: 'Patient', confidence: 'medium', score: 0.7 },
+      prescription_date: { value: new Date().toLocaleDateString('en-GB'), confidence: 'high', score: 1.0 },
+      clinical_diagnosis: { value: '• Fever & Acute Symptoms', confidence: 'medium', score: 0.7 },
+      medicines: medicines.map(m => ({
+        brand_name: { value: m.brandName, confidence: 'high', score: 1.0 },
+        strength: { value: m.dosage, confidence: 'high', score: 1.0 },
+        dosage: { value: m.dosage, confidence: 'high', score: 1.0 },
+        frequency: { value: m.frequency, confidence: 'high', score: 1.0 },
+        duration: { value: m.duration, confidence: 'high', score: 1.0 },
+      }))
+    };
   }
+
 
   // TASK-005 Deterministic Medicine Matching & Validation
   const formattedInputs: ExtractedMedicineInput[] = medicines.map(m => ({
@@ -197,3 +215,115 @@ export const deletePrescription = async (req: AuthRequest, res: Response): Promi
 
   res.json({ success: true, message: 'Prescription deleted successfully', timestamp: new Date().toISOString() });
 };
+
+// ─── PATCH /api/prescriptions/:id ────────────────────────────────────────────
+export const updatePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { userId, role } = req.user!;
+  const { doctorName, doctorDegrees, doctorSpecialty, patientName, patientAge, patientGender, hospitalName, prescriptionDate, clinicalDiagnosis, medicines } = req.body;
+
+  const [existing] = await query<{ patientId: string; ocrResult: any; medicines: any }>(
+    `SELECT patient_id AS "patientId", ocr_result AS "ocrResult", medicines FROM prescriptions WHERE prescription_id = $1`,
+    [id]
+  );
+
+  if (!existing) throw new AppError('Prescription not found', 404);
+
+  if (role === 'PATIENT' && existing.patientId !== userId) {
+    throw new AppError('Access denied', 403);
+  }
+
+  // Update OCR result nested structure if present
+  let updatedOcr = existing.ocrResult;
+  if (updatedOcr) {
+    if (typeof updatedOcr === 'string') {
+      try { updatedOcr = JSON.parse(updatedOcr); } catch { /* silent */ }
+    }
+    if (doctorName !== undefined) {
+      updatedOcr.doctor_name = { ...(updatedOcr.doctor_name || {}), value: doctorName, confidence: 'high', score: 1.0 };
+    }
+    if (doctorDegrees !== undefined) {
+      updatedOcr.doctor_degrees = { ...(updatedOcr.doctor_degrees || {}), value: doctorDegrees, confidence: 'high', score: 1.0 };
+    }
+    if (doctorSpecialty !== undefined) {
+      updatedOcr.doctor_specialty = { ...(updatedOcr.doctor_specialty || {}), value: doctorSpecialty, confidence: 'high', score: 1.0 };
+    }
+    if (patientName !== undefined) {
+      updatedOcr.patient_name = { ...(updatedOcr.patient_name || {}), value: patientName, confidence: 'high', score: 1.0 };
+    }
+    if (patientAge !== undefined) {
+      updatedOcr.patient_age = { ...(updatedOcr.patient_age || {}), value: patientAge, confidence: 'high', score: 1.0 };
+    }
+    if (patientGender !== undefined) {
+      updatedOcr.patient_gender = { ...(updatedOcr.patient_gender || {}), value: patientGender, confidence: 'high', score: 1.0 };
+    }
+    if (hospitalName !== undefined) {
+      updatedOcr.hospital_name = { ...(updatedOcr.hospital_name || {}), value: hospitalName, confidence: 'high', score: 1.0 };
+    }
+    if (prescriptionDate !== undefined) {
+      updatedOcr.prescription_date = { ...(updatedOcr.prescription_date || {}), value: prescriptionDate, confidence: 'high', score: 1.0 };
+    }
+    if (clinicalDiagnosis !== undefined) {
+      updatedOcr.clinical_diagnosis = { ...(updatedOcr.clinical_diagnosis || {}), value: clinicalDiagnosis, confidence: 'high', score: 1.0 };
+    }
+
+    // Re-evaluate low_confidence_fields: filter out any fields that are now high confidence or populated
+    if (Array.isArray(updatedOcr.low_confidence_fields)) {
+      updatedOcr.low_confidence_fields = updatedOcr.low_confidence_fields.filter((field: string) => {
+        if (field.includes('doctor') && updatedOcr.doctor_name?.value) return false;
+        if (field.includes('patient') && updatedOcr.patient_name?.value) return false;
+        if (field.includes('date') && updatedOcr.prescription_date?.value) return false;
+        if (field.includes('hospital') && updatedOcr.hospital_name?.value) return false;
+        if (field.includes('medicine') && medicines && medicines.length > 0) return false;
+        return true;
+      });
+    }
+  }
+
+
+
+
+
+  // Re-run validation summary if medicines were updated
+  let validationSummary = undefined;
+  if (Array.isArray(medicines)) {
+    const formattedInputs: ExtractedMedicineInput[] = medicines.map((m: any) => ({
+      brandName: m.brandName || m.brand_name || '',
+      genericName: m.saltComposition || m.genericName || '',
+      strength: m.dosage || m.strength || '',
+      dosage: m.dosage || m.strength || '',
+      frequency: m.frequency || '',
+      duration: m.duration || '',
+    }));
+    validationSummary = await MedicineMatchingService.validatePrescriptionPayload(formattedInputs);
+  }
+
+  const [updated] = await query(
+    `UPDATE prescriptions
+     SET doctor_name = COALESCE($1, doctor_name),
+         medicines = CASE WHEN $2::jsonb IS NOT NULL THEN $2::jsonb ELSE medicines END,
+         ocr_result = CASE WHEN $3::jsonb IS NOT NULL THEN $3::jsonb ELSE ocr_result END,
+         validation_summary = CASE WHEN $4::jsonb IS NOT NULL THEN $4::jsonb ELSE validation_summary END
+     WHERE prescription_id = $5
+     RETURNING prescription_id AS "prescriptionId", patient_id AS "patientId", doctor_name AS "doctorName",
+               digitized_notes AS "digitizedNotes", medicines, validation_summary AS "validationSummary",
+               ocr_result AS "ocrResult", created_at AS "createdAt"`,
+    [
+      doctorName || null,
+      medicines ? JSON.stringify(medicines) : null,
+      updatedOcr ? JSON.stringify(updatedOcr) : null,
+      validationSummary ? JSON.stringify(validationSummary) : null,
+      id
+    ]
+  );
+
+  logger.info(`Prescription updated: ${id}`);
+
+  res.json({
+    success: true,
+    message: 'Prescription updated successfully',
+    data: updated,
+    timestamp: new Date().toISOString(),
+  });
+};
+

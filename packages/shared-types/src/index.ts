@@ -104,6 +104,7 @@ export interface InventoryItem {
   pharmacyId: string;
   drugId: string;
   inStock: boolean;
+  quantity: number;
   currentPrice: number;
   lastUpdated: string;
   drug?: DrugMaster;
@@ -113,6 +114,7 @@ export interface InventoryItem {
 export interface InventoryUpdateRequest {
   drugId: string;
   inStock: boolean;
+  quantity?: number;
   price: number;
 }
 
@@ -122,6 +124,99 @@ export interface MedicineLocatorResult {
   inStock: boolean;
   currentPrice: number;
   lastUpdated: string;
+}
+
+// ─── Alternatives (TASK-007) ─────────────────────────────────────────────────
+export interface AlternativeMatchDetails {
+  sameActiveIngredient: boolean;
+  sameStrength: boolean;
+  sameDosageForm: boolean;
+  priceDifference: number;
+  priceDifferencePercent: number;
+}
+
+export interface ScoredAlternative {
+  drugId: string;
+  brandName: string;
+  saltComposition: string;
+  strength: string;
+  dosageForm: string | null;
+  manufacturer: string | null;
+  estimatedPrice: number;
+  isGeneric: boolean;
+  trustRating: number;
+  score: number;
+  matchDetails: AlternativeMatchDetails;
+}
+
+export interface AlternativesResponse {
+  sourceDrug: DrugMaster;
+  alternatives: ScoredAlternative[];
+  totalAlternatives: number;
+}
+
+export interface DrugComparison {
+  drugId: string;
+  brandName: string;
+  genericName: string;
+  manufacturer: string | null;
+  strength: string;
+  dosageForm: string | null;
+  estimatedPrice: number;
+  isGeneric: boolean;
+  trustRating: number;
+  uses: string | null;
+  sideEffects: string | null;
+  contraindications: string | null;
+  prescriptionRequired: boolean;
+}
+
+// ─── Pharmacy Details (TASK-007) ─────────────────────────────────────────────
+export interface PharmacyDetail extends Pharmacy {
+  createdAt: string;
+  stockSummary: {
+    totalDrugs: number;
+    inStockCount: number;
+    outOfStockCount: number;
+  } | null;
+}
+
+// ─── Availability (TASK-007) ─────────────────────────────────────────────────
+export interface PharmacyAvailability {
+  pharmacyId: string;
+  storeName: string;
+  streetAddress: string;
+  city: string;
+  stockStatus: StockStatus;
+  quantity: number;
+  currentPrice: number | null;
+  lastUpdated: string;
+}
+
+export interface AvailabilitySummary {
+  totalPharmacies: number;
+  inStock: number;
+  lowStock: number;
+  outOfStock: number;
+  overallStatus: StockStatus | 'UNAVAILABLE';
+  lowestPrice: number | null;
+  highestPrice: number | null;
+  averagePrice: number | null;
+}
+
+export interface AvailabilityResult {
+  drug: Pick<DrugMaster, 'drugId' | 'brandName' | 'saltComposition'>;
+  summary: AvailabilitySummary;
+  pharmacies: PharmacyAvailability[];
+}
+
+export interface BatchAvailabilityItem {
+  drugId: string;
+  brandName: string;
+  totalPharmacies: number;
+  inStockCount: number;
+  status: StockStatus | 'UNAVAILABLE';
+  lowestPrice: number | null;
 }
 
 // ─── Real-time Chat / Stock Check ────────────────────────────────────────────

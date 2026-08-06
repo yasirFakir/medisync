@@ -73,50 +73,60 @@ def _worker_paddleocr(content: bytes) -> Tuple[str, List[float]]:
     Guarantees worker process recycling via max_tasks_per_child=1.
     """
     try:
-        import cv2
         import numpy as np
-        from paddleocr import PaddleOCR
+        try:
+            import cv2
+            from paddleocr import PaddleOCR
+            has_paddle = True
+        except ImportError:
+            has_paddle = False
+            logger.warning("PaddleOCR/cv2 not installed; using fallback text processing.")
 
-        engine = PaddleOCR(
-            use_angle_cls=False,
-            lang='en',
-            show_log=False,
-            enable_mkldnn=False,
-            det_limit_side_len=1200,
-        )
+        if has_paddle:
+            engine = PaddleOCR(
+                use_angle_cls=False,
+                lang='en',
+                show_log=False,
+                enable_mkldnn=False,
+                det_limit_side_len=1200,
+            )
 
-        lines: List[str] = []
-        confidences: List[float] = []
+            lines: List[str] = []
+            confidences: List[float] = []
 
-        # ── Pass 1: Raw Image Extraction ──────────────────────────────────────
-        with io.BytesIO(content) as buf:
-            with Image.open(buf) as img:
-                img_rgb = img.convert("RGB")
-                img_rgb.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
-                img_np1 = np.array(img_rgb)
-                img_rgb.close()
+            # ── Pass 1: Raw Image Extraction ──────────────────────────────────────
+            with io.BytesIO(content) as buf:
+                with Image.open(buf) as img:
+                    img_rgb = img.convert("RGB")
+                    img_rgb.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                    img_np1 = np.array(img_rgb)
+                    img_rgb.close()
 
-        res1 = engine.ocr(img_np1, cls=False)
-        if res1 and res1[0]:
-            for line in res1[0]:
-                if line and len(line) >= 2 and line[1]:
-                    lines.append(line[1][0])
-                    confidences.append(float(line[1][1]))
+            res1 = engine.ocr(img_np1, cls=False)
+            if res1 and res1[0]:
+                for line in res1[0]:
+                    if line and len(line) >= 2:
+                        txt, conf = line[1]
+                        if conf > 0.3:
+                            lines.append(txt)
+                            confidences.append(float(conf))
 
-        # ── Pass 2: CLAHE Contrast Enhanced & Sharpened Extraction ─────────────
-        img_np2 = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
-        if img_np2 is not None:
-            gray = cv2.cvtColor(img_np2, cv2.COLOR_BGR2GRAY)
+            # ── Pass 2: CLAHE Contrast Enhanced Image ─────────────────────────────
+            with io.BytesIO(content) as buf:
+                with Image.open(buf) as img:
+                    gray = np.array(img.convert("L"))
+                    img.close()
+
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
             enhanced = clahe.apply(gray)
             kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
             sharpened = cv2.filter2D(enhanced, -1, kernel)
+            img_np2 = cv2.cvtColor(sharpened, cv2.COLOR_GRAY2RGB)
 
-            res2 = engine.ocr(sharpened, cls=False)
+            res2 = engine.ocr(img_np2, cls=False)
             if res2 and res2[0]:
+                existing_lower = {l.lower() for l in lines}
                 for line in res2[0]:
-                    if line and len(line) >= 2 and line[1]:
-                        text_val = line[1][0]
                         if text_val not in lines:  # Deduplicate identical lines
                             lines.append(text_val)
                             confidences.append(float(line[1][1]))

@@ -33,7 +33,7 @@ export const config = {
   redisUrl: process.env.REDIS_URL || '',
 
   // AI Service
-  aiServiceUrl: process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000',
+  aiServiceUrl: (process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, ''),
 
   // Encryption
   encryptionKey: process.env.ENCRYPTION_KEY as string,

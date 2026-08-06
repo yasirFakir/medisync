@@ -1,0 +1,9 @@
+{
+  "name": "@medisync/ai-service",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "python main.py",
+    "dev:venv": ".\\venv\\Scripts\\python.exe main.py"
+  }
+}

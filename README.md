@@ -27,7 +27,97 @@ MediSync AI is a monorepo consisting of 3 distinct runtimes:
 
 ---
 
-### Option A: Run Everything Concurrently (Recommended)
+### ⚙️ Initial Environment Setup
+
+1. **Clone & Configure Environment Files**:
+   ```bash
+   cp .env.example .env
+   ```
+   *(Ensure `.env` contains your local `DATABASE_URL` and secrets. Local `.env` and `.env.*.local` files are ignored by git).*
+
+2. **Install Node Dependencies**:
+   ```bash
+   pnpm install
+   # OR
+   npm install
+   ```
+
+3. **Set Up Python Virtual Environment**:
+   ```bash
+   cd apps/ai-service
+   python3.12 -m venv venv
+   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+   pip install -r requirements.txt
+   cd ../..
+   ```
+
+---
+
+
+### 🪟 Windows Execution Options (VS Code / PowerShell / CMD)
+
+#### Option 1: Automatic Windows Launcher (Easiest — `run.bat`)
+Open the VS Code Terminal (`Ctrl + ~`) or PowerShell / CMD and run:
+```powershell
+.\run.bat
+# OR
+npm run run:win
+```
+*(This automatically launches the **AI Microservice**, **Express Backend**, and **React Frontend** in separate windows).*
+
+#### Option 2: Single Terminal Command (All-in-One)
+In VS Code Terminal (PowerShell or CMD), run:
+```powershell
+pnpm dev:all
+# OR
+npm run dev:all
+```
+
+#### Option 3: VS Code 1-Click Debug Launcher (F5)
+1. Open `medisync` in **VS Code**.
+2. Press **`F5`** (or go to **Run and Debug** `Ctrl+Shift+D`) and select **`🚀 Launch Backend + AI Microservice`**.
+3. In VS Code Terminal (`Ctrl + ~`), run the React frontend:
+   ```powershell
+   pnpm dev
+   ```
+4. Open **`http://localhost:3000`** in your browser!
+
+> 💡 **VS Code Tasks:** Press `Ctrl+Shift+P` ➔ **Tasks: Run Task** to pick and launch individual services directly in VS Code tabs.
+
+#### Option 4: Manual Windows Terminals (PowerShell / CMD)
+If starting services in separate terminal windows/tabs:
+- **Terminal 1 (AI Microservice — Port 8000)**:
+  ```powershell
+  .\apps\ai-service\venv\Scripts\python.exe apps\ai-service\main.py
+  ```
+- **Terminal 2 (Express Backend API — Port 3001)**:
+  ```powershell
+  npm run dev:backend
+  ```
+- **Terminal 3 (React Frontend Portals — Port 3000)**:
+  ```powershell
+  npm run dev
+  ```
+
+---
+
+### Option A: Run Directly in VS Code (Easiest)
+
+1. Open the project folder `medisync` in **VS Code**.
+2. Press **`F5`** (or go to **Run and Debug** sidebar `Ctrl+Shift+D`) and select **`🚀 Launch Backend + AI Microservice`**.
+3. Open a terminal (`Ctrl+\``) and run the React frontend:
+   ```bash
+   npm run dev
+   # OR with pnpm
+   pnpm dev
+   ```
+4. Open **`http://localhost:3000`** in your browser!
+
+> **Alternative (VS Code Tasks):** Press `Ctrl+Shift+B` or open Command Palette (`Ctrl+Shift+P`) ➔ **Tasks: Run Task** and choose any service to run directly in VS Code terminals.
+
+---
+
+### Option B: Run Everything Concurrently (Terminal)
 
 From the project root directory, run these scripts to start the complete stack:
 
@@ -131,13 +221,15 @@ npm run db:seed:drugs
 - **Pharmacy**: `pharmacy@medisync.ai`
 - **Admin**: `admin@medisync.ai`
 
----
-c
+
 ## 🧪 Testing
 
 ```bash
 # Run backend & database unit verification tests
-node database/test_runner.js
+npm run test:backend
+# OR
+npx tsx apps/backend/scripts/test_prescriptions_feature.ts
+
 
 # Run Python OCR unit tests
 cd apps/ai-service && ./venv/bin/python test_ocr.py

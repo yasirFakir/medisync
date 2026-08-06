@@ -1,8 +1,8 @@
 # MediSync AI — Project Progress Tracker
 
-> **Last Updated:** 2026-07-26  
-> **Current Phase:** Phase 3 — AI Service Integration (OCR + Triage)  
-> **Overall Status:** 🟢 TASK-003, TASK-004, TASK-005 & TASK-006 Implemented & Verified
+> **Last Updated:** 2026-08-06  
+> **Current Phase:** Phase 3 — AI Service Integration & Medication Routines  
+> **Overall Status:** 🟢 TASK-003 through TASK-008 Implemented & Verified
 
 ---
 
@@ -12,9 +12,10 @@
 |-------|------|--------|--------|
 | 1 | Monorepo Setup + Backend API | ✅ Complete | Week 1-2 |
 | 2 | Web Portals (Admin / Doctor / Pharmacy / Patient) | ✅ Complete | Week 3-5 |
-| 3 | AI Service Integration (OCR + Triage + Gemini AI) | ✅ Complete (TASK-006 Complete) | Week 6-7 |
+| 3 | AI Service Integration (OCR + Triage + Reminders + Alternatives) | ✅ Complete (TASK-008 Complete) | Week 6-7 |
 | 4 | Mobile App (React Native) | ⬜ Not Started | Week 8-10 |
 | 5 | Testing, Security Audit & Deployment | ⬜ Not Started | Week 11-12 |
+
 
 
 
@@ -33,9 +34,13 @@
 - [x] Routing layout structure with `PatientLayout`
 - [x] OTP EHR secure code generator
 - [x] AI Symptom triage interface (symptom preset selectors + chat)
-- [x] Prescription scan history table
+- [x] Prescription scan history table with **Edit & Correct** modal (patient name, doctor name, rx date, & medicines persistent backend editing)
 - [x] Drug locator search and savings score indicator
-- [x] Dosage alert manager (create, delete, suspend alerts)
+- [x] Medication Alerts & Routines (TASK-008):
+  - [x] Direct **Follow Prescription** batch import & scheduling
+  - [x] Medical time slot range mappings: Morning (7-10 AM), Midday/Lunch `0+1+0` (12-3 PM), Evening/Dinner (7-10 PM)
+  - [x] Responsive layout overflow protection and role theme variable alignment
+
 
 ### Doctor Portal (`apps/doctor` - Port 3101)
 - [x] Emerald green brand colors
