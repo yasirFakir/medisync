@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Card, Input, Button, Badge, Spinner } from '../../packages/ui/src/index';
+import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
-import { Send, User, Bot, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Send, User, Bot, AlertTriangle, ShieldCheck, History, Trash2, PlusCircle } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 interface ChatMessage {
   sender: 'user' | 'ai';
@@ -10,33 +10,16 @@ interface ChatMessage {
 }
 
 export const TriagePage: React.FC = () => {
+  const user = useAuthStore(state => state.user);
   const [symptoms, setSymptoms] = useState<string[]>([]);
-  const [customSymptom, setCustomSymptom] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [urgency, setUrgency] = useState<string | null>(null);
-  const [recommendation, setRecommendation] = useState<string | null>(null);
+  const [historySessions, setHistorySessions] = useState<any[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [followUpText, setFollowUpText] = useState('');
 
   const symptomPresets = ['Fever', 'Headache', 'Cough', 'Sore Throat', 'Stomach Pain', 'Shortness of breath', 'Nausea'];
-
-  const toggleSymptom = (symptom: string) => {
-    if (symptoms.includes(symptom)) {
-      setSymptoms(symptoms.filter(s => s !== symptom));
-    } else {
-      setSymptoms([...symptoms, symptom]);
-    }
-  };
-
-  const handleAddCustom = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customSymptom.trim()) return;
-    if (!symptoms.includes(customSymptom.trim())) {
-      setSymptoms([...symptoms, customSymptom.trim()]);
-    }
-    setCustomSymptom('');
-  };
-
-  const [historySessions, setHistorySessions] = useState<any[]>([]);
 
   const fetchHistory = async () => {
     try {
@@ -49,16 +32,13 @@ export const TriagePage: React.FC = () => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchHistory();
   }, []);
-
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   const loadPastSession = (session: any) => {
     setActiveSessionId(session.sessionId);
     setUrgency(session.urgencyLevel);
-    setRecommendation(session.recommendedAction);
 
     let parsedMessages: ChatMessage[] = [];
     try {
@@ -73,7 +53,7 @@ export const TriagePage: React.FC = () => {
         const syms = Array.isArray(rawData) ? rawData : [];
         setSymptoms(syms);
         parsedMessages = [
-          { sender: 'user', text: `[History Record] Symptoms reported: ${syms.join(', ')}`, timestamp: new Date(session.timestamp).toLocaleDateString() },
+          { sender: 'user', text: `Symptoms reported: ${syms.join(', ')}`, timestamp: new Date(session.timestamp).toLocaleDateString() },
           { sender: 'ai', text: session.response, timestamp: new Date(session.timestamp).toLocaleDateString() }
         ];
       }
@@ -85,43 +65,11 @@ export const TriagePage: React.FC = () => {
     setMessages(parsedMessages);
   };
 
-  const handleStartTriage = async () => {
-    if (symptoms.length === 0) return;
-    setLoading(true);
+  const handleStartNewChat = () => {
     setActiveSessionId(null);
-
-    const userQuery = `I am experiencing: ${symptoms.join(', ')}.`;
-    const initialMessages: ChatMessage[] = [{ sender: 'user', text: userQuery, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }];
-    setMessages(initialMessages);
-
-    try {
-      const res = await apiClient.post('/triage/chat', {
-        symptoms,
-        additionalNotes: 'Triage session initiated from unified web patient portal.'
-      });
-      
-      const { sessionId, response, urgencyLevel, recommendedAction } = res.data.data || res.data;
-      if (sessionId) setActiveSessionId(sessionId);
-
-      setMessages(prev => [...prev, { sender: 'ai', text: response, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-      setUrgency(urgencyLevel);
-      setRecommendation(recommendedAction);
-      fetchHistory();
-    } catch (err) {
-      setMessages(prev => [...prev, { sender: 'ai', text: 'Sorry, the AI Triage Service is currently busy or unreachable. Please try again shortly.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getUrgencyColor = (level: string | null) => {
-    switch (level) {
-      case 'LOW': return 'green';
-      case 'MEDIUM': return 'yellow';
-      case 'HIGH': return 'red';
-      case 'EMERGENCY': return 'red';
-      default: return 'blue';
-    }
+    setMessages([]);
+    setSymptoms([]);
+    setUrgency(null);
   };
 
   const handleDeleteSession = async (e: React.MouseEvent, sessionId: string) => {
@@ -130,17 +78,48 @@ export const TriagePage: React.FC = () => {
       await apiClient.delete(`/triage/sessions/${sessionId}`);
       fetchHistory();
       if (activeSessionId === sessionId) {
-        setActiveSessionId(null);
-        setMessages([]);
-        setUrgency(null);
-        setRecommendation(null);
+        handleStartNewChat();
       }
     } catch (err) {
       console.error('Failed to delete session', err);
     }
   };
 
-  const [followUpText, setFollowUpText] = useState('');
+  const toggleSymptom = (symptom: string) => {
+    if (symptoms.includes(symptom)) {
+      setSymptoms(symptoms.filter(s => s !== symptom));
+    } else {
+      setSymptoms([...symptoms, symptom]);
+    }
+  };
+
+  const handleStartTriage = async () => {
+    if (symptoms.length === 0) return;
+    setLoading(true);
+    setActiveSessionId(null);
+
+    const userQuery = `I am experiencing: ${symptoms.join(', ')}. What medication or advice do you recommend?`;
+    const initialMessages: ChatMessage[] = [{ sender: 'user', text: userQuery, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }];
+    setMessages(initialMessages);
+
+    try {
+      const res = await apiClient.post('/triage/chat', {
+        symptoms,
+        additionalNotes: 'Triage session initiated from web portal.'
+      });
+      
+      const { sessionId, response, urgencyLevel } = res.data.data || res.data;
+      if (sessionId) setActiveSessionId(sessionId);
+
+      setMessages(prev => [...prev, { sender: 'ai', text: response, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+      setUrgency(urgencyLevel);
+      fetchHistory();
+    } catch (err) {
+      setMessages(prev => [...prev, { sender: 'ai', text: 'Sorry, the AI Assistant is currently busy or unreachable. Please try again shortly.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSendFollowUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,285 +146,218 @@ export const TriagePage: React.FC = () => {
         conversationHistory: historyPayload
       });
 
-      const { sessionId, response, urgencyLevel, recommendedAction } = res.data.data || res.data;
+      const { sessionId, response, urgencyLevel } = res.data.data || res.data;
       if (sessionId) setActiveSessionId(sessionId);
 
       setMessages(prev => [...prev, { sender: 'ai', text: response, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       if (urgencyLevel) setUrgency(urgencyLevel);
-      if (recommendedAction) setRecommendation(recommendedAction);
       fetchHistory();
     } catch (err) {
-      setMessages(prev => [...prev, { sender: 'ai', text: 'Failed to send follow-up response. Please try again.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+      setMessages(prev => [...prev, { sender: 'ai', text: 'Failed to send response. Please try again.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '28px', height: 'calc(100vh - 140px)', minHeight: '500px' }}>
-      
-      {/* Symptom selector panel */}
-      <Card style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px', overflowY: 'auto' }}>
-        <div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>Select Symptoms</h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Click on the presets or add custom symptoms below to query the triage AI bot.</p>
+    <div className="flex h-[calc(100vh-100px)] max-h-[850px] w-full max-w-6xl mx-auto gap-6 font-sans">
+      {/* Left Drawer: Stored Conversations & History */}
+      <div className="w-80 bg-white rounded-2xl shadow-sm border border-[#bcc9c6]/30 flex flex-col p-4 flex-shrink-0">
+        <button
+          onClick={handleStartNewChat}
+          className="w-full bg-[#00685f] hover:bg-[#008378] text-white py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center space-x-2 transition-colors cursor-pointer mb-4 shadow-sm"
+        >
+          <PlusCircle size={16} />
+          <span>New Chat Consultation</span>
+        </button>
+
+        <div className="flex items-center space-x-2 px-2 mb-3 text-xs font-bold text-[#3d4947] uppercase tracking-wider">
+          <History size={14} />
+          <span>Previous Consultations</span>
         </div>
 
-        {/* Preset list */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {symptomPresets.map(sym => {
-            const selected = symptoms.includes(sym);
-            return (
-              <button
-                key={sym}
-                onClick={() => toggleSymptom(sym)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-full)',
-                  border: '1px solid',
-                  borderColor: selected ? 'var(--color-brand-400)' : 'var(--border-default)',
-                  background: selected ? 'rgba(14,165,233,0.12)' : 'var(--bg-elevated)',
-                  color: selected ? 'var(--color-brand-300)' : 'var(--text-secondary)',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s'
-                }}
-              >
-                {sym}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Custom entry input */}
-        <form onSubmit={handleAddCustom} style={{ display: 'flex', gap: '8px' }}>
-          <Input
-            placeholder="Add custom symptom..."
-            value={customSymptom}
-            onChange={e => setCustomSymptom(e.target.value)}
-            style={{ height: '36px' }}
-          />
-          <Button type="submit" size="sm" variant="secondary">Add</Button>
-        </form>
-
-        <div className="divider" />
-
-        {/* Active list */}
-        <div style={{ flex: 1 }}>
-          <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px' }}>Active Symptom Stack:</h4>
-          {symptoms.length === 0 ? (
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No symptoms selected yet.</span>
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+          {historySessions.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-6">No previous chat records found.</p>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {symptoms.map(sym => (
-                <Badge key={sym} variant="blue">
-                  {sym}
-                  <button onClick={() => toggleSymptom(sym)} style={{ background: 'none', border: 'none', color: 'inherit', marginLeft: '4px', cursor: 'pointer', fontWeight: 800 }}>&times;</button>
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Previous Chat History */}
-        {historySessions.length > 0 && (
-          <div style={{ marginTop: '12px' }}>
-            <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>Previous AI Sessions:</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-              {historySessions.map((sess, idx) => (
+            historySessions.map((session, idx) => {
+              const isActive = activeSessionId === session.sessionId;
+              const symText = Array.isArray(session.symptoms) ? session.symptoms.join(', ') : session.symptoms || 'General Consultation';
+              return (
                 <div
                   key={idx}
-                  onClick={() => loadPastSession(sess)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-default)',
-                    background: 'var(--bg-elevated)',
-                    cursor: 'pointer',
-                  }}
+                  onClick={() => loadPastSession(session)}
+                  className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between group ${
+                    isActive
+                      ? 'bg-[#f0f3ff] border-[#00685f] text-[#00685f] font-semibold shadow-xs'
+                      : 'bg-[#f9f9ff] border-[#bcc9c6]/30 text-[#111c2d] hover:border-[#00685f]/50'
+                  }`}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', marginRight: '8px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{new Date(sess.timestamp).toLocaleDateString()}</span>
-                      <Badge variant={getUrgencyColor(sess.urgencyLevel)}>{sess.urgencyLevel}</Badge>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                      {Array.isArray(sess.symptoms) ? sess.symptoms.join(', ') : sess.symptoms}
-                    </span>
+                  <div className="min-w-0 pr-2">
+                    <p className="truncate font-semibold">{symText}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{new Date(session.timestamp).toLocaleDateString()}</p>
                   </div>
-
                   <button
-                    onClick={(e) => handleDeleteSession(e, sess.sessionId)}
-                    title="Delete Chat Session"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--color-danger)',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      fontWeight: 700,
-                      padding: '4px'
-                    }}
+                    onClick={(e) => handleDeleteSession(e, session.sessionId)}
+                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 cursor-pointer"
                   >
-                    ✕
+                    <Trash2 size={14} />
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <Button onClick={handleStartTriage} disabled={symptoms.length === 0 || loading} style={{ width: '100%' }}>
-          {loading ? <Spinner size={16} /> : 'Begin Triage Diagnostic'}
-        </Button>
-      </Card>
-
-      {/* Main Diagnostic Chat area */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {(urgency || recommendation) && (
-          <div className="glass-elevated animate-fade-in" style={{ padding: '16px 20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
-              background: urgency === 'HIGH' || urgency === 'EMERGENCY' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: urgency === 'HIGH' || urgency === 'EMERGENCY' ? 'var(--color-danger)' : 'var(--color-success)',
-              flexShrink: 0
-            }}>
-              <AlertTriangle size={20} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>AI Assessment Report</span>
-                <Badge variant={getUrgencyColor(urgency)}>{urgency} URGENCY</Badge>
-              </div>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{recommendation}</p>
-            </div>
-          </div>
-        )}
-
-        <Card style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0px', overflow: 'hidden' }}>
-          <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-success)' }} />
-            <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>Virtual Diagnostics Bot</span>
-          </div>
-
-          <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {messages.length === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', gap: '12px' }}>
-                <HelpCircle size={36} />
-                <span style={{ fontSize: '0.8125rem' }}>Select symptoms on the left to start a virtual diagnosis.</span>
-              </div>
-            )}
-            
-            {messages.map((msg, index) => {
-              const isAi = msg.sender === 'ai';
-              return (
-                <div key={index} style={{
-                  display: 'flex',
-                  gap: '12px',
-                  alignSelf: isAi ? 'flex-start' : 'flex-end',
-                  maxWidth: '80%',
-                  flexDirection: isAi ? 'row' : 'row-reverse'
-                }} className="animate-fade-in">
-                  <div style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: isAi ? 'rgba(139,92,246,0.12)' : 'rgba(14,165,233,0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: isAi ? 'var(--color-accent-400)' : 'var(--color-brand-400)',
-                    flexShrink: 0
-                  }}>
-                    {isAi ? <Bot size={16} /> : <User size={16} />}
-                  </div>
-                  
-                  <div>
-                    <div style={{
-                      padding: '12px 16px',
-                      borderRadius: isAi ? '0px 12px 12px 12px' : '12px 0px 12px 12px',
-                      background: isAi ? 'var(--bg-elevated)' : 'linear-gradient(135deg, var(--color-brand-600), var(--color-brand-500))',
-                      border: isAi ? '1px solid var(--border-default)' : 'none',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.875rem',
-                      lineHeight: 1.5,
-                      whiteSpace: 'pre-line'
-                    }}>
-                      {msg.text}
-                    </div>
-                    <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block', textAlign: isAi ? 'left' : 'right' }}>
-                      {msg.timestamp}
-                    </span>
-                  </div>
-                </div>
               );
-            })}
-
-            {loading && (
-              <div style={{ display: 'flex', gap: '12px', alignSelf: 'flex-start' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(139,92,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-accent-400)' }}>
-                  <Bot size={16} />
-                </div>
-                <div style={{ padding: '12px 20px', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: '0px 12px 12px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-muted)', display: 'inline-block' }} className="animate-pulse" />
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-muted)', display: 'inline-block' }} className="animate-pulse" />
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-muted)', display: 'inline-block' }} className="animate-pulse" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Interactive Follow-up Chat Input bar */}
-          {messages.length > 0 && (
-            <form onSubmit={handleSendFollowUp} style={{ padding: '16px 24px', borderTop: '1px solid var(--border-default)', display: 'flex', gap: '12px', alignItems: 'flex-end', background: 'var(--bg-elevated)', width: '100%' }}>
-              <textarea
-                placeholder="Ask follow-up questions to AI Assistant... (Press Enter to send, Shift+Enter for new line)"
-                value={followUpText}
-                onChange={e => setFollowUpText(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (followUpText.trim() && !loading) {
-                      handleSendFollowUp(e);
-                    }
-                  }
-                }}
-                disabled={loading}
-                rows={3}
-                style={{
-                  flex: 1,
-                  width: '100%',
-                  minHeight: '75px',
-                  maxHeight: '180px',
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-default)',
-                  background: 'var(--bg-surface)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.875rem',
-                  lineHeight: '1.4',
-                  resize: 'vertical',
-                  outline: 'none',
-                  fontFamily: 'inherit'
-                }}
-              />
-              <Button type="submit" disabled={!followUpText.trim() || loading} icon={<Send size={16} />} style={{ height: '42px' }}>
-                Send
-              </Button>
-            </form>
+            })
           )}
-        </Card>
+        </div>
       </div>
 
+      {/* Main Chat Interface */}
+      <div className="flex-1 bg-white rounded-2xl shadow-[0px_12px_32px_rgba(30,41,59,0.05)] border border-[#bcc9c6]/20 overflow-hidden flex flex-col h-full">
+        
+        {/* Chat Header */}
+        <div className="px-6 py-4 border-b border-[#bcc9c6]/20 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-[#f4fffc] border border-[#00685f]/20 flex items-center justify-center text-[#00685f]">
+              <span className="material-symbols-outlined text-xl">smart_toy</span>
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-[#111c2d]">MediSync AI Assistant</h2>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#10B981]"></span>
+                <span className="text-xs text-[#3d4947]">Online & Clinically Moderated</span>
+              </div>
+            </div>
+          </div>
+          {urgency && (
+            <span className="px-3 py-1 bg-[#E0F2FE] text-[#004a6d] text-xs font-bold rounded-full">
+              {urgency} Priority
+            </span>
+          )}
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#f9f9ff]">
+          {messages.length === 0 ? (
+            <div className="space-y-6 py-4 max-w-2xl mx-auto">
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-[#f4fffc] border border-[#00685f]/20 flex-shrink-0 flex items-center justify-center text-[#00685f] mt-1">
+                  <span className="material-symbols-outlined text-sm">smart_toy</span>
+                </div>
+                <div className="bg-white p-4 rounded-2xl rounded-tl-sm shadow-sm border border-[#bcc9c6]/20 text-[#111c2d] text-sm">
+                  Hello! I'm your MediSync AI Assistant. Select symptoms below or type a custom question to manage your medications and healthcare routine.
+                </div>
+              </div>
+
+              {/* Symptom Selector */}
+              <div className="bg-white p-5 rounded-xl border border-[#bcc9c6]/30 shadow-sm space-y-3">
+                <h4 className="text-xs font-bold text-[#3d4947] uppercase tracking-wider">Quick Symptom Selector</h4>
+                <div className="flex flex-wrap gap-2">
+                  {symptomPresets.map(sym => {
+                    const selected = symptoms.includes(sym);
+                    return (
+                      <button
+                        key={sym}
+                        onClick={() => toggleSymptom(sym)}
+                        className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                          selected
+                            ? 'bg-[#00685f] text-white border-[#00685f]'
+                            : 'bg-[#f0f3ff] text-[#3d4947] border-[#bcc9c6]/40 hover:border-[#00685f]'
+                        }`}
+                      >
+                        {sym}
+                      </button>
+                    );
+                  })}
+                </div>
+                {symptoms.length > 0 && (
+                  <button
+                    onClick={handleStartTriage}
+                    disabled={loading}
+                    className="w-full mt-2 py-2.5 bg-[#0D9488] hover:bg-[#008378] text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer flex items-center justify-center space-x-2"
+                  >
+                    {loading ? 'Consulting AI...' : 'Ask MediSync AI About Symptoms'}
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            messages.map((msg, index) => {
+              const isAi = msg.sender === 'ai';
+              return (
+                <div key={index} className={`flex gap-4 max-w-[85%] ${isAi ? '' : 'ml-auto justify-end'}`}>
+                  {isAi && (
+                    <div className="w-8 h-8 rounded-full bg-[#f4fffc] border border-[#00685f]/20 flex-shrink-0 flex items-center justify-center text-[#00685f] mt-1">
+                      <span className="material-symbols-outlined text-sm">smart_toy</span>
+                    </div>
+                  )}
+                  <div className="space-y-3">
+                    <div className={`p-5 rounded-2xl text-sm leading-relaxed ${
+                      isAi
+                        ? 'bg-white text-[#111c2d] rounded-tl-sm shadow-sm border border-[#bcc9c6]/20'
+                        : 'bg-[#00685f] text-white rounded-tr-sm shadow-sm'
+                    }`}>
+                      {isAi && (
+                        <div className="flex items-center gap-1.5 bg-[#10B981]/10 px-2.5 py-1 rounded-md text-[#047857] text-xs font-bold mb-3 w-fit">
+                          <span className="material-symbols-outlined text-[14px]">verified</span>
+                          Verified Medicine Information
+                        </div>
+                      )}
+                      <p className="whitespace-pre-line">{msg.text}</p>
+                    </div>
+
+                    {isAi && index === messages.length - 1 && (
+                      <div className="bg-[#FEF3C7] border border-[#fde68a] p-3 rounded-xl flex items-start gap-2 text-xs text-[#B45309]">
+                        <span className="material-symbols-outlined text-[16px] mt-0.5">warning</span>
+                        <div>
+                          <strong>Medical Disclaimer:</strong> Educational guidance only; does not replace direct clinical advice.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {!isAi && (
+                    <div className="w-8 h-8 rounded-full bg-[#cae6ff] text-[#006492] flex-shrink-0 flex items-center justify-center font-bold text-xs mt-1">
+                      {user?.fullName?.substring(0, 2).toUpperCase() || 'ME'}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+
+          {loading && (
+            <div className="flex gap-4 max-w-[85%]">
+              <div className="w-8 h-8 rounded-full bg-[#f4fffc] border border-[#00685f]/20 flex-shrink-0 flex items-center justify-center text-[#00685f]">
+                <span className="material-symbols-outlined text-sm">smart_toy</span>
+              </div>
+              <div className="p-4 bg-white border border-[#bcc9c6]/20 rounded-2xl rounded-tl-sm flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-[#00685f] animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-[#00685f] animate-pulse delay-100"></span>
+                <span className="w-2 h-2 rounded-full bg-[#00685f] animate-pulse delay-200"></span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input Bar */}
+        <div className="bg-white border-t border-[#bcc9c6]/20 p-4 space-y-3">
+          <form onSubmit={handleSendFollowUp} className="relative flex items-center">
+            <input
+              type="text"
+              placeholder="Ask about your medications or symptoms..."
+              value={followUpText}
+              onChange={e => setFollowUpText(e.target.value)}
+              disabled={loading}
+              className="w-full bg-[#f9f9ff] border border-[#bcc9c6] rounded-xl py-3 pl-4 pr-12 text-sm text-[#111c2d] placeholder-gray-400 focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f]"
+            />
+            <button
+              type="submit"
+              disabled={!followUpText.trim() || loading}
+              className="absolute right-2 w-9 h-9 flex items-center justify-center rounded-lg bg-[#00685f] text-white hover:bg-[#008378] disabled:opacity-50 transition-opacity cursor-pointer"
+            >
+              <Send size={16} />
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };

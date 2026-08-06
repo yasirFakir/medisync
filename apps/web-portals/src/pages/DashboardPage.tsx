@@ -1,34 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, StatCard, Button, Input } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
-import {
-  MessageSquare,
-  FileText,
-  MapPin,
-  AlarmClock,
-  ShieldCheck,
-  KeyRound,
-  Loader2,
-  Users,
-  Activity,
-  History,
-  Store,
-  BadgePercent,
-  AlertTriangle,
-  ShieldAlert,
-  ClipboardEdit,
-  Pill
-} from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export const DashboardPage: React.FC = () => {
   const user = useAuthStore(state => state.user);
   const navigate = useNavigate();
-
-  // Doctor Dashboard States
-  const [patientId, setPatientId] = useState('');
-  const [otpToken, setOtpToken] = useState('');
 
   // Patient Dashboard States
   const [otp, setOtp] = useState<string | null>(null);
@@ -46,265 +23,224 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleQuickAccess = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!patientId || !otpToken) return;
-    navigate(`/ehr?patientId=${patientId}&otp=${otpToken}`);
-  };
-
-  // Render PATIENT Dashboard
-  if (user?.role === 'PATIENT') {
-    const quickActions = [
-      { title: 'AI Symptom Triage', desc: 'Describe symptoms to our virtual health helper.', path: '/triage', icon: <MessageSquare size={20} />, color: 'var(--color-brand-500)' },
-      { title: 'Prescriptions', desc: 'Upload images, digitize, and review generic substitutes.', path: '/prescriptions', icon: <FileText size={20} />, color: 'var(--color-accent-400)' },
-      { title: 'Locate Medicine', desc: 'Locate local stocks and check relative cost scores.', path: '/locator', icon: <MapPin size={20} />, color: 'var(--color-success)' },
-      { title: 'Daily Dosage Reminders', desc: 'Manage your daily prescription alarm frequencies.', path: '/alerts', icon: <AlarmClock size={20} />, color: 'var(--color-warning)' },
-    ];
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        <div style={{
-          padding: '32px',
-          borderRadius: 'var(--radius-xl)',
-          background: 'linear-gradient(135deg, rgba(14,165,233,0.1) 0%, rgba(139,92,246,0.05) 100%)',
-          border: '1px solid var(--border-default)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '20px'
-        }} className="animate-fade-in">
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '6px' }}>
-              Hello, {user?.fullName || 'Patient'}
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', maxWidth: '520px' }}>
-              Welcome to your MediSync health dashboard. All services are currently fully operational. You can scan prescriptions or locate generic drug listings below.
-            </p>
-          </div>
-
-          <div className="glass-elevated" style={{ padding: '16px 20px', minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-accent-400)' }}>
-              <KeyRound size={16} />
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>EHR DOCTOR GATEWAY</span>
-            </div>
-            {otp ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-primary)' }}>{otp}</div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>Expires in 5 minutes</div>
-                </div>
-                <Button size="sm" variant="ghost" onClick={generateOtp} style={{ padding: '6px' }}>
-                  Regenerate
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" onClick={generateOtp} disabled={loadingOtp} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', color: 'var(--text-primary)', width: '100%' }}>
-                {loadingOtp ? <Loader2 size={14} className="animate-spin" /> : 'Generate Secure OTP'}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-          <StatCard label="My Active Reminders" value="2 Alerts" icon={<AlarmClock size={20} />} trend={{ value: 100, label: 'since last week' }} color="var(--color-warning)" />
-          <StatCard label="Saved Prescriptions" value="4 Files" icon={<FileText size={20} />} color="var(--color-brand-400)" />
-          <StatCard label="Triage Sessions" value="1 History" icon={<MessageSquare size={20} />} color="var(--color-accent-400)" />
-          <StatCard label="System Security Gate" value="Active" icon={<ShieldCheck size={20} />} color="var(--color-success)" />
-        </div>
-
-        <div>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '16px' }}>Quick Health Services</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-            {quickActions.map(action => (
-              <Card key={action.title} onClick={() => navigate(action.path)} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', padding: '24px' }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '12px',
-                  background: `${action.color}15`,
-                  border: `1px solid ${action.color}25`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: action.color,
-                  flexShrink: 0
-                }}>
-                  {action.icon}
-                </div>
-                <div>
-                  <h4 style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '4px', color: 'var(--text-primary)' }}>{action.title}</h4>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{action.desc}</p>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render DOCTOR Dashboard
-  if (user?.role === 'DOCTOR') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        <div style={{
-          padding: '32px',
-          borderRadius: 'var(--radius-xl)',
-          background: 'linear-gradient(135deg, rgba(5,150,105,0.1) 0%, rgba(16,185,129,0.05) 100%)',
-          border: '1px solid var(--border-default)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '20px'
-        }} className="animate-fade-in">
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '6px' }}>
-              Welcome back, Dr. {user?.fullName || 'Doctor'}
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', maxWidth: '520px' }}>
-              Verify secure patient credentials, manage session logs, and access EHR parameters. Use the quick access panel on the right to verify an active TOTP.
-            </p>
-          </div>
-
-          <Card glass style={{ padding: '16px 20px', minWidth: '320px' }}>
-            <form onSubmit={handleQuickAccess} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-brand-400)', fontSize: '0.75rem', fontWeight: 700 }}>
-                <KeyRound size={14} />
-                <span>QUICK ACCESS VERIFIER</span>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Input
-                  placeholder="Patient UUID"
-                  value={patientId}
-                  onChange={e => setPatientId(e.target.value)}
-                  style={{ height: '36px', fontSize: '0.75rem' }}
-                  required
-                />
-                <Input
-                  placeholder="6-Digit OTP"
-                  value={otpToken}
-                  onChange={e => setOtpToken(e.target.value)}
-                  maxLength={6}
-                  style={{ height: '36px', fontSize: '0.75rem', width: '100px' }}
-                  required
-                />
-              </div>
-              <Button type="submit" size="sm" style={{ width: '100%' }}>Verify Credentials</Button>
-            </form>
-          </Card>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-          <StatCard label="Patients Seen Today" value="5 Sessions" icon={<Users size={20} />} trend={{ value: 25, label: 'vs yesterday' }} color="#059669" />
-          <StatCard label="Active Access Keys" value="2 Verified" icon={<ShieldAlert size={20} />} color="var(--color-brand-400)" />
-          <StatCard label="Recent Session Notes" value="12 Notes" icon={<History size={20} />} color="var(--color-accent-400)" />
-          <StatCard label="Clinical Security status" value="Secured" icon={<Activity size={20} />} color="var(--color-success)" />
-        </div>
-
-        <div>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '16px' }}>Clinical Workspace Actions</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-            <Card onClick={() => navigate('/patients')} style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '24px', cursor: 'pointer' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(5,150,105,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
-                <Users size={20} />
-              </div>
-              <div>
-                <h4 style={{ fontWeight: 700, fontSize: '0.9375rem' }}>Patient Directory</h4>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Browse and query patient records</p>
-              </div>
-            </Card>
-
-            <Card onClick={() => navigate('/ehr')} style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '24px', cursor: 'pointer' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(14,165,233,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-brand-400)' }}>
-                <ShieldAlert size={20} />
-              </div>
-              <div>
-                <h4 style={{ fontWeight: 700, fontSize: '0.9375rem' }}>EHR Verification Gateway</h4>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>Input OTP keys for record access</p>
-              </div>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render PHARMACY Dashboard
-  if (user?.role === 'PHARMACY') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        <div style={{
-          padding: '32px',
-          borderRadius: 'var(--radius-xl)',
-          background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(139,92,246,0.05) 100%)',
-          border: '1px solid var(--border-default)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '20px'
-        }} className="animate-fade-in">
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '6px' }}>
-              {user?.fullName || 'Partner Store'}
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', maxWidth: '520px' }}>
-              MediSync inventory sync dashboard. Update stock status and manage current drug pricing lists for patients.
-            </p>
-          </div>
-          <Button onClick={() => navigate('/update-stock')} icon={<ClipboardEdit size={16} />}>
-            Quick Stock Update
-          </Button>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-          <StatCard label="Total Inventory SKUs" value="10 Items" icon={<Store size={20} />} trend={{ value: 0, label: 'synchronized' }} color="#f59e0b" />
-          <StatCard label="Active Stock Ratio" value="100%" icon={<BadgePercent size={20} />} color="var(--color-brand-400)" />
-          <StatCard label="Catalog Out of Stock" value="0 Items" icon={<AlertTriangle size={20} />} color="var(--color-danger)" />
-        </div>
-      </div>
-    );
-  }
-
-  // Render ADMIN Dashboard
-  if (user?.role === 'ADMIN') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        <div style={{
-          padding: '32px',
-          borderRadius: 'var(--radius-xl)',
-          background: 'linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(14,165,233,0.05) 100%)',
-          border: '1px solid var(--border-default)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '20px'
-        }} className="animate-fade-in">
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '6px' }}>
-              System Core Console
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', maxWidth: '520px' }}>
-              Administrator workspace environment dashboard. Oversee global database configurations and track API cluster parameters.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
-          <StatCard label="Total Users registered" value="5 Accounts" icon={<Users size={20} />} trend={{ value: 10, label: 'since yesterday' }} color="#8b5cf6" />
-          <StatCard label="Drug catalogue entries" value="10 Items" icon={<Pill size={20} />} color="var(--color-brand-400)" />
-          <StatCard label="EHR Access Requests" value="3 Requests" icon={<ShieldAlert size={20} />} color="var(--color-accent-400)" />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <Card style={{ padding: '24px' }}>
-      Authentication check pending...
-    </Card>
+    <div className="p-4 md:p-10 max-w-[1280px] mx-auto w-full space-y-6 font-sans">
+      {/* Welcome Header */}
+      <div className="mb-8">
+        <h2 className="text-[32px] leading-[40px] tracking-tight font-bold text-[#111c2d] mb-2">
+          Good morning, {user?.fullName?.split(' ')[0] || 'Alex'}
+        </h2>
+        <p className="text-[18px] leading-[28px] text-[#3d4947]">
+          Here's an overview of your medication today.
+        </p>
+      </div>
+
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Left Column: Medication Timeline & Prescriptions (Span 8) */}
+        <div className="md:col-span-8 flex flex-col gap-6">
+          
+          {/* Today's Medication Schedule */}
+          <div className="bg-white rounded-xl p-6 shadow-[0px_4px_20px_rgba(30,41,59,0.05)] border border-slate-200/50 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-[24px] leading-[32px] font-semibold text-[#111c2d] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#00685f]">schedule</span>
+                Today's Schedule
+              </h3>
+              <button 
+                onClick={() => navigate('/alerts')}
+                className="text-[#00685f] text-[14px] font-semibold hover:underline cursor-pointer"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="relative pl-4 border-l-2 border-[#d8e3fb] space-y-6">
+              {/* Timeline Item 1 */}
+              <div className="relative">
+                <div className="absolute -left-[21px] top-1 w-3 h-3 bg-[#00685f] rounded-full border-2 border-white ring-2 ring-[#00685f]/20"></div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#f0f3ff] p-4 rounded-lg ml-2">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm text-[#00685f]">
+                      <span className="material-symbols-outlined text-[24px]">medication</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-[#111c2d]">Metformin</h4>
+                      <p className="text-sm text-[#3d4947]">500mg • After Breakfast</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 sm:mt-0 flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                    <span className="text-xs font-semibold text-[#3d4947] bg-white px-3 py-1 rounded-full border border-[#bcc9c6]/30">08:00 AM</span>
+                    <button className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center hover:bg-green-200 transition-colors cursor-pointer">
+                      <span className="material-symbols-outlined text-[20px]">check</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline Item 2 */}
+              <div className="relative">
+                <div className="absolute -left-[21px] top-1 w-3 h-3 bg-[#d8e3fb] rounded-full border-2 border-white"></div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg ml-2 border border-[#bcc9c6]/30">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#e7eeff] rounded-lg flex items-center justify-center shadow-sm text-[#006492]">
+                      <span className="material-symbols-outlined text-[24px]">vaccines</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-[#111c2d]">Vitamin D</h4>
+                      <p className="text-sm text-[#3d4947]">1000 IU • With Lunch</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 sm:mt-0 flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                    <span className="text-xs font-semibold text-[#3d4947] bg-[#f9f9ff] px-3 py-1 rounded-full border border-[#bcc9c6]/30">01:00 PM</span>
+                    <button className="w-8 h-8 rounded-full border border-[#bcc9c6] text-[#3d4947] flex items-center justify-center hover:bg-[#d8e3fb] transition-colors cursor-pointer">
+                      <span className="material-symbols-outlined text-[20px]">check</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline Item 3 */}
+              <div className="relative">
+                <div className="absolute -left-[21px] top-1 w-3 h-3 bg-[#d8e3fb] rounded-full border-2 border-white"></div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg ml-2 border border-[#bcc9c6]/30 opacity-75">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#e7eeff] rounded-lg flex items-center justify-center shadow-sm text-[#00685f]">
+                      <span className="material-symbols-outlined text-[24px]">medication</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-[#111c2d]">Metformin</h4>
+                      <p className="text-sm text-[#3d4947]">500mg • After Dinner</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 sm:mt-0 flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                    <span className="text-xs font-semibold text-[#3d4947] bg-[#f9f9ff] px-3 py-1 rounded-full border border-[#bcc9c6]/30">09:00 PM</span>
+                    <button className="w-8 h-8 rounded-full border border-[#bcc9c6] text-[#3d4947] flex items-center justify-center hover:bg-[#d8e3fb] transition-colors cursor-pointer">
+                      <span className="material-symbols-outlined text-[20px]">check</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Prescription Card */}
+          <div className="bg-white rounded-xl p-6 shadow-[0px_4px_20px_rgba(30,41,59,0.05)] border border-slate-200/50 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-[24px] leading-[32px] font-semibold text-[#111c2d] mb-1">Active Prescription</h3>
+                <p className="text-sm text-[#3d4947]">Added Oct 24, 2023</p>
+              </div>
+              <span className="bg-[#E0F2FE] text-[#004a6d] text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 border border-[#cae6ff]">
+                <span className="material-symbols-outlined text-[16px]">verified</span>
+                Analysis Complete
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center bg-[#f0f3ff] p-4 rounded-lg border border-[#bcc9c6]/20">
+              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-sm flex-shrink-0 bg-[#cae6ff] text-[#006492] font-bold text-xl flex items-center justify-center">
+                SC
+              </div>
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-[#111c2d]">Dr. Sarah Chen</h4>
+                <p className="text-sm text-[#3d4947] flex items-center gap-1 mt-1">
+                  <span className="material-symbols-outlined text-[16px]">stethoscope</span>
+                  Endocrinologist • City General Hospital
+                </p>
+              </div>
+              <div className="flex flex-col items-start sm:items-end w-full sm:w-auto">
+                <span className="text-[24px] font-bold text-[#00685f]">2</span>
+                <span className="text-xs font-bold text-[#3d4947] uppercase tracking-wider">Medicines</span>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-between items-center">
+              {/* Doctor OTP Key badge */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#3d4947]">EHR OTP:</span>
+                {otp ? (
+                  <span className="text-sm font-bold text-[#00685f] tracking-widest">{otp}</span>
+                ) : (
+                  <button onClick={generateOtp} className="text-xs font-semibold text-[#00685f] hover:underline cursor-pointer">
+                    {loadingOtp ? 'Generating...' : 'Get Access OTP'}
+                  </button>
+                )}
+              </div>
+              <button 
+                onClick={() => navigate('/prescriptions')}
+                className="text-[#00685f] text-sm font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+              >
+                View Details <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Column: Widgets & Actions (Span 4) */}
+        <div className="md:col-span-4 flex flex-col gap-6">
+          
+          {/* Quick Actions Widget */}
+          <div className="bg-white rounded-xl p-6 shadow-[0px_4px_20px_rgba(30,41,59,0.05)] border border-slate-200/50">
+            <h3 className="text-xs font-bold text-[#3d4947] uppercase tracking-wider mb-4">Quick Actions</h3>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => navigate('/prescriptions')}
+                className="w-full bg-[#0D9488] text-white text-sm font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-[#008378] transition-colors shadow-sm cursor-pointer"
+              >
+                <span className="material-symbols-outlined">document_scanner</span>
+                Upload Prescription
+              </button>
+              <button
+                onClick={() => navigate('/alerts')}
+                className="w-full bg-white border border-[#0D9488] text-[#0D9488] text-sm font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-[#f0f3ff] transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined">event_note</span>
+                View Reminders
+              </button>
+              <button
+                onClick={() => navigate('/triage')}
+                className="w-full bg-[#e7eeff] text-[#006492] text-sm font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-[#dee8ff] transition-colors border border-[#cae6ff]/50 cursor-pointer"
+              >
+                <span className="material-symbols-outlined">smart_toy</span>
+                Ask MediSync AI
+              </button>
+            </div>
+          </div>
+
+          {/* Upcoming Reminder Widget */}
+          <div className="bg-gradient-to-br from-[#008378] to-[#00685f] rounded-xl p-6 shadow-md text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#89f5e7]/20 rounded-full blur-xl translate-y-1/2 -translate-x-1/4"></div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-4 opacity-90">
+                <span className="material-symbols-outlined text-[20px]">notifications_active</span>
+                <span className="text-xs font-bold uppercase tracking-wider">Next Upcoming</span>
+              </div>
+              <h4 className="text-xl font-bold mb-1">Dr. Chen Follow-up</h4>
+              <p className="text-sm opacity-90 mb-4">In 2 days • Oct 28, 10:00 AM</p>
+              <div className="flex items-center justify-between border-t border-white/20 pt-4 mt-2">
+                <span className="text-xs opacity-80 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[16px]">location_on</span> Online Clinic
+                </span>
+                <button className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors backdrop-blur-sm cursor-pointer">
+                  <span className="material-symbols-outlined text-[20px]">calendar_add_on</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Health Tip Widget */}
+          <div className="bg-[#FEF3C7] rounded-xl p-4 shadow-sm border border-[#ffddb8]/30 flex items-start gap-3">
+            <span className="material-symbols-outlined text-[#B45309] mt-0.5">lightbulb</span>
+            <div>
+              <h4 className="text-sm font-bold text-[#B45309]">Stay Hydrated</h4>
+              <p className="text-xs text-[#825100] mt-1">Remember to drink plenty of water with your Metformin prescription today.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
   );
 };
