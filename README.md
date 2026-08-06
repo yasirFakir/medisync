@@ -27,6 +27,33 @@ MediSync AI is a monorepo consisting of 3 distinct runtimes:
 
 ---
 
+### ⚙️ Initial Environment Setup
+
+1. **Clone & Configure Environment Files**:
+   ```bash
+   cp .env.example .env
+   ```
+   *(Ensure `.env` contains your local `DATABASE_URL` and secrets. Local `.env` and `.env.*.local` files are ignored by git).*
+
+2. **Install Node Dependencies**:
+   ```bash
+   pnpm install
+   # OR
+   npm install
+   ```
+
+3. **Set Up Python Virtual Environment**:
+   ```bash
+   cd apps/ai-service
+   python3.12 -m venv venv
+   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+   pip install -r requirements.txt
+   cd ../..
+   ```
+
+---
+
+
 ### 🪟 Windows Execution Options (VS Code / PowerShell / CMD)
 
 #### Option 1: Automatic Windows Launcher (Easiest — `run.bat`)
@@ -194,13 +221,15 @@ npm run db:seed:drugs
 - **Pharmacy**: `pharmacy@medisync.ai`
 - **Admin**: `admin@medisync.ai`
 
----
-c
+
 ## 🧪 Testing
 
 ```bash
 # Run backend & database unit verification tests
-node database/test_runner.js
+npm run test:backend
+# OR
+npx tsx apps/backend/scripts/test_prescriptions_feature.ts
+
 
 # Run Python OCR unit tests
 cd apps/ai-service && ./venv/bin/python test_ocr.py
