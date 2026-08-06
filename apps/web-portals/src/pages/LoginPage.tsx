@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Button, Input, Card, apiClient } from '@medisync/ui';
-import { Mail, Lock, User, Phone, ShieldCheck, CheckCircle, ShieldAlert, HeartPulse, Activity, Landmark } from 'lucide-react';
+import { Mail, Lock, User, Phone, ShieldCheck, ShieldAlert, HeartPulse, Activity, Landmark } from 'lucide-react';
+import { apiClient } from '@medisync/ui';
 import { useAuthStore } from '../store/authStore';
 
 export const LoginPage: React.FC = () => {
@@ -84,201 +84,187 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
-      {/* Brand panel */}
-      <div style={{
-        flex: 1.1,
-        background: 'var(--bg-login-brand)',
-        borderRight: '1px solid var(--border-login-brand)',
-        padding: '48px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        position: 'relative',
-        overflow: 'hidden',
-      }} className="brand-panel-hide">
-        <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '400px', height: '400px', borderRadius: '50%', background: 'rgba(14,165,233,0.12)', filter: 'blur(80px)' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, var(--color-brand-600), var(--color-accent-500))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, color: '#fff' }}>M</div>
-          <span style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em' }}>MediSync<span style={{ color: 'var(--color-brand-400)' }}> AI</span></span>
-        </div>
-
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: '480px', margin: 'auto 0' }}>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1.15, marginBottom: '24px', letterSpacing: '-0.03em' }}>
-            Unified Health <br />
-            <span style={{ background: 'linear-gradient(135deg, var(--color-brand-400), var(--color-accent-400))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Diagnostics Gateway.</span>
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '32px' }}>
-            Access clinical workflows, AI triage chatbots, prescription scanners, and inventory trackers from one secure console.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <CheckCircle style={{ color: 'var(--color-brand-400)' }} size={18} />
-              <span style={{ fontSize: '0.875rem' }}>AI-Powered triage assessment algorithms</span>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <CheckCircle style={{ color: 'var(--color-brand-400)' }} size={18} />
-              <span style={{ fontSize: '0.875rem' }}>Real-time pharmacy stock locator network</span>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <CheckCircle style={{ color: 'var(--color-brand-400)' }} size={18} />
-              <span style={{ fontSize: '0.875rem' }}>Secure OTP-gated electronic health record access</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          &copy; 2026 MediSync AI system console. Secure TLS 1.3 encryption active.
-        </div>
+    <div className="bg-[#f9f9ff] text-[#111c2d] antialiased min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+      {/* Background Ambient Decor */}
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#89f5e7] blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-[#cae6ff] blur-[100px]"></div>
       </div>
 
-      {/* Form panel */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', overflowY: 'auto' }}>
-        <Card glass style={{ width: '100%', maxWidth: '480px', padding: '36px' }} className="animate-fade-in">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <div 
+          onClick={() => navigate('/')}
+          className="flex items-center justify-center space-x-3 cursor-pointer mb-6"
+        >
+          <span className="material-symbols-outlined text-[#00685f] text-[36px]">health_and_safety</span>
+          <span className="text-[28px] font-bold text-[#00685f]">MediSync</span>
+        </div>
+        <h2 className="text-center text-3xl font-bold tracking-tight text-[#111c2d]">
+          {activeTab === 'login' ? 'Welcome Back' : 'Create Your Account'}
+        </h2>
+        <p className="mt-2 text-center text-sm text-[#3d4947]">
+          {activeTab === 'login'
+            ? 'Sign in to access your prescriptions and clinical dashboard'
+            : 'Join MediSync to manage medication with intelligent AI assistance'}
+        </p>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <div className="bg-white py-8 px-4 shadow-[0px_12px_32px_rgba(30,41,59,0.08)] border border-[#bcc9c6]/30 sm:rounded-xl sm:px-10">
           
           {/* Tab Switcher */}
-          <div style={{ 
-            display: 'flex', 
-            background: 'var(--bg-elevated)', 
-            padding: '4px', 
-            borderRadius: 'var(--radius-md)', 
-            marginBottom: '28px',
-            border: '1px solid var(--border-default)'
-          }}>
-            <button 
+          <div className="flex bg-[#f0f3ff] p-1 rounded-lg mb-6 border border-[#bcc9c6]/20">
+            <button
               type="button"
               onClick={() => { setActiveTab('login'); navigate('/login'); setError(''); }}
-              style={{
-                flex: 1,
-                padding: '10px',
-                border: 'none',
-                background: activeTab === 'login' ? 'var(--color-brand-600)' : 'transparent',
-                color: activeTab === 'login' ? '#fff' : 'var(--text-secondary)',
-                borderRadius: 'calc(var(--radius-md) - 2px)',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${
+                activeTab === 'login'
+                  ? 'bg-[#00685f] text-white shadow-sm'
+                  : 'text-[#3d4947] hover:text-[#111c2d]'
+              }`}
             >
               Sign In
             </button>
-            <button 
+            <button
               type="button"
               onClick={() => { setActiveTab('register'); navigate('/register'); setError(''); }}
-              style={{
-                flex: 1,
-                padding: '10px',
-                border: 'none',
-                background: activeTab === 'register' ? 'var(--color-brand-600)' : 'transparent',
-                color: activeTab === 'register' ? '#fff' : 'var(--text-secondary)',
-                borderRadius: 'calc(var(--radius-md) - 2px)',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${
+                activeTab === 'register'
+                  ? 'bg-[#00685f] text-white shadow-sm'
+                  : 'text-[#3d4947] hover:text-[#111c2d]'
+              }`}
             >
               Create Account
             </button>
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '1.375rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>
-              {activeTab === 'login' ? 'Welcome Back' : 'Get Started'}
-            </h2>
-            <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-              {activeTab === 'login' 
-                ? 'Authenticate coordinates to access your dashboard' 
-                : 'Register a secure digital healthcare identity'}
-            </p>
-          </div>
-
           {error && (
-            <div style={{ 
-              background: 'rgba(239,68,68,0.08)', 
-              border: '1px solid rgba(239,68,68,0.15)', 
-              borderRadius: 'var(--radius-md)', 
-              padding: '12px', 
-              fontSize: '0.8125rem', 
-              color: 'var(--color-danger)', 
-              marginBottom: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
-            }}>
-              <ShieldAlert size={16} />
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center space-x-2">
+              <ShieldAlert className="w-5 h-5 flex-shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
           )}
 
           {activeTab === 'login' ? (
             /* Login Form */
-            <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <Input
-                label="Email Address Coordinate"
-                type="email"
-                placeholder="user@medisync.ai"
-                value={loginEmail}
-                onChange={e => setLoginEmail(e.target.value)}
-                icon={<Mail size={16} />}
-                required
-              />
+            <form className="space-y-5" onSubmit={handleLoginSubmit}>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-1">
+                  Email Address
+                </label>
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Mail size={18} />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
+                    placeholder="user@example.com"
+                    className="block w-full pl-10 pr-3 py-2.5 border border-[#bcc9c6] rounded-lg focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f] text-sm text-[#111c2d] placeholder-gray-400"
+                  />
+                </div>
+              </div>
 
-              <Input
-                label="Password Key"
-                type="password"
-                placeholder="••••••••"
-                value={loginPassword}
-                onChange={e => setLoginPassword(e.target.value)}
-                icon={<Lock size={16} />}
-                required
-              />
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-1">
+                  Password
+                </label>
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={loginPassword}
+                    onChange={e => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="block w-full pl-10 pr-3 py-2.5 border border-[#bcc9c6] rounded-lg focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f] text-sm text-[#111c2d] placeholder-gray-400"
+                  />
+                </div>
+              </div>
 
-              <Button type="submit" loading={loading} style={{ width: '100%', marginTop: '8px' }}>
-                Authenticate Coordinates
-              </Button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-[#0D9488] hover:bg-[#008378] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00685f] transition-all cursor-pointer flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <span>Signing In...</span>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </>
+                )}
+              </button>
             </form>
           ) : (
-            /* Registration Form */
-            <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              
-              <Input
-                label="Full Name"
-                placeholder="John Doe"
-                value={regFullName}
-                onChange={e => setRegFullName(e.target.value)}
-                icon={<User size={16} />}
-                required
-              />
-
-              <Input
-                label="Email Address"
-                type="email"
-                placeholder="john@example.com"
-                value={regEmail}
-                onChange={e => setRegEmail(e.target.value)}
-                icon={<Mail size={16} />}
-                required
-              />
-
-              <Input
-                label="Phone Number (Optional)"
-                type="tel"
-                placeholder="+88017XXXXXXXX"
-                value={regPhone}
-                onChange={e => setRegPhone(e.target.value)}
-                icon={<Phone size={16} />}
-              />
-
-              {/* Role selector option (No admin) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  User Account Type
+            /* Register Form */
+            <form className="space-y-4" onSubmit={handleRegisterSubmit}>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-1">
+                  Full Name
                 </label>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <User size={18} />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={regFullName}
+                    onChange={e => setRegFullName(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="block w-full pl-10 pr-3 py-2.5 border border-[#bcc9c6] rounded-lg focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f] text-sm text-[#111c2d] placeholder-gray-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-1">
+                  Email Address
+                </label>
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Mail size={18} />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={regEmail}
+                    onChange={e => setRegEmail(e.target.value)}
+                    placeholder="jane@example.com"
+                    className="block w-full pl-10 pr-3 py-2.5 border border-[#bcc9c6] rounded-lg focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f] text-sm text-[#111c2d] placeholder-gray-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-1">
+                  Phone Number (Optional)
+                </label>
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Phone size={18} />
+                  </div>
+                  <input
+                    type="tel"
+                    value={regPhone}
+                    onChange={e => setRegPhone(e.target.value)}
+                    placeholder="+1234567890"
+                    className="block w-full pl-10 pr-3 py-2.5 border border-[#bcc9c6] rounded-lg focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f] text-sm text-[#111c2d] placeholder-gray-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-2">
+                  Account Type
+                </label>
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { key: 'PATIENT', label: 'Patient', icon: <HeartPulse size={16} /> },
                     { key: 'DOCTOR', label: 'Doctor', icon: <Activity size={16} /> },
@@ -290,83 +276,68 @@ export const LoginPage: React.FC = () => {
                         key={roleOpt.key}
                         type="button"
                         onClick={() => setRegRole(roleOpt.key as any)}
-                        style={{
-                          flex: 1,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '12px 8px',
-                          background: isSelected ? 'rgba(14, 165, 233, 0.08)' : 'var(--bg-elevated)',
-                          border: isSelected ? '1.5px solid var(--color-brand-500)' : '1px solid var(--border-default)',
-                          borderRadius: 'var(--radius-md)',
-                          color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          fontSize: '0.8125rem',
-                          fontWeight: 600,
-                        }}
+                        className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-semibold transition-all ${
+                          isSelected
+                            ? 'border-[#00685f] bg-[#e7eeff] text-[#00685f]'
+                            : 'border-[#bcc9c6]/60 bg-white text-[#3d4947] hover:border-[#00685f]'
+                        }`}
                       >
                         {roleOpt.icon}
-                        {roleOpt.label}
+                        <span className="mt-1">{roleOpt.label}</span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              <Input
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                value={regPassword}
-                onChange={e => setRegPassword(e.target.value)}
-                icon={<Lock size={16} />}
-                required
-              />
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-1">
+                  Password
+                </label>
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={regPassword}
+                    onChange={e => setRegPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="block w-full pl-10 pr-3 py-2.5 border border-[#bcc9c6] rounded-lg focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f] text-sm text-[#111c2d] placeholder-gray-400"
+                  />
+                </div>
+              </div>
 
-              <Input
-                label="Confirm Password"
-                type="password"
-                placeholder="••••••••"
-                value={regConfirmPassword}
-                onChange={e => setRegConfirmPassword(e.target.value)}
-                icon={<ShieldCheck size={16} />}
-                required
-              />
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d4947] mb-1">
+                  Confirm Password
+                </label>
+                <div className="relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={regConfirmPassword}
+                    onChange={e => setRegConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="block w-full pl-10 pr-3 py-2.5 border border-[#bcc9c6] rounded-lg focus:ring-2 focus:ring-[#00685f] focus:border-[#00685f] text-sm text-[#111c2d] placeholder-gray-400"
+                  />
+                </div>
+              </div>
 
-              <Button type="submit" loading={loading} style={{ width: '100%', marginTop: '8px' }}>
-                Complete Registration
-              </Button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-[#0D9488] hover:bg-[#008378] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00685f] transition-all cursor-pointer mt-2"
+              >
+                {loading ? 'Creating Account...' : 'Create Account'}
+              </button>
             </form>
           )}
-
-          <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-            {activeTab === 'login' ? (
-              <>
-                Need a clinical account?{' '}
-                <button 
-                  type="button" 
-                  onClick={() => { setActiveTab('register'); navigate('/register'); setError(''); }} 
-                  style={{ background: 'none', border: 'none', color: 'var(--color-brand-400)', fontWeight: 600, cursor: 'pointer', padding: 0 }}
-                >
-                  Register here
-                </button>
-              </>
-            ) : (
-              <>
-                Already registered?{' '}
-                <button 
-                  type="button" 
-                  onClick={() => { setActiveTab('login'); navigate('/login'); setError(''); }} 
-                  style={{ background: 'none', border: 'none', color: 'var(--color-brand-400)', fontWeight: 600, cursor: 'pointer', padding: 0 }}
-                >
-                  Access Account
-                </button>
-              </>
-            )}
-          </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
