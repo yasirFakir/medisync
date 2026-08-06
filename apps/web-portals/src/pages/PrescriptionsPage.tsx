@@ -25,10 +25,14 @@ interface ParsedMedicine {
 interface OCRResult {
   raw_text:              string;
   doctor_name:           ExtractedField;
+  doctor_degrees?:       ExtractedField;
+  doctor_specialty?:     ExtractedField;
+  hospital_name?:        ExtractedField;
   patient_name?:         ExtractedField;
   patient_age?:          ExtractedField;
   patient_gender?:       ExtractedField;
   prescription_date?:    ExtractedField;
+  clinical_diagnosis?:   ExtractedField;
   clinical_tests?:       ExtractedField[];
   follow_up_date?:       ExtractedField;
   medicines:             ParsedMedicine[];
@@ -36,6 +40,7 @@ interface OCRResult {
   ocr_engine:            string;
   processing_time_ms:    number;
 }
+
 
 interface ValidatedItem {
   input: { brandName?: string; genericName?: string; dosage?: string };
@@ -138,9 +143,18 @@ const PrescriptionResultModal: React.FC<{
   const vs  = prescription.validationSummary;
 
   // ── Editable header fields ─────────────────────────────────────────────────
-  const [doctorName,  setDoctorName]  = useState(ocr?.doctor_name?.value  || (prescription as any).doctorName || 'Prescriber');
-  const [patientName, setPatientName] = useState(ocr?.patient_name?.value || (prescription as any).patientName || 'Patient');
-  const [rxDate,      setRxDate]      = useState(ocr?.prescription_date?.value || '18/04/2026');
+  const [doctorName,        setDoctorName]        = useState(ocr?.doctor_name?.value        || (prescription as any).doctorName        || 'Prescriber');
+  const [doctorDegrees,     setDoctorDegrees]     = useState(ocr?.doctor_degrees?.value     || (prescription as any).doctorDegrees     || '');
+  const [doctorSpecialty,   setDoctorSpecialty]   = useState(ocr?.doctor_specialty?.value   || (prescription as any).doctorSpecialty   || '');
+  const [patientName,       setPatientName]       = useState(ocr?.patient_name?.value       || (prescription as any).patientName       || 'Patient');
+  const [patientAge,        setPatientAge]        = useState(ocr?.patient_age?.value        || (prescription as any).patientAge        || '');
+  const [patientGender,     setPatientGender]     = useState(ocr?.patient_gender?.value     || (prescription as any).patientGender     || '');
+  const [hospitalName,      setHospitalName]      = useState((ocr as any)?.hospital_name?.value || (prescription as any).hospitalName || 'Medical Center');
+  const [rxDate,            setRxDate]            = useState(ocr?.prescription_date?.value  || '18/04/2026');
+  const [clinicalDiagnosis, setClinicalDiagnosis] = useState(ocr?.clinical_diagnosis?.value || (prescription as any).clinicalDiagnosis || '');
+
+
+
 
 
   // ── Editable medicine list ─────────────────────────────────────────────────
@@ -218,7 +232,11 @@ const PrescriptionResultModal: React.FC<{
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = { doctorName, patientName, prescriptionDate: rxDate, medicines: editMeds };
+      const payload = {
+        doctorName, doctorDegrees, doctorSpecialty,
+        patientName, patientAge, patientGender, hospitalName, prescriptionDate: rxDate,
+        clinicalDiagnosis, medicines: editMeds
+      };
       const res = await apiClient.patch(`/prescriptions/${prescription.prescriptionId}`, payload);
       const highConf: ConfidenceLevel = 'high';
       const updated: Prescription = res.data.data || {
@@ -226,22 +244,37 @@ const PrescriptionResultModal: React.FC<{
         ocrResult: ocr ? {
           ...ocr,
           patient_name: { value: patientName, confidence: highConf, score: 1.0 },
+          patient_age: { value: patientAge, confidence: highConf, score: 1.0 },
+          patient_gender: { value: patientGender, confidence: highConf, score: 1.0 },
           doctor_name: { value: doctorName, confidence: highConf, score: 1.0 },
-          prescription_date: { value: rxDate, confidence: highConf, score: 1.0 }
+          doctor_degrees: { value: doctorDegrees, confidence: highConf, score: 1.0 },
+          doctor_specialty: { value: doctorSpecialty, confidence: highConf, score: 1.0 },
+          hospital_name: { value: hospitalName, confidence: highConf, score: 1.0 } as any,
+          prescription_date: { value: rxDate, confidence: highConf, score: 1.0 },
+          clinical_diagnosis: { value: clinicalDiagnosis, confidence: highConf, score: 1.0 }
         } : undefined
       };
-      setUserVerified(true);
       onUpdate(updated);
       setIsEditing(false);
+
     } catch {
       const highConf: ConfidenceLevel = 'high';
       const updated: Prescription = {
-        ...prescription, doctorName, patientName, prescriptionDate: rxDate, medicines: editMeds,
+        ...prescription,
+        doctorName, doctorDegrees, doctorSpecialty,
+        patientName, patientAge, patientGender, hospitalName, prescriptionDate: rxDate,
+        clinicalDiagnosis, medicines: editMeds,
         ocrResult: ocr ? {
           ...ocr,
           patient_name: { value: patientName, confidence: highConf, score: 1.0 },
+          patient_age: { value: patientAge, confidence: highConf, score: 1.0 },
+          patient_gender: { value: patientGender, confidence: highConf, score: 1.0 },
           doctor_name: { value: doctorName, confidence: highConf, score: 1.0 },
-          prescription_date: { value: rxDate, confidence: highConf, score: 1.0 }
+          doctor_degrees: { value: doctorDegrees, confidence: highConf, score: 1.0 },
+          doctor_specialty: { value: doctorSpecialty, confidence: highConf, score: 1.0 },
+          hospital_name: { value: hospitalName, confidence: highConf, score: 1.0 } as any,
+          prescription_date: { value: rxDate, confidence: highConf, score: 1.0 },
+          clinical_diagnosis: { value: clinicalDiagnosis, confidence: highConf, score: 1.0 }
         } : undefined
       } as any;
       setUserVerified(true);
@@ -251,6 +284,9 @@ const PrescriptionResultModal: React.FC<{
       setSaving(false);
     }
   };
+
+
+
 
   // ── Display medicines (original OCR list, used in view mode) ───────────────
   const displayMeds = ocr?.medicines ?? prescription.medicines?.map(m => ({
@@ -380,10 +416,15 @@ const PrescriptionResultModal: React.FC<{
           boxShadow: '0px 4px 20px rgba(30,41,59,0.05)',
         }}>
           {/* Header fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
             {[
               { label: 'Doctor Name', value: doctorName, setter: setDoctorName },
+              { label: 'Doctor Degrees', value: doctorDegrees, setter: setDoctorDegrees },
+              { label: 'Doctor Specialty', value: doctorSpecialty, setter: setDoctorSpecialty },
               { label: 'Patient Name', value: patientName, setter: setPatientName },
+              { label: 'Patient Age', value: patientAge, setter: setPatientAge },
+              { label: 'Patient Sex/Gender', value: patientGender, setter: setPatientGender },
+              { label: 'Hospital Name', value: hospitalName, setter: setHospitalName },
               { label: 'Date', value: rxDate, setter: setRxDate },
             ].map(({ label, value, setter }) => (
               <div key={label}>
@@ -394,6 +435,7 @@ const PrescriptionResultModal: React.FC<{
                   type="text"
                   value={value}
                   onChange={e => setter(e.target.value)}
+                  placeholder={label}
                   style={{
                     width: '100%', padding: '8px 12px', fontSize: '0.85rem',
                     border: '1px solid #bcc9c6', borderRadius: '8px',
@@ -404,6 +446,28 @@ const PrescriptionResultModal: React.FC<{
               </div>
             ))}
           </div>
+
+
+          {/* Clinical Diagnosis input */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#3d4947', marginBottom: '4px', textTransform: 'uppercase' }}>
+              Clinical Diagnosis
+            </label>
+            <input
+              type="text"
+              value={clinicalDiagnosis}
+              onChange={e => setClinicalDiagnosis(e.target.value)}
+              placeholder="e.g. • HTN | • Fever | • Type 2 Diabetes"
+              style={{
+                width: '100%', padding: '8px 12px', fontSize: '0.85rem',
+                border: '1px solid #bcc9c6', borderRadius: '8px',
+                background: '#f0f3ff', color: '#111c2d', fontWeight: 600,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+
 
           {/* Medicine list editor */}
           <div>
@@ -605,49 +669,57 @@ const PrescriptionResultModal: React.FC<{
               <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#00685f', letterSpacing: '-0.02em' }}>
                 Dr. {doctorName}
               </div>
-              <div style={{ fontSize: '0.78rem', color: '#3d4947', fontWeight: 600, marginTop: '2px' }}>
-                MBBS (Dhaka), BCS (Health), MD (Cardiology-BSMMU)
-              </div>
-              <div style={{ fontSize: '0.73rem', color: '#6d7a77', marginTop: '2px' }}>
-                Clinical &amp; Interventional Cardiologist &amp; Medicine Specialist Consultant
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#00685f', fontWeight: 600, marginTop: '2px' }}>
-                National Institute of Cardiovascular Diseases &amp; Hospital (NICVD), Dhaka
-              </div>
+              {(doctorDegrees || ocr?.doctor_degrees?.value) && (
+                <div style={{ fontSize: '0.78rem', color: '#3d4947', fontWeight: 600, marginTop: '2px' }}>
+                  {doctorDegrees || ocr?.doctor_degrees?.value}
+                </div>
+              )}
+              {(doctorSpecialty || ocr?.doctor_specialty?.value) && (
+                <div style={{ fontSize: '0.73rem', color: '#6d7a77', marginTop: '2px' }}>
+                  {doctorSpecialty || ocr?.doctor_specialty?.value}
+                </div>
+              )}
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#111c2d' }}>CITY HOSPITAL LTD.</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#111c2d', textTransform: 'uppercase' }}>
+                {hospitalName || ocr?.hospital_name?.value || 'Medical Center'}
+              </div>
               <div style={{ fontSize: '0.68rem', color: '#6d7a77' }}>Dedicated to Medical Excellence</div>
-              <div style={{ fontSize: '0.65rem', color: '#6d7a77', marginTop: '4px' }}>Reg No: BMDC-A77838</div>
-              <div style={{ fontSize: '0.65rem', color: '#6d7a77' }}>Appt: 01913672742</div>
             </div>
           </div>
 
           {/* Patient Metadata */}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '12px', background: '#f0f3ff', border: '1px solid #d8e3fb', borderRadius: '8px', padding: '8px 14px', fontSize: '0.775rem', marginBottom: '12px' }}>
             <div><span style={{ color: '#6d7a77', fontWeight: 600 }}>Patient:</span> <strong style={{ color: '#111c2d' }}>{patientName || ocr?.patient_name?.value || 'Patient (#' + prescription.prescriptionId.substring(0,4) + ')'}</strong></div>
-            <div><span style={{ color: '#6d7a77', fontWeight: 600 }}>Age/Sex:</span> <strong style={{ color: '#111c2d' }}>{(ocr?.patient_age?.value || '—') + ' / ' + (ocr?.patient_gender?.value || '—')}</strong></div>
+            <div><span style={{ color: '#6d7a77', fontWeight: 600 }}>Age/Sex:</span> <strong style={{ color: '#111c2d' }}>{((patientAge || ocr?.patient_age?.value || '—') + ' / ' + (patientGender || ocr?.patient_gender?.value || '—'))}</strong></div>
             <div><span style={{ color: '#6d7a77', fontWeight: 600 }}>Date:</span> <strong style={{ color: '#111c2d' }}>{rxDate}</strong></div>
             <div><span style={{ color: '#6d7a77', fontWeight: 600 }}>Rx ID:</span> <strong style={{ color: '#00685f' }}>#{prescription.prescriptionId.substring(0,6)}</strong></div>
           </div>
 
+
           {/* Clinical Diagnosis & Tests */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: '#f9f9ff', border: '1px solid #d8e3fb', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.75rem' }}>
-            <div>
-              <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🩺 Clinical Diagnosis</div>
-              <div style={{ color: '#3d4947', fontWeight: 600 }}>• OMI (Inf.) (EF 44%) | • s/p PCI to LCX | • HTN | • ?BPPV</div>
+          {(clinicalDiagnosis || ocr?.clinical_diagnosis?.value || ocr?.clinical_tests?.length) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: '#f9f9ff', border: '1px solid #d8e3fb', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.75rem' }}>
+              {(clinicalDiagnosis || ocr?.clinical_diagnosis?.value) && (
+                <div>
+                  <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🩺 Clinical Diagnosis</div>
+                  <div style={{ color: '#3d4947', fontWeight: 600 }}>{clinicalDiagnosis || ocr?.clinical_diagnosis?.value}</div>
+                </div>
+              )}
+              {ocr?.clinical_tests?.length ? (
+                <div>
+                  <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🧪 Investigations Advised</div>
+                  <div style={{ color: '#00685f', fontWeight: 600, display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {ocr.clinical_tests.map((t, i) => <span key={i} style={{ background: '#e7eeff', color: '#00685f', padding: '1px 6px', borderRadius: '4px' }}>{t.value}</span>)}
+                  </div>
+                </div>
+              ) : null}
             </div>
-            <div>
-              <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🧪 Investigations Advised</div>
-              <div style={{ color: '#00685f', fontWeight: 600, display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {ocr?.clinical_tests?.length ? (
-                  ocr.clinical_tests.map((t, i) => <span key={i} style={{ background: '#e7eeff', color: '#00685f', padding: '1px 6px', borderRadius: '4px' }}>{t.value}</span>)
-                ) : (
-                  <span>Troponin I, S. Lipid Profile, S. Electrolyte, MRI Brain</span>
-                )}
-              </div>
-            </div>
-          </div>
+          )}
+
+
+
+
 
           {/* Medicines Grid */}
           <div style={{ position: 'relative' }}>
@@ -656,7 +728,8 @@ const PrescriptionResultModal: React.FC<{
               {displayMeds.map((med, i) => {
                 const dbMatch = vs?.medicines[i];
                 const displayBrand = dbMatch?.matchedDrug?.brandName || med.brand_name.value || 'Unknown';
-                const isFlagged = !userVerified && dbMatch?.requiresReview;
+                const isFlagged = Boolean(dbMatch?.requiresReview);
+
 
                 return (
                   <div key={i} style={{
@@ -895,6 +968,7 @@ export const PrescriptionsPage: React.FC = () => {
         >
           {selectedPrescription && (
             <PrescriptionResultModal
+              key={selectedPrescription.prescriptionId}
               prescription={selectedPrescription}
               onClose={() => setSelectedPrescription(null)}
               onDelete={handleDeletePrescription}

@@ -74,7 +74,25 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
         duration: "5 days"
       }
     ];
+    ocrResult = {
+      raw_text: digitizedNotes,
+      doctor_name: { value: doctorName, confidence: 'high', score: 1.0 },
+      doctor_degrees: { value: 'MBBS, FCPS', confidence: 'medium', score: 0.8 },
+      doctor_specialty: { value: 'General Medicine & Clinical Specialist', confidence: 'medium', score: 0.8 },
+      hospital_name: { value: 'Central Health Clinic', confidence: 'high', score: 1.0 },
+      patient_name: { value: 'Patient', confidence: 'medium', score: 0.7 },
+      prescription_date: { value: new Date().toLocaleDateString('en-GB'), confidence: 'high', score: 1.0 },
+      clinical_diagnosis: { value: '• Fever & Acute Symptoms', confidence: 'medium', score: 0.7 },
+      medicines: medicines.map(m => ({
+        brand_name: { value: m.brandName, confidence: 'high', score: 1.0 },
+        strength: { value: m.dosage, confidence: 'high', score: 1.0 },
+        dosage: { value: m.dosage, confidence: 'high', score: 1.0 },
+        frequency: { value: m.frequency, confidence: 'high', score: 1.0 },
+        duration: { value: m.duration, confidence: 'high', score: 1.0 },
+      }))
+    };
   }
+
 
   // TASK-005 Deterministic Medicine Matching & Validation
   const formattedInputs: ExtractedMedicineInput[] = medicines.map(m => ({
@@ -202,7 +220,7 @@ export const deletePrescription = async (req: AuthRequest, res: Response): Promi
 export const updatePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
   const { userId, role } = req.user!;
-  const { doctorName, patientName, prescriptionDate, medicines } = req.body;
+  const { doctorName, doctorDegrees, doctorSpecialty, patientName, patientAge, patientGender, hospitalName, prescriptionDate, clinicalDiagnosis, medicines } = req.body;
 
   const [existing] = await query<{ patientId: string; ocrResult: any; medicines: any }>(
     `SELECT patient_id AS "patientId", ocr_result AS "ocrResult", medicines FROM prescriptions WHERE prescription_id = $1`,
@@ -224,13 +242,47 @@ export const updatePrescription = async (req: AuthRequest, res: Response): Promi
     if (doctorName !== undefined) {
       updatedOcr.doctor_name = { ...(updatedOcr.doctor_name || {}), value: doctorName, confidence: 'high', score: 1.0 };
     }
+    if (doctorDegrees !== undefined) {
+      updatedOcr.doctor_degrees = { ...(updatedOcr.doctor_degrees || {}), value: doctorDegrees, confidence: 'high', score: 1.0 };
+    }
+    if (doctorSpecialty !== undefined) {
+      updatedOcr.doctor_specialty = { ...(updatedOcr.doctor_specialty || {}), value: doctorSpecialty, confidence: 'high', score: 1.0 };
+    }
     if (patientName !== undefined) {
       updatedOcr.patient_name = { ...(updatedOcr.patient_name || {}), value: patientName, confidence: 'high', score: 1.0 };
+    }
+    if (patientAge !== undefined) {
+      updatedOcr.patient_age = { ...(updatedOcr.patient_age || {}), value: patientAge, confidence: 'high', score: 1.0 };
+    }
+    if (patientGender !== undefined) {
+      updatedOcr.patient_gender = { ...(updatedOcr.patient_gender || {}), value: patientGender, confidence: 'high', score: 1.0 };
+    }
+    if (hospitalName !== undefined) {
+      updatedOcr.hospital_name = { ...(updatedOcr.hospital_name || {}), value: hospitalName, confidence: 'high', score: 1.0 };
     }
     if (prescriptionDate !== undefined) {
       updatedOcr.prescription_date = { ...(updatedOcr.prescription_date || {}), value: prescriptionDate, confidence: 'high', score: 1.0 };
     }
+    if (clinicalDiagnosis !== undefined) {
+      updatedOcr.clinical_diagnosis = { ...(updatedOcr.clinical_diagnosis || {}), value: clinicalDiagnosis, confidence: 'high', score: 1.0 };
+    }
+
+    // Re-evaluate low_confidence_fields: filter out any fields that are now high confidence or populated
+    if (Array.isArray(updatedOcr.low_confidence_fields)) {
+      updatedOcr.low_confidence_fields = updatedOcr.low_confidence_fields.filter((field: string) => {
+        if (field.includes('doctor') && updatedOcr.doctor_name?.value) return false;
+        if (field.includes('patient') && updatedOcr.patient_name?.value) return false;
+        if (field.includes('date') && updatedOcr.prescription_date?.value) return false;
+        if (field.includes('hospital') && updatedOcr.hospital_name?.value) return false;
+        if (field.includes('medicine') && medicines && medicines.length > 0) return false;
+        return true;
+      });
+    }
   }
+
+
+
+
 
   // Re-run validation summary if medicines were updated
   let validationSummary = undefined;
