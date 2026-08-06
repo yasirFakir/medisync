@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "npx pnpm --filter @medisync/web-portals dev",
     "dev:backend": "npx pnpm --filter @medisync/backend dev",
+    "dev:ai": "cd apps/ai-service && python main.py",
     "dev:all": "npx turbo run dev",
+    "run:win": ".\\run.bat",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",

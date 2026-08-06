@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "dev",
+      "problemMatcher": [],
+      "label": "1. Start Frontend (Web Portals)",
+      "detail": "Runs React + Vite Frontend on http://localhost:3000",
+      "isBackground": true
+    },
+    {
+      "type": "npm",
+      "script": "dev:backend",
+      "problemMatcher": [],
+      "label": "2. Start Express Backend",
+      "detail": "Runs Express API Gateway on http://localhost:3001",
+      "isBackground": true
+    },
+    {
+      "type": "shell",
+      "command": "${workspaceFolder}/apps/ai-service/venv/Scripts/python.exe main.py",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/ai-service"
+      },
+      "problemMatcher": [],
+      "label": "3. Start Python AI Microservice",
+      "detail": "Runs FastAPI AI Service on http://127.0.0.1:8000",
+      "isBackground": true
+    },
+    {
+      "type": "npm",
+      "script": "dev:all",
+      "problemMatcher": [],
+      "label": "Start Monorepo (Turbo)",
+      "detail": "Runs dev scripts for Node packages via Turbo"
+    },
+    {
+      "type": "shell",
+      "command": "node database/test_runner.js",
+      "problemMatcher": [],
+      "label": "Run DB Verification Tests",
+      "detail": "Runs verification tests for database and backend configuration"
+    }
+  ]
+}

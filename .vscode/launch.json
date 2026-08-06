@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend Express API (Port 3001)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "src/server.ts"],
+      "cwd": "${workspaceFolder}/apps/backend",
+      "console": "integratedTerminal",
+      "restart": true,
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "Python AI Microservice (Port 8000)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/ai-service/main.py",
+      "cwd": "${workspaceFolder}/apps/ai-service",
+      "python": "${workspaceFolder}/apps/ai-service/venv/Scripts/python.exe",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Launch Edge/Chrome Debugger (Frontend Port 3000)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/apps/web-portals"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "🚀 Launch Backend + AI Microservice",
+      "configurations": [
+        "Backend Express API (Port 3001)",
+        "Python AI Microservice (Port 8000)"
+      ],
+      "stopAll": true
+    }
+  ]
+}
