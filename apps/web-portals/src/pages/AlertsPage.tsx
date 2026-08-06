@@ -607,11 +607,11 @@ export const AlertsPage: React.FC = () => {
   const displayAlerts = alerts.filter(a => a.status !== 'ARCHIVED');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}>
       {/* Page header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+        <div style={{ minWidth: '240px', flex: '1 1 auto' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
             My Medication Schedule
           </h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', fontWeight: 500 }}>
@@ -619,7 +619,7 @@ export const AlertsPage: React.FC = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <Button
             variant="secondary"
             onClick={() => setIsRxModalOpen(true)}
@@ -642,7 +642,7 @@ export const AlertsPage: React.FC = () => {
       )}
 
       {/* Alerts grid */}
-      <div>
+      <div style={{ width: '100%', boxSizing: 'border-box' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
             <Spinner size={32} />
@@ -653,20 +653,21 @@ export const AlertsPage: React.FC = () => {
             title="No Dosage Reminders Set"
             description="You don't have any medication reminders scheduled. Import from your prescriptions or create a custom schedule."
             action={
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <Button variant="secondary" onClick={() => setIsRxModalOpen(true)} icon={<FileText size={16} />}>
                   Follow Prescription
                 </Button>
                 <Button onClick={() => setIsCustomModalOpen(true)} icon={<Plus size={16} />}>
+
                   Custom Schedule
                 </Button>
               </div>
             }
           />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
             {displayAlerts.map((item, index) => (
-              <div key={item.alertId} style={{ opacity: togglingId === item.alertId ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+              <div key={item.alertId} style={{ opacity: togglingId === item.alertId ? 0.6 : 1, transition: 'opacity 0.2s', minWidth: 0 }}>
                 <AlertCard
                   item={item}
                   index={index}
@@ -679,6 +680,7 @@ export const AlertsPage: React.FC = () => {
               </div>
             ))}
           </div>
+
         )}
       </div>
 

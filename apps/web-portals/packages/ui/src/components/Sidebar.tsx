@@ -57,28 +57,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ navItems, user, onLogout }) =>
       </div>
 
       {/* User Footer */}
-      <div className="pt-4 border-t border-[#bcc9c6]/30">
-
+      <div className="pt-4 border-t border-[#bcc9c6]/30 w-full overflow-hidden">
         {user && (
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center space-x-3 min-w-0">
-              <Avatar name={user.fullName} size={36} />
-              <div className="min-w-0">
-                <p className="text-[14px] font-semibold text-[#111c2d] truncate">{user.fullName}</p>
-                <p className="text-[11px] font-semibold text-[#3d4947] capitalize truncate">{user.role.toLowerCase()} Profile</p>
+          <div className="flex items-center justify-between pt-2 w-full gap-2 overflow-hidden">
+            <div className="flex items-center space-x-2.5 min-w-0 flex-1 overflow-hidden">
+              <Avatar name={user.fullName} size={34} />
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p className="text-[13px] font-semibold text-[#111c2d] truncate max-w-full" title={user.fullName}>
+                  {user.fullName}
+                </p>
+                <p className="text-[11px] font-semibold text-[#3d4947] capitalize truncate max-w-full">
+                  {user.role.toLowerCase()} Profile
+                </p>
               </div>
             </div>
 
             <button
               onClick={onLogout}
               title="Sign Out"
-              className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+              className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer flex-shrink-0"
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
             </button>
           </div>
         )}
       </div>
     </aside>
+
   );
 };
