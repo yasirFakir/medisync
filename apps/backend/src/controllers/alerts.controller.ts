@@ -7,8 +7,26 @@ import { AuthRequest } from '../middleware/auth.middleware';
 // ─── POST /api/alerts  [PATIENT] ──────────────────────────────────────────────
 export const createAlert = async (req: AuthRequest, res: Response): Promise<void> => {
   const patientId = req.user!.userId;
-  const { medicineName, dosage, frequency, scheduledTime } = req.body;
+  const { alerts, medicineName, dosage, frequency, scheduledTime } = req.body;
 
+  // Batch import from prescription or multi-schedule
+  if (Array.isArray(alerts) && alerts.length > 0) {
+    const createdList = [];
+    for (const item of alerts) {
+      const [newAlert] = await query(
+        `INSERT INTO medication_alerts (alert_id, patient_id, medicine_name, dosage, frequency, scheduled_time, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
+         RETURNING alert_id AS "alertId", patient_id AS "patientId", medicine_name AS "medicineName",
+                   dosage, frequency, scheduled_time AS "scheduledTime", status`,
+        [uuidv4(), patientId, item.medicineName, item.dosage || 'Standard', item.frequency || 'Once daily', item.scheduledTime || '08:00']
+      );
+      createdList.push(newAlert);
+    }
+    res.status(201).json({ success: true, message: `${createdList.length} medication reminders created`, data: createdList, timestamp: new Date().toISOString() });
+    return;
+  }
+
+  // Single alert creation
   const [alert] = await query(
     `INSERT INTO medication_alerts (alert_id, patient_id, medicine_name, dosage, frequency, scheduled_time, status)
      VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE')
@@ -19,6 +37,7 @@ export const createAlert = async (req: AuthRequest, res: Response): Promise<void
 
   res.status(201).json({ success: true, message: 'Medication alert created', data: alert, timestamp: new Date().toISOString() });
 };
+
 
 // ─── GET /api/alerts  [PATIENT] ───────────────────────────────────────────────
 export const getMyAlerts = async (req: AuthRequest, res: Response): Promise<void> => {

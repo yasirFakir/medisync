@@ -3,7 +3,7 @@ import { Card, Button, Badge, Modal, Input, Spinner, EmptyState } from '../../pa
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
   AlarmClock, Plus, Trash2, Bell, BellOff, Clock, Calendar, Pill,
-  CheckCircle, AlertCircle, Check, XCircle, Heart, TrendingUp,
+  CheckCircle, AlertCircle, Check, XCircle, Heart, TrendingUp, FileText, CheckSquare, Square,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -26,61 +26,49 @@ interface DoseLog {
   dosage: string;
 }
 
-// ─── Colour Palette for Cards ─────────────────────────────────────────────────
+interface PrescriptionMedicine {
+  brandName: string;
+  dosage: string;
+  frequency: string;
+  duration?: string;
+}
 
+interface Prescription {
+  prescriptionId: string;
+  doctorName?: string;
+  createdAt: string;
+  medicines: PrescriptionMedicine[];
+  ocrResult?: {
+    patient_name?: { value?: string };
+    doctor_name?: { value?: string };
+    medicines?: Array<{
+      brand_name?: { value?: string };
+      strength?: { value?: string };
+      dosage?: { value?: string };
+      frequency?: { value?: string };
+    }>;
+  };
+}
+
+// ─── Palette tailored to app theme (--color-brand variables & slate/teal palette) ──
 const CARD_PALETTES = [
-  { bg: '#eef6ff', border: '#bfdbfe', accent: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #6366f1)', light: '#dbeafe' },
-  { bg: '#f0fdf4', border: '#bbf7d0', accent: '#22c55e', gradient: 'linear-gradient(135deg, #22c55e, #06b6d4)', light: '#dcfce7' },
-  { bg: '#fdf4ff', border: '#f0abfc', accent: '#a855f7', gradient: 'linear-gradient(135deg, #a855f7, #ec4899)', light: '#fae8ff' },
-  { bg: '#fff7ed', border: '#fed7aa', accent: '#f97316', gradient: 'linear-gradient(135deg, #f97316, #eab308)', light: '#ffedd5' },
-  { bg: '#fef2f2', border: '#fecaca', accent: '#ef4444', gradient: 'linear-gradient(135deg, #ef4444, #f97316)', light: '#fee2e2' },
-  { bg: '#f0fdfa', border: '#99f6e4', accent: '#14b8a6', gradient: 'linear-gradient(135deg, #14b8a6, #06b6d4)', light: '#ccfbf1' },
-  { bg: '#fefce8', border: '#fde68a', accent: '#eab308', gradient: 'linear-gradient(135deg, #eab308, #f97316)', light: '#fef9c3' },
-  { bg: '#eff6ff', border: '#93c5fd', accent: '#2563eb', gradient: 'linear-gradient(135deg, #2563eb, #7c3aed)', light: '#dbeafe' },
+  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: 'var(--color-brand-500, #0ea5e9)', gradient: 'linear-gradient(135deg, #0ea5e9, #0284c7)', light: '#e0f2fe' },
+  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #059669)', light: '#d1fae5' },
+  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', light: '#ede9fe' },
+  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', light: '#fef3c7' },
 ];
 
 const getPalette = (index: number) => CARD_PALETTES[index % CARD_PALETTES.length];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Medical Schedule Time Slot Ranges & Target Defaults ────────────────────────
+// • Morning (Breakfast):  07:00 AM – 10:00 AM  (Target Default: 08:00 AM)
+// • Midday  (Lunch):      12:00 PM – 03:00 PM  (Target Default: 01:00 PM / 13:00)
+// • Evening (Dinner/Night): 07:00 PM – 10:00 PM  (Target Default: 08:00 PM / 20:00)
 
-const getNextDoseInfo = (scheduledTime: string, frequency: string): { label: string; minutes: number } => {
-  const now = new Date();
-  const [hh, mm] = scheduledTime.split(':').map(Number);
-
-  const buildDate = (dayOffset = 0) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() + dayOffset);
-    d.setHours(hh, mm, 0, 0);
-    return d;
-  };
-
-  const offsetsMinutes: Record<string, number[]> = {
-    'Once daily': [0],
-    'Twice daily': [0, 720],
-    'Three times daily': [0, 480, 960],
-    'Every 8 hours': [0, 480, 960],
-  };
-
-  const doseOffsets = offsetsMinutes[frequency] ?? [0];
-  let nearest: Date | null = null;
-
-  for (let day = 0; day <= 1; day++) {
-    for (const off of doseOffsets) {
-      const d = buildDate(day);
-      d.setMinutes(d.getMinutes() + off);
-      if (d > now && (!nearest || d < nearest)) nearest = d;
-    }
-  }
-
-  if (!nearest) return { label: 'Soon', minutes: 0 };
-
-  const diffMs = nearest.getTime() - now.getTime();
-  const diffMin = Math.round(diffMs / 60000);
-  const diffH = Math.floor(diffMin / 60);
-  const diffM = diffMin % 60;
-
-  if (diffMin < 60) return { label: `in ${diffMin}m`, minutes: diffMin };
-  return { label: `in ${diffH}h ${diffM}m`, minutes: diffMin };
+const SLOT_CONFIG = {
+  morning: { label: 'Morning (7:00 AM - 10:00 AM)', time: '08:00', targetMins: 8 * 60 },
+  lunch:   { label: 'Lunch (12:00 PM - 3:00 PM)',   time: '13:00', targetMins: 13 * 60 },
+  dinner:  { label: 'Dinner (7:00 PM - 10:00 PM)',  time: '20:00', targetMins: 20 * 60 },
 };
 
 const fmt12h = (t: string) => {
@@ -91,8 +79,23 @@ const fmt12h = (t: string) => {
   return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
 };
 
+/** Parses numeric e.g. "1+0+1", "0+1+0" or descriptive frequency string */
 const getDoseTimes = (scheduledTime: string, frequency: string): string[] => {
-  const [hh, mm] = scheduledTime.split(':').map(Number);
+  const normFreq = (frequency || '').trim();
+  const digits = normFreq.replace(/\D/g, '');
+
+  if (digits.length === 3) {
+    const [m, l, d] = digits.split('').map(Number);
+    const times: string[] = [];
+
+    if (m > 0) times.push(`${fmt12h(SLOT_CONFIG.morning.time)} (7-10 AM)`);
+    if (l > 0) times.push(`${fmt12h(SLOT_CONFIG.lunch.time)} (12-3 PM)`);
+    if (d > 0) times.push(`${fmt12h(SLOT_CONFIG.dinner.time)} (7-10 PM)`);
+
+    if (times.length > 0) return times;
+  }
+
+  const [hh, mm] = (scheduledTime || '08:00').split(':').map(Number);
   const base = hh * 60 + mm;
   const offsets: Record<string, number[]> = {
     'Once daily': [0],
@@ -109,6 +112,53 @@ const getDoseTimes = (scheduledTime: string, frequency: string): string[] => {
   });
 };
 
+const getNextDoseInfo = (scheduledTime: string, frequency: string): { label: string; minutes: number } => {
+  const now = new Date();
+  const digits = (frequency || '').replace(/\D/g, '');
+
+  let doseTimesInMinutes: number[] = [];
+
+  if (digits.length === 3) {
+    const [m, l, d] = digits.split('').map(Number);
+    if (m > 0) doseTimesInMinutes.push(SLOT_CONFIG.morning.targetMins);
+    if (l > 0) doseTimesInMinutes.push(SLOT_CONFIG.lunch.targetMins);
+    if (d > 0) doseTimesInMinutes.push(SLOT_CONFIG.dinner.targetMins);
+  } else {
+    const [hh, mm] = (scheduledTime || '08:00').split(':').map(Number);
+    const base = hh * 60 + mm;
+    const offsets: Record<string, number[]> = {
+      'Once daily': [0],
+      'Twice daily': [0, 720],
+      'Three times daily': [0, 480, 960],
+      'Every 8 hours': [0, 480, 960],
+    };
+    const offs = offsets[frequency] ?? [0];
+    doseTimesInMinutes = offs.map(o => (base + o) % 1440);
+  }
+
+  let nearest: Date | null = null;
+
+  for (let day = 0; day <= 1; day++) {
+    for (const mins of doseTimesInMinutes) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + day);
+      d.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
+      if (d > now && (!nearest || d < nearest)) nearest = d;
+    }
+  }
+
+  if (!nearest) return { label: 'Soon', minutes: 0 };
+
+  const diffMs = nearest.getTime() - now.getTime();
+  const diffMin = Math.round(diffMs / 60000);
+  const diffH = Math.floor(diffMin / 60);
+  const diffM = diffMin % 60;
+
+  if (diffMin < 60) return { label: `in ${diffMin}m`, minutes: diffMin };
+  return { label: `in ${diffH}h ${diffM}m`, minutes: diffMin };
+};
+
+
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 // ─── Countdown hook ───────────────────────────────────────────────────────────
@@ -122,7 +172,7 @@ const useCountdown = (scheduledTime: string, frequency: string, active: boolean)
   return info;
 };
 
-// ─── Individual Alert Card (Professional & Colourful) ─────────────────────────
+// ─── Individual Alert Card ─────────────────────────────────────────────────────
 const AlertCard: React.FC<{
   item: MedicationAlert;
   index: number;
@@ -139,41 +189,39 @@ const AlertCard: React.FC<{
 
   return (
     <div
-      className="animate-fade-in"
       style={{
-        background: palette.bg,
-        border: `1.5px solid ${palette.border}`,
-        borderRadius: '16px',
+        background: 'var(--bg-elevated, #ffffff)',
+        border: '1px solid var(--border-default, #e2e8f0)',
+        borderRadius: '14px',
         overflow: 'hidden',
         opacity: item.status === 'ARCHIVED' ? 0.5 : 1,
-        transition: 'all 0.3s ease',
-        boxShadow: `0 4px 16px ${palette.accent}12`,
+        transition: 'all 0.2s ease',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
       }}
     >
-      {/* Gradient top strip */}
+      {/* Top accent strip matching brand theme */}
       <div style={{
-        background: isActive ? palette.gradient : '#e2e8f0',
-        height: '5px',
+        background: isActive ? palette.gradient : 'var(--border-default, #cbd5e1)',
+        height: '4px',
         width: '100%',
       }} />
 
-      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {/* Top row: icon + name + badge */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '42px', height: '42px', borderRadius: '12px',
-              background: isActive ? palette.gradient : '#e2e8f0',
+              width: '40px', height: '40px', borderRadius: '10px',
+              background: isActive ? palette.gradient : 'var(--border-default, #e2e8f0)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              boxShadow: isActive ? `0 4px 12px ${palette.accent}30` : 'none',
             }}>
-              <Pill size={20} color="#fff" />
+              <Pill size={18} color="#fff" />
             </div>
             <div>
-              <h4 style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', margin: 0 }}>
+              <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary, #0f172a)', margin: 0 }}>
                 {item.medicineName}
               </h4>
-              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>{item.dosage}</span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>{item.dosage}</span>
             </div>
           </div>
           <Badge variant={isActive ? 'green' : item.status === 'SUSPENDED' ? 'yellow' : 'blue'}>
@@ -182,22 +230,21 @@ const AlertCard: React.FC<{
         </div>
 
         {/* Dose time pills */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Calendar size={13} color="#94a3b8" />
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>{item.frequency}</span>
+            <Calendar size={13} color="var(--text-secondary, #94a3b8)" />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>{item.frequency}</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {doseTimes.map((t, i) => (
               <span key={i} style={{
-                padding: '4px 12px',
-                borderRadius: '20px',
-                background: '#fff',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                background: palette.light,
                 fontSize: '0.75rem',
-                fontWeight: 600,
+                fontWeight: 700,
                 color: palette.accent,
                 display: 'flex', alignItems: 'center', gap: '4px',
-                border: `1px solid ${palette.border}`,
               }}>
                 <Clock size={11} />
                 {t}
@@ -209,26 +256,25 @@ const AlertCard: React.FC<{
         {/* Next dose countdown */}
         {isActive && (
           <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            padding: '12px 14px',
+            background: 'var(--bg-surface, #f8fafc)',
+            borderRadius: '10px',
+            padding: '10px 12px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            border: `1px solid ${palette.border}`,
+            border: '1px solid var(--border-default, #e2e8f0)',
           }}>
             <AlarmClock size={16} style={{ color: countdown.minutes <= 30 ? '#ef4444' : palette.accent, flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.5px' }}>NEXT DOSE</div>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: countdown.minutes <= 30 ? '#ef4444' : palette.accent }}>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 700, letterSpacing: '0.5px' }}>NEXT DOSE</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: countdown.minutes <= 30 ? '#ef4444' : palette.accent }}>
                 {fmt12h(item.scheduledTime)} — {countdown.label}
               </div>
             </div>
             {countdown.minutes <= 30 && (
               <span style={{
-                fontSize: '0.6rem', fontWeight: 800, padding: '3px 8px',
-                borderRadius: '20px', background: '#fef2f2', color: '#ef4444',
-                letterSpacing: '0.5px',
+                fontSize: '0.6rem', fontWeight: 800, padding: '2px 6px',
+                borderRadius: '6px', background: '#fef2f2', color: '#ef4444',
               }}>
                 SOON
               </span>
@@ -240,37 +286,20 @@ const AlertCard: React.FC<{
         {isActive && takenToday && (
           <div style={{
             background: '#f0fdf4',
-            borderRadius: '12px',
-            padding: '10px 14px',
+            borderRadius: '10px',
+            padding: '8px 12px',
             display: 'flex', alignItems: 'center', gap: '8px',
             border: '1px solid #bbf7d0',
           }}>
-            <CheckCircle size={16} color="#22c55e" />
-            <span style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 600 }}>
+            <CheckCircle size={15} color="#22c55e" />
+            <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 600 }}>
               ✓ Dose taken today
-            </span>
-          </div>
-        )}
-
-        {/* Suspended info */}
-        {item.status === 'SUSPENDED' && (
-          <div style={{
-            background: '#fffbeb',
-            borderRadius: '12px',
-            padding: '10px 14px',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            border: '1px solid #fde68a',
-          }}>
-            <AlertCircle size={14} color="#f59e0b" />
-            <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 500 }}>
-              Reminders paused — tap Resume to re-activate.
             </span>
           </div>
         )}
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: '8px' }}>
-          {/* Mark as Taken button */}
           {isActive && !takenToday && (
             <button
               onClick={() => onMarkTaken(item.alertId)}
@@ -278,17 +307,15 @@ const AlertCard: React.FC<{
               style={{
                 flex: 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                padding: '9px 12px',
+                padding: '8px 12px',
                 background: palette.gradient,
                 color: '#fff',
                 border: 'none',
-                borderRadius: '10px',
-                fontSize: '0.8rem',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
                 fontWeight: 700,
                 cursor: markingId === item.alertId ? 'not-allowed' : 'pointer',
                 opacity: markingId === item.alertId ? 0.7 : 1,
-                transition: 'opacity 0.2s',
-                boxShadow: `0 3px 10px ${palette.accent}30`,
               }}
             >
               <Check size={14} />
@@ -300,12 +327,12 @@ const AlertCard: React.FC<{
             <div style={{
               flex: 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              padding: '9px 12px',
+              padding: '8px 12px',
               background: '#f0fdf4',
               color: '#16a34a',
               border: '1px solid #bbf7d0',
-              borderRadius: '10px',
-              fontSize: '0.8rem',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
               fontWeight: 700,
             }}>
               <CheckCircle size={14} />
@@ -313,7 +340,6 @@ const AlertCard: React.FC<{
             </div>
           )}
 
-          {/* Suspend / Resume */}
           {item.status !== 'ARCHIVED' && (
             <Button
               size="sm"
@@ -321,12 +347,11 @@ const AlertCard: React.FC<{
               onClick={() => onToggle(item.alertId, item.status)}
               icon={isActive ? <BellOff size={14} /> : <Bell size={14} />}
               style={{
-                fontSize: '0.78rem',
+                fontSize: '0.75rem',
                 color: isActive ? '#d97706' : '#16a34a',
-                border: isActive ? '1px solid #fde68a' : '1px solid #bbf7d0',
-                borderRadius: '10px',
-                background: isActive ? '#fffbeb' : '#f0fdf4',
-                padding: '8px 12px',
+                border: '1px solid var(--border-default, #e2e8f0)',
+                borderRadius: '8px',
+                padding: '6px 10px',
               }}
             >
               {isActive ? 'Pause' : 'Resume'}
@@ -336,11 +361,11 @@ const AlertCard: React.FC<{
           <button
             onClick={() => onDelete(item.alertId)}
             style={{
-              padding: '8px 10px',
-              background: '#fef2f2',
+              padding: '6px 10px',
+              background: 'var(--bg-surface, #f8fafc)',
               color: '#ef4444',
-              border: '1px solid #fecaca',
-              borderRadius: '10px',
+              border: '1px solid var(--border-default, #e2e8f0)',
+              borderRadius: '8px',
               cursor: 'pointer',
               display: 'flex', alignItems: 'center',
             }}
@@ -360,121 +385,43 @@ const SummaryBar: React.FC<{ alerts: MedicationAlert[]; takenCount: number; miss
   const total = alerts.length;
 
   const stats = [
-    { label: 'Total Reminders', value: total, color: '#3b82f6', bg: '#eef6ff', border: '#bfdbfe', icon: <Pill size={18} /> },
-    { label: 'Active', value: active, color: '#22c55e', bg: '#f0fdf4', border: '#bbf7d0', icon: <Heart size={18} /> },
-    { label: 'Taken Today', value: takenCount, color: '#14b8a6', bg: '#f0fdfa', border: '#99f6e4', icon: <CheckCircle size={18} /> },
-    { label: 'Missed Today', value: missedCount, color: missedCount > 0 ? '#ef4444' : '#94a3b8', bg: missedCount > 0 ? '#fef2f2' : '#f8fafc', border: missedCount > 0 ? '#fecaca' : '#e2e8f0', icon: <XCircle size={18} /> },
-    { label: 'Suspended', value: suspended, color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', icon: <BellOff size={18} /> },
+    { label: 'Total Reminders', value: total, color: 'var(--color-brand-500, #0ea5e9)', icon: <Pill size={16} /> },
+    { label: 'Active', value: active, color: '#10b981', icon: <Heart size={16} /> },
+    { label: 'Taken Today', value: takenCount, color: '#14b8a6', icon: <CheckCircle size={16} /> },
+    { label: 'Pending Today', value: missedCount, color: missedCount > 0 ? '#ef4444' : '#64748b', icon: <XCircle size={16} /> },
+    { label: 'Suspended', value: suspended, color: '#f59e0b', icon: <BellOff size={16} /> },
   ];
 
   return (
-    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
       {stats.map(stat => (
         <div
           key={stat.label}
           style={{
-            flex: '1 1 130px',
-            background: stat.bg,
-            border: `1.5px solid ${stat.border}`,
-            borderRadius: '14px',
-            padding: '14px 16px',
+            background: 'var(--bg-elevated, #ffffff)',
+            border: '1px solid var(--border-default, #e2e8f0)',
+            borderRadius: '12px',
+            padding: '12px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            transition: 'transform 0.2s ease',
           }}
         >
           <div style={{
-            width: '36px', height: '36px', borderRadius: '10px',
-            background: '#fff',
+            width: '34px', height: '34px', borderRadius: '8px',
+            background: 'var(--bg-surface, #f8fafc)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: stat.color,
-            border: `1px solid ${stat.border}`,
+            border: '1px solid var(--border-default, #e2e8f0)',
           }}>
             {stat.icon}
           </div>
           <div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
-            <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500, marginTop: '2px' }}>{stat.label}</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)', lineHeight: 1 }}>{stat.value}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500, marginTop: '2px' }}>{stat.label}</div>
           </div>
         </div>
       ))}
-    </div>
-  );
-};
-
-// ─── Missed Doses Bar ─────────────────────────────────────────────────────────
-const MissedDosesBar: React.FC<{ alerts: MedicationAlert[]; takenAlertIds: Set<string> }> = ({ alerts, takenAlertIds }) => {
-  const activeAlerts = alerts.filter(a => a.status === 'ACTIVE');
-  const missedAlerts = activeAlerts.filter(a => !takenAlertIds.has(a.alertId));
-
-  if (missedAlerts.length === 0) {
-    return (
-      <div style={{
-        background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)',
-        border: '1.5px solid #bbf7d0',
-        borderRadius: '14px',
-        padding: '16px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-      }}>
-        <div style={{
-          width: '40px', height: '40px', borderRadius: '10px',
-          background: '#dcfce7',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <TrendingUp size={20} color="#22c55e" />
-        </div>
-        <div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#16a34a' }}>All doses taken today! 🎉</div>
-          <div style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 500 }}>Great job keeping up with your medication schedule.</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{
-      background: 'linear-gradient(135deg, #fef2f2, #fff1f2)',
-      border: '1.5px solid #fecaca',
-      borderRadius: '14px',
-      padding: '16px 20px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-        <div style={{
-          width: '36px', height: '36px', borderRadius: '10px',
-          background: '#fee2e2',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <AlertCircle size={18} color="#ef4444" />
-        </div>
-        <div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#dc2626' }}>
-            {missedAlerts.length} medication{missedAlerts.length > 1 ? 's' : ''} not taken today
-          </div>
-          <div style={{ fontSize: '0.72rem', color: '#f87171', fontWeight: 500 }}>
-            Please take your pending medicines or mark them as taken.
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {missedAlerts.map(a => (
-          <span key={a.alertId} style={{
-            padding: '5px 14px',
-            borderRadius: '20px',
-            background: '#fff',
-            border: '1px solid #fecaca',
-            fontSize: '0.78rem',
-            fontWeight: 600,
-            color: '#dc2626',
-            display: 'flex', alignItems: 'center', gap: '5px',
-          }}>
-            <XCircle size={12} />
-            {a.medicineName} ({a.dosage})
-          </span>
-        ))}
-      </div>
     </div>
   );
 };
@@ -483,39 +430,49 @@ const MissedDosesBar: React.FC<{ alerts: MedicationAlert[]; takenAlertIds: Set<s
 export const AlertsPage: React.FC = () => {
   const [alerts, setAlerts] = useState<MedicationAlert[]>([]);
   const [doseLogs, setDoseLogs] = useState<DoseLog[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Modals
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [isRxModalOpen, setIsRxModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
 
+  // Custom schedule state
   const [medicineName, setMedicineName] = useState('');
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('Once daily');
   const [scheduledTime, setScheduledTime] = useState('08:00');
 
-  const fetchAlerts = useCallback(async () => {
+  // Prescription selection state
+  const [selectedRxId, setSelectedRxId] = useState<string>('');
+  const [selectedMeds, setSelectedMeds] = useState<{ [brandName: string]: boolean }>({});
+  const [rxScheduledTimes, setRxScheduledTimes] = useState<{ [brandName: string]: string }>({});
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [alertsRes, logsRes] = await Promise.all([
+      const [alertsRes, logsRes, rxRes] = await Promise.all([
         apiClient.get('/alerts'),
         apiClient.get('/alerts/dose-logs?days=1').catch(() => ({ data: { data: [] } })),
+        apiClient.get('/prescriptions').catch(() => ({ data: { data: [] } })),
       ]);
       setAlerts(alertsRes.data.data || []);
       setDoseLogs(logsRes.data.data || []);
+      setPrescriptions(rxRes.data.data || []);
     } catch (err) {
-      console.error('Failed to fetch medication alerts', err);
+      console.error('Failed to fetch medication alerts or prescriptions', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Today's taken alert IDs — PostgreSQL DATE comes back as UTC ISO string,
-  // so we convert to local date string for comparison.
   const today = todayStr();
-  const toLocalDate = (d: string) => new Date(d).toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
+  const toLocalDate = (d: string) => new Date(d).toLocaleDateString('en-CA');
   const takenAlertIds = new Set(
     doseLogs
       .filter(l => l.takenDate && toLocalDate(l.takenDate) === today)
@@ -526,20 +483,79 @@ export const AlertsPage: React.FC = () => {
   const takenCount = activeAlerts.filter(a => takenAlertIds.has(a.alertId)).length;
   const missedCount = activeAlerts.filter(a => !takenAlertIds.has(a.alertId)).length;
 
-  const handleCreateAlert = async (e: React.FormEvent) => {
+  // Single Custom Alert Submit
+  const handleCreateCustomAlert = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!medicineName || !dosage) return;
     setSaving(true);
     try {
       const res = await apiClient.post('/alerts', { medicineName, dosage, frequency, scheduledTime });
       setAlerts(prev => [res.data.data, ...prev]);
-      setIsModalOpen(false);
+      setIsCustomModalOpen(false);
       setMedicineName('');
       setDosage('');
       setFrequency('Once daily');
       setScheduledTime('08:00');
     } catch (err) {
       console.error('Failed to create alert', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Prescription Selection handler
+  const handleSelectRx = (rxId: string) => {
+    setSelectedRxId(rxId);
+    const rx = prescriptions.find(p => p.prescriptionId === rxId);
+    if (!rx) return;
+
+    const medMap: { [brandName: string]: boolean } = {};
+    const timeMap: { [brandName: string]: string } = {};
+
+    const medsList = rx.medicines?.length ? rx.medicines : (rx.ocrResult?.medicines?.map(m => ({
+      brandName: m.brand_name?.value || 'Unknown',
+      dosage: m.strength?.value || m.dosage?.value || 'Standard',
+      frequency: m.frequency?.value || 'Once daily',
+    })) || []);
+
+    medsList.forEach(m => {
+      medMap[m.brandName] = true;
+      timeMap[m.brandName] = '08:00';
+    });
+
+    setSelectedMeds(medMap);
+    setRxScheduledTimes(timeMap);
+  };
+
+  // Batch create alerts from selected prescription
+  const handleImportRxAlerts = async () => {
+    const rx = prescriptions.find(p => p.prescriptionId === selectedRxId);
+    if (!rx) return;
+
+    const medsList = rx.medicines?.length ? rx.medicines : (rx.ocrResult?.medicines?.map(m => ({
+      brandName: m.brand_name?.value || 'Unknown',
+      dosage: m.strength?.value || m.dosage?.value || 'Standard',
+      frequency: m.frequency?.value || 'Once daily',
+    })) || []);
+
+    const toImport = medsList.filter(m => selectedMeds[m.brandName]).map(m => ({
+      medicineName: m.brandName,
+      dosage: m.dosage || 'Standard',
+      frequency: m.frequency || 'Once daily',
+      scheduledTime: rxScheduledTimes[m.brandName] || '08:00',
+    }));
+
+    if (toImport.length === 0) return;
+
+    setSaving(true);
+    try {
+      const res = await apiClient.post('/alerts', { alerts: toImport });
+      const created = Array.isArray(res.data.data) ? res.data.data : [res.data.data];
+      setAlerts(prev => [...created, ...prev]);
+      setIsRxModalOpen(false);
+      setSelectedRxId('');
+    } catch (err) {
+      console.error('Failed to import prescription alerts', err);
     } finally {
       setSaving(false);
     }
@@ -572,7 +588,6 @@ export const AlertsPage: React.FC = () => {
     try {
       const res = await apiClient.post(`/alerts/${alertId}/taken`, { date: todayStr() });
       const log = res.data.data;
-      // Find medicine info to add to log display
       const alert = alerts.find(a => a.alertId === alertId);
       setDoseLogs(prev => [...prev, {
         logId: log.logId,
@@ -596,26 +611,34 @@ export const AlertsPage: React.FC = () => {
       {/* Page header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
             My Medication Schedule
           </h3>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '4px 0 0', fontWeight: 500 }}>
-            Set daily reminders, track doses, and stay on top of your medication.
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', fontWeight: 500 }}>
+            Sync schedules directly from digitised prescriptions or set custom reminders.
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} icon={<Plus size={16} />}>
-          Schedule Reminder
-        </Button>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Button
+            variant="secondary"
+            onClick={() => setIsRxModalOpen(true)}
+            icon={<FileText size={16} />}
+          >
+            Follow Prescription
+          </Button>
+          <Button
+            onClick={() => setIsCustomModalOpen(true)}
+            icon={<Plus size={16} />}
+          >
+            Custom Schedule
+          </Button>
+        </div>
       </div>
 
       {/* Summary stats */}
       {!loading && alerts.length > 0 && (
         <SummaryBar alerts={alerts} takenCount={takenCount} missedCount={missedCount} />
-      )}
-
-      {/* Missed doses bar */}
-      {!loading && activeAlerts.length > 0 && (
-        <MissedDosesBar alerts={alerts} takenAlertIds={takenAlertIds} />
       )}
 
       {/* Alerts grid */}
@@ -628,11 +651,16 @@ export const AlertsPage: React.FC = () => {
           <EmptyState
             icon={<AlarmClock size={28} />}
             title="No Dosage Reminders Set"
-            description="You don't have any active medication alarms scheduled yet."
+            description="You don't have any medication reminders scheduled. Import from your prescriptions or create a custom schedule."
             action={
-              <Button onClick={() => setIsModalOpen(true)} icon={<Plus size={16} />}>
-                Schedule Reminder
-              </Button>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                <Button variant="secondary" onClick={() => setIsRxModalOpen(true)} icon={<FileText size={16} />}>
+                  Follow Prescription
+                </Button>
+                <Button onClick={() => setIsCustomModalOpen(true)} icon={<Plus size={16} />}>
+                  Custom Schedule
+                </Button>
+              </div>
             }
           />
         ) : (
@@ -654,49 +682,138 @@ export const AlertsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Create modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Schedule Dosage Reminder" size="sm">
-        <form onSubmit={handleCreateAlert} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* ── 1. FOLLOW PRESCRIPTION MODAL ────────────────────────────────────── */}
+      <Modal isOpen={isRxModalOpen} onClose={() => setIsRxModalOpen(false)} title="Import Schedule from Prescription" size="md">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+              Select Digitised Prescription
+            </label>
+            {prescriptions.length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No prescriptions available. Upload a prescription first in the Prescriptions tab.</p>
+            ) : (
+              <select
+                value={selectedRxId}
+                onChange={e => handleSelectRx(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 12px', fontSize: '0.85rem',
+                  border: '1px solid var(--border-default)', borderRadius: '8px',
+                  background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontWeight: 600,
+                  outline: 'none',
+                }}
+              >
+                <option value="">-- Select Prescription --</option>
+                {prescriptions.map(p => (
+                  <option key={p.prescriptionId} value={p.prescriptionId}>
+                    Rx #{p.prescriptionId.substring(0, 8)} — Dr. {p.doctorName || p.ocrResult?.doctor_name?.value || 'Prescriber'} ({new Date(p.createdAt).toLocaleDateString()})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Selected Prescription Medicines Checklist */}
+          {selectedRxId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-surface, #f8fafc)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                Select Medicines to Schedule
+              </span>
+              {(() => {
+                const rx = prescriptions.find(p => p.prescriptionId === selectedRxId);
+                const meds = rx?.medicines?.length ? rx.medicines : (rx?.ocrResult?.medicines?.map(m => ({
+                  brandName: m.brand_name?.value || 'Unknown',
+                  dosage: m.strength?.value || m.dosage?.value || 'Standard',
+                  frequency: m.frequency?.value || 'Once daily',
+                })) || []);
+
+                return meds.map((med, idx) => {
+                  const isChecked = selectedMeds[med.brandName] ?? true;
+                  return (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                      padding: '10px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+                      borderRadius: '8px',
+                    }}>
+                      <div
+                        onClick={() => setSelectedMeds(p => ({ ...p, [med.brandName]: !isChecked }))}
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}
+                      >
+                        {isChecked ? <CheckSquare size={18} color="var(--color-brand-500)" /> : <Square size={18} color="var(--text-secondary)" />}
+                        <div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>{med.brandName}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{med.dosage} • {med.frequency}</div>
+                        </div>
+                      </div>
+
+                      {/* Scheduled Time input for this medicine */}
+                      {isChecked && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Clock size={14} color="var(--text-secondary)" />
+                          <input
+                            type="time"
+                            value={rxScheduledTimes[med.brandName] || '08:00'}
+                            onChange={e => setRxScheduledTimes(p => ({ ...p, [med.brandName]: e.target.value }))}
+                            style={{
+                              padding: '4px 8px', fontSize: '0.8rem', border: '1px solid var(--border-default)',
+                              borderRadius: '6px', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+            <Button variant="secondary" onClick={() => setIsRxModalOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleImportRxAlerts}
+              disabled={!selectedRxId || saving}
+              loading={saving}
+            >
+              Set Selected Reminders
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── 2. CUSTOM SCHEDULE REMINDER MODAL ────────────────────────────────── */}
+      <Modal isOpen={isCustomModalOpen} onClose={() => setIsCustomModalOpen(false)} title="Schedule Custom Dosage Reminder" size="sm">
+        <form onSubmit={handleCreateCustomAlert} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Input
             label="Medicine Brand Name"
             placeholder="e.g. Napa"
             value={medicineName}
             onChange={e => setMedicineName(e.target.value)}
-            style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '10px' }}
             required
           />
 
           <Input
             label="Dosage Strength"
-            placeholder="e.g. 500mg (1 Tablet)"
+            placeholder="e.g. 500mg"
             value={dosage}
             onChange={e => setDosage(e.target.value)}
-            style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '10px' }}
             required
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>Frequency</label>
+            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>Frequency</label>
             <select
               value={frequency}
               onChange={e => setFrequency(e.target.value)}
               style={{
-                width: '100%',
-                padding: '11px 16px',
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                borderRadius: '10px',
-                color: '#0f172a',
-                outline: 'none',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
+                width: '100%', padding: '10px 14px', background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)', borderRadius: '8px',
+                color: 'var(--text-primary)', outline: 'none', fontSize: '0.875rem', fontWeight: 500,
               }}
             >
-              <option value="Once daily" style={{ background: '#ffffff', color: '#0f172a' }}>Once daily</option>
-              <option value="Twice daily" style={{ background: '#ffffff', color: '#0f172a' }}>Twice daily</option>
-              <option value="Three times daily" style={{ background: '#ffffff', color: '#0f172a' }}>Three times daily</option>
-              <option value="Every 8 hours" style={{ background: '#ffffff', color: '#0f172a' }}>Every 8 hours</option>
+              <option value="Once daily">Once daily</option>
+              <option value="Twice daily">Twice daily</option>
+              <option value="Three times daily">Three times daily</option>
+              <option value="Every 8 hours">Every 8 hours</option>
             </select>
           </div>
 
@@ -705,35 +822,18 @@ export const AlertsPage: React.FC = () => {
             type="time"
             value={scheduledTime}
             onChange={e => setScheduledTime(e.target.value)}
-            style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '10px' }}
             required
           />
 
-          {/* Preview of all dose times */}
           {scheduledTime && (
             <div style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '14px 16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
+              background: 'var(--bg-surface, #f8fafc)', border: '1px solid var(--border-default)',
+              borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px',
             }}>
-              <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 700, letterSpacing: '0.5px' }}>
-                DAILY DOSE SCHEDULE PREVIEW
-              </span>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>PREVIEW SCHEDULE</span>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {getDoseTimes(scheduledTime, frequency).map((t, i) => (
-                  <span key={i} style={{
-                    padding: '5px 14px',
-                    borderRadius: '20px',
-                    background: 'var(--color-brand-500)',
-                    color: '#ffffff',
-                    fontSize: '0.8125rem',
-                    fontWeight: 700,
-                    boxShadow: '0 2px 6px rgba(14, 165, 233, 0.25)',
-                  }}>
+                  <span key={i} style={{ padding: '4px 10px', borderRadius: '6px', background: 'var(--color-brand-500)', color: '#fff', fontSize: '0.75rem', fontWeight: 700 }}>
                     {t}
                   </span>
                 ))}

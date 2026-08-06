@@ -7,11 +7,19 @@ import Joi from 'joi';
 const router = Router();
 
 const createAlertSchema = Joi.object({
-  medicineName: Joi.string().required(),
-  dosage: Joi.string().required(),
-  frequency: Joi.string().required(),
-  scheduledTime: Joi.string().required(), // HH:mm format
-});
+  medicineName: Joi.string().optional(),
+  dosage: Joi.string().optional(),
+  frequency: Joi.string().optional(),
+  scheduledTime: Joi.string().optional(),
+  alerts: Joi.array().items(
+    Joi.object({
+      medicineName: Joi.string().required(),
+      dosage: Joi.string().allow('', null).optional(),
+      frequency: Joi.string().allow('', null).optional(),
+      scheduledTime: Joi.string().allow('', null).optional(),
+    })
+  ).optional(),
+}).or('medicineName', 'alerts');
 
 // POST /api/alerts  [PATIENT]
 router.post(
@@ -21,6 +29,7 @@ router.post(
   validateBody(createAlertSchema),
   alertsController.createAlert
 );
+
 
 // GET /api/alerts  [PATIENT]
 router.get('/', authenticate, authorize('PATIENT'), alertsController.getMyAlerts);
