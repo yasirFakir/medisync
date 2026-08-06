@@ -35,7 +35,11 @@ router.get('/', authenticate, prescriptionsController.listPrescriptions);
 // GET /api/prescriptions/:id
 router.get('/:id', authenticate, prescriptionsController.getPrescriptionById);
 
+// PATCH /api/prescriptions/:id — Update prescription details (patient_name, doctor_name, prescription_date, medicines)
+router.patch('/:id', authenticate, prescriptionsController.updatePrescription);
+
 // DELETE /api/prescriptions/:id
 router.delete('/:id', authenticate, prescriptionsController.deletePrescription);
 
 export default router;
+

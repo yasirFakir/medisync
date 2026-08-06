@@ -197,3 +197,81 @@ export const deletePrescription = async (req: AuthRequest, res: Response): Promi
 
   res.json({ success: true, message: 'Prescription deleted successfully', timestamp: new Date().toISOString() });
 };
+
+// ─── PATCH /api/prescriptions/:id ────────────────────────────────────────────
+export const updatePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { userId, role } = req.user!;
+  const { doctorName, patientName, prescriptionDate, medicines } = req.body;
+
+  const [existing] = await query<{ patientId: string; ocrResult: any; medicines: any }>(
+    `SELECT patient_id AS "patientId", ocr_result AS "ocrResult", medicines FROM prescriptions WHERE prescription_id = $1`,
+    [id]
+  );
+
+  if (!existing) throw new AppError('Prescription not found', 404);
+
+  if (role === 'PATIENT' && existing.patientId !== userId) {
+    throw new AppError('Access denied', 403);
+  }
+
+  // Update OCR result nested structure if present
+  let updatedOcr = existing.ocrResult;
+  if (updatedOcr) {
+    if (typeof updatedOcr === 'string') {
+      try { updatedOcr = JSON.parse(updatedOcr); } catch { /* silent */ }
+    }
+    if (doctorName !== undefined) {
+      updatedOcr.doctor_name = { ...(updatedOcr.doctor_name || {}), value: doctorName, confidence: 'high', score: 1.0 };
+    }
+    if (patientName !== undefined) {
+      updatedOcr.patient_name = { ...(updatedOcr.patient_name || {}), value: patientName, confidence: 'high', score: 1.0 };
+    }
+    if (prescriptionDate !== undefined) {
+      updatedOcr.prescription_date = { ...(updatedOcr.prescription_date || {}), value: prescriptionDate, confidence: 'high', score: 1.0 };
+    }
+  }
+
+  // Re-run validation summary if medicines were updated
+  let validationSummary = undefined;
+  if (Array.isArray(medicines)) {
+    const formattedInputs: ExtractedMedicineInput[] = medicines.map((m: any) => ({
+      brandName: m.brandName || m.brand_name || '',
+      genericName: m.saltComposition || m.genericName || '',
+      strength: m.dosage || m.strength || '',
+      dosage: m.dosage || m.strength || '',
+      frequency: m.frequency || '',
+      duration: m.duration || '',
+    }));
+    validationSummary = await MedicineMatchingService.validatePrescriptionPayload(formattedInputs);
+  }
+
+  const [updated] = await query(
+    `UPDATE prescriptions
+     SET doctor_name = COALESCE($1, doctor_name),
+         medicines = CASE WHEN $2::jsonb IS NOT NULL THEN $2::jsonb ELSE medicines END,
+         ocr_result = CASE WHEN $3::jsonb IS NOT NULL THEN $3::jsonb ELSE ocr_result END,
+         validation_summary = CASE WHEN $4::jsonb IS NOT NULL THEN $4::jsonb ELSE validation_summary END
+     WHERE prescription_id = $5
+     RETURNING prescription_id AS "prescriptionId", patient_id AS "patientId", doctor_name AS "doctorName",
+               digitized_notes AS "digitizedNotes", medicines, validation_summary AS "validationSummary",
+               ocr_result AS "ocrResult", created_at AS "createdAt"`,
+    [
+      doctorName || null,
+      medicines ? JSON.stringify(medicines) : null,
+      updatedOcr ? JSON.stringify(updatedOcr) : null,
+      validationSummary ? JSON.stringify(validationSummary) : null,
+      id
+    ]
+  );
+
+  logger.info(`Prescription updated: ${id}`);
+
+  res.json({
+    success: true,
+    message: 'Prescription updated successfully',
+    data: updated,
+    timestamp: new Date().toISOString(),
+  });
+};
+
