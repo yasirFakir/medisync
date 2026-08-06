@@ -25,6 +25,12 @@ router.post(
 // GET /api/alerts  [PATIENT]
 router.get('/', authenticate, authorize('PATIENT'), alertsController.getMyAlerts);
 
+// GET /api/alerts/dose-logs  [PATIENT]  — MUST be before /:alertId routes
+router.get('/dose-logs', authenticate, authorize('PATIENT'), alertsController.getDoseLogs);
+
+// POST /api/alerts/:alertId/taken  [PATIENT]
+router.post('/:alertId/taken', authenticate, authorize('PATIENT'), alertsController.markDoseTaken);
+
 // PATCH /api/alerts/:alertId  — Update status [PATIENT]
 router.patch('/:alertId', authenticate, authorize('PATIENT'), alertsController.updateAlertStatus);
 
