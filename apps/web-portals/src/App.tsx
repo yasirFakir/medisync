@@ -16,6 +16,9 @@ import { UpdateStockPage } from './pages/UpdateStockPage';
 import { UsersPage } from './pages/UsersPage';
 import { DrugsPage } from './pages/DrugsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { AlternativesPage } from './pages/AlternativesPage';
+import { PharmaciesPage } from './pages/PharmaciesPage';
+import { AvailabilityPage } from './pages/AvailabilityPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PortalLayout } from './components/PortalLayout';
 
@@ -37,6 +40,9 @@ const App: React.FC = () => {
             <Route path="/triage" element={<TriagePage />} />
             <Route path="/prescriptions" element={<PrescriptionsPage />} />
             <Route path="/locator" element={<LocatorPage />} />
+            <Route path="/alternatives" element={<AlternativesPage />} />
+            <Route path="/pharmacies" element={<PharmaciesPage />} />
+            <Route path="/availability" element={<AvailabilityPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
 
             {/* Doctor routes */}

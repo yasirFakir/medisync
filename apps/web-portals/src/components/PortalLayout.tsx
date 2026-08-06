@@ -13,7 +13,10 @@ import {
   History,
   Store,
   ClipboardEdit,
-  Pill
+  Pill,
+  GitCompare,
+  Building,
+  CheckCircle2
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -31,6 +34,9 @@ export const PortalLayout: React.FC = () => {
           { label: 'AI Triage', path: '/triage', icon: <MessageSquareText size={18} /> },
           { label: 'Prescriptions', path: '/prescriptions', icon: <FileText size={18} /> },
           { label: 'Find Pharmacy', path: '/locator', icon: <MapPin size={18} /> },
+          { label: 'Medicine Alternatives', path: '/alternatives', icon: <GitCompare size={18} /> },
+          { label: 'Pharmacy Directory', path: '/pharmacies', icon: <Building size={18} /> },
+          { label: 'Stock Availability', path: '/availability', icon: <CheckCircle2 size={18} /> },
           { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
@@ -82,6 +88,12 @@ export const PortalLayout: React.FC = () => {
         return { title: 'Prescriptions Scan Log', subtitle: 'Digitize and manage medical papers' };
       case '/locator':
         return { title: 'Medicine Locator', subtitle: 'Find local stores containing matching generic drugs' };
+      case '/alternatives':
+        return { title: 'Cheaper Medicine Alternatives', subtitle: 'Compare bioequivalent active ingredients and save on medication costs' };
+      case '/pharmacies':
+        return { title: 'Partner Pharmacy Directory', subtitle: 'Search and inspect verified healthcare partner locations' };
+      case '/availability':
+        return { title: 'Medicine Stock Availability', subtitle: 'Check real-time inventory levels across nearby pharmacies' };
       case '/alerts':
         return { title: 'Medication Reminders', subtitle: 'Manage dosage alarms' };
       case '/patients':

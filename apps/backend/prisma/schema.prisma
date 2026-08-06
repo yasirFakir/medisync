@@ -100,6 +100,7 @@ model PharmacyInventory {
   pharmacyId   String    @map("pharmacy_id") @db.Uuid
   drugId       String    @map("drug_id") @db.Uuid
   inStock      Boolean   @default(true) @map("in_stock")
+  quantity     Int       @default(0)
   currentPrice Decimal?  @map("current_price") @db.Decimal(10, 2)
   lastUpdated  DateTime  @default(now()) @map("last_updated") @db.Timestamptz
 
