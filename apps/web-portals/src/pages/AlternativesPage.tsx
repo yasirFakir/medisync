@@ -176,11 +176,6 @@ export const AlternativesPage: React.FC = () => {
       const res = await apiClient.get('/prescriptions');
       const list: Prescription[] = res.data?.data || [];
       setAllUserPrescriptions(list);
-
-      // Auto-select user prescriptions if none selected via router state
-      if (initialRxList.length === 0 && list.length > 0) {
-        setSelectedPrescriptions(list);
-      }
     } catch (err) {
       console.error('Failed to load user prescriptions', err);
     } finally {
@@ -643,7 +638,7 @@ export const AlternativesPage: React.FC = () => {
       label: 'Prescribed Price',
       render: (_val: any, row: PrescribedMedRow) => (
         <div className="font-bold text-on-surface text-sm">
-          {row.sourceDrug ? `৳${row.sourceDrug.price}` : '—'}
+          {row.sourceDrug ? `৳${row.sourceDrug.price.toFixed(2)}` : '—'}
         </div>
       )
     },
@@ -675,7 +670,7 @@ export const AlternativesPage: React.FC = () => {
       label: 'Alternative Price',
       render: (_val: any, row: PrescribedMedRow) => {
         if (!row.cheapestAlt) return '—';
-        return <div className="font-bold text-[#10B981] text-base">৳{row.cheapestAlt.price}</div>;
+        return <div className="font-bold text-[#10B981] text-base">৳{row.cheapestAlt.price.toFixed(2)}</div>;
       }
     },
     {
@@ -688,7 +683,7 @@ export const AlternativesPage: React.FC = () => {
         const pct = Math.round((diff / row.sourceDrug.price) * 100);
         return (
           <span className="inline-flex items-center gap-1 bg-[#10B981]/10 text-[#047857] px-2.5 py-1 rounded-full text-xs font-bold">
-            <Tag size={12} /> Save {pct}% (৳{diff.toFixed(1)})
+            <Tag size={12} /> Save {pct}% (৳{diff.toFixed(2)})
           </span>
         );
       }
@@ -879,17 +874,17 @@ export const AlternativesPage: React.FC = () => {
                   <div className="flex items-center gap-5">
                     <div className="text-right">
                       <div className="text-[11px] text-on-primary/80">Original Total</div>
-                      <div className="text-base font-bold line-through opacity-80">৳{totalOriginalCost}</div>
+                      <div className="text-base font-bold line-through opacity-80">৳{totalOriginalCost.toFixed(2)}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-[11px] text-on-primary/80">Generic Total</div>
-                      <div className="text-xl font-black">৳{totalCheapCost}</div>
+                      <div className="text-xl font-black">৳{totalCheapCost.toFixed(2)}</div>
                     </div>
                     {totalSavings > 0 && (
                       <div className="bg-white/20 backdrop-blur-md px-3.5 py-1.5 rounded-lg text-center border border-white/20">
                         <div className="text-[10px] font-bold uppercase">Total Savings</div>
                         <div className="text-lg font-black text-[#FEF08A]">
-                          ৳{totalSavings.toFixed(1)} ({overallSavingsPercent}%)
+                          ৳{totalSavings.toFixed(2)} ({overallSavingsPercent}%)
                         </div>
                       </div>
                     )}

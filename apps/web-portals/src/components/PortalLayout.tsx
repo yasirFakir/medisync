@@ -16,7 +16,8 @@ import {
   Pill,
   GitCompare,
   Building,
-  CheckCircle2
+  CheckCircle2,
+  CalendarDays
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -39,6 +40,7 @@ export const PortalLayout: React.FC = () => {
           { label: 'Pharmacies', path: '/pharmacies', icon: <Building size={18} /> },
           { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
           { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
+          { label: 'Book Appointment', path: '/appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'DOCTOR':
@@ -47,6 +49,7 @@ export const PortalLayout: React.FC = () => {
           { label: 'Patient Directory', path: '/patients', icon: <Users size={18} /> },
           { label: 'EHR Access Verification', path: '/ehr', icon: <ShieldAlert size={18} /> },
           { label: 'Session Logs', path: '/sessions', icon: <History size={18} /> },
+          { label: 'Appointments', path: '/doctor-appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'PHARMACY':
@@ -95,6 +98,10 @@ export const PortalLayout: React.FC = () => {
         return { title: 'Partner Pharmacy Directory', subtitle: 'Search and inspect verified healthcare partner locations' };
       case '/availability':
         return { title: 'Find Medicines', subtitle: 'Search prescription medicines, compare pharmacy stock availability, alternatives, and missing items' };
+      case '/appointments':
+        return { title: 'Book Doctor Appointment', subtitle: 'Find doctors, view availability and request appointments' };
+      case '/doctor-appointments':
+        return { title: 'Appointment Management', subtitle: 'Manage incoming requests and configure your schedule' };
       case '/alerts':
         return { title: 'Medication Reminders', subtitle: 'Manage dosage alarms' };
       case '/patients':
