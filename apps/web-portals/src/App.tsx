@@ -19,6 +19,8 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AlternativesPage } from './pages/AlternativesPage';
 import { PharmaciesPage } from './pages/PharmaciesPage';
 import { AvailabilityPage } from './pages/AvailabilityPage';
+import { AppointmentsPage } from './pages/AppointmentsPage';
+import { DoctorAppointmentsPage } from './pages/DoctorAppointmentsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PortalLayout } from './components/PortalLayout';
 
@@ -39,17 +41,19 @@ const App: React.FC = () => {
             {/* Patient routes */}
             <Route path="/triage" element={<TriagePage />} />
             <Route path="/prescriptions" element={<PrescriptionsPage />} />
-            <Route path="/locator" element={<LocatorPage />} />
+            <Route path="/locator" element={<Navigate to="/pharmacies" replace />} />
             <Route path="/alternatives" element={<AlternativesPage />} />
             <Route path="/pharmacies" element={<PharmaciesPage />} />
             <Route path="/availability" element={<AvailabilityPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/appointments" element={<AppointmentsPage />} />
 
             {/* Doctor routes */}
             <Route path="/patients" element={<PatientsPage />} />
             <Route path="/ehr" element={<EHRAccessPage />} />
             <Route path="/ehr/:patientId" element={<EHRViewerPage />} />
             <Route path="/sessions" element={<SessionsPage />} />
+            <Route path="/doctor-appointments" element={<DoctorAppointmentsPage />} />
 
             {/* Pharmacy routes */}
             <Route path="/inventory" element={<InventoryPage />} />

@@ -448,13 +448,18 @@ Medical data requires strong privacy protection.
 
 ---
 
-# Git Rules
+# Git Rules & AI Commit Policy
 
 Never:
 
 - Commit directly to main
 - Force push protected branches
 - Combine unrelated features
+- Run `git commit` or `git push` automatically without explicit user authorization
+
+**AI Commit Authorization Policy:**
+- AI agents MUST NOT execute `git commit` or `git push` commands autonomously.
+- AI agents must ONLY create git commits and push code when the user explicitly requests or commands a commit or push.
 
 Use feature branches.
 

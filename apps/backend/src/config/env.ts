@@ -43,7 +43,7 @@ export const config = {
 
   // Rate Limiting
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000', 10),
 
   // Email
   smtp: {

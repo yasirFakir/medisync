@@ -16,9 +16,12 @@ import {
   Pill,
   GitCompare,
   Building,
-  CheckCircle2
+  CheckCircle2,
+  CalendarDays
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+
+import { ErrorBoundary } from './ErrorBoundary';
 
 export const PortalLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -33,11 +36,11 @@ export const PortalLayout: React.FC = () => {
           { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
           { label: 'AI Triage', path: '/triage', icon: <MessageSquareText size={18} /> },
           { label: 'Prescriptions', path: '/prescriptions', icon: <FileText size={18} /> },
-          { label: 'Find Pharmacy', path: '/locator', icon: <MapPin size={18} /> },
           { label: 'Medicine Alternatives', path: '/alternatives', icon: <GitCompare size={18} /> },
-          { label: 'Pharmacy Directory', path: '/pharmacies', icon: <Building size={18} /> },
-          { label: 'Stock Availability', path: '/availability', icon: <CheckCircle2 size={18} /> },
+          { label: 'Pharmacies', path: '/pharmacies', icon: <Building size={18} /> },
+          { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
           { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
+          { label: 'Book Appointment', path: '/appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'DOCTOR':
@@ -46,6 +49,7 @@ export const PortalLayout: React.FC = () => {
           { label: 'Patient Directory', path: '/patients', icon: <Users size={18} /> },
           { label: 'EHR Access Verification', path: '/ehr', icon: <ShieldAlert size={18} /> },
           { label: 'Session Logs', path: '/sessions', icon: <History size={18} /> },
+          { label: 'Appointments', path: '/doctor-appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'PHARMACY':
@@ -93,7 +97,11 @@ export const PortalLayout: React.FC = () => {
       case '/pharmacies':
         return { title: 'Partner Pharmacy Directory', subtitle: 'Search and inspect verified healthcare partner locations' };
       case '/availability':
-        return { title: 'Medicine Stock Availability', subtitle: 'Check real-time inventory levels across nearby pharmacies' };
+        return { title: 'Find Medicines', subtitle: 'Search prescription medicines, compare pharmacy stock availability, alternatives, and missing items' };
+      case '/appointments':
+        return { title: 'Book Doctor Appointment', subtitle: 'Find doctors, view availability and request appointments' };
+      case '/doctor-appointments':
+        return { title: 'Appointment Management', subtitle: 'Manage incoming requests and configure your schedule' };
       case '/alerts':
         return { title: 'Medication Reminders', subtitle: 'Manage dosage alarms' };
       case '/patients':
@@ -121,21 +129,23 @@ export const PortalLayout: React.FC = () => {
   const meta = getPageMeta();
 
   return (
-    <div className={roleClass} style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className={roleClass} style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-base)' }}>
       <Sidebar
         navItems={getNavItems()}
         user={user}
         onLogout={logout}
         accentColor={getAccentColor()}
       />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
         <TopBar
           title={meta.title}
           subtitle={meta.subtitle}
           user={user}
         />
         <main style={{ flex: 1, padding: '28px', overflowY: 'auto' }}>
-          <Outlet />
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

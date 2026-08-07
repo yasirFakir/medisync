@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MediSync - Landing</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#263143",
+                        "on-surface-variant": "#3d4947",
+                        "primary-fixed-dim": "#6bd8cb",
+                        "tertiary-container": "#a36700",
+                        "on-secondary": "#ffffff",
+                        "surface-container-highest": "#d8e3fb",
+                        "surface-container": "#e7eeff",
+                        "secondary-fixed": "#cae6ff",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#8ccdff",
+                        "on-surface": "#111c2d",
+                        "on-primary": "#ffffff",
+                        "outline": "#6d7a77",
+                        "surface-tint": "#006a61",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-secondary-fixed": "#001e2f",
+                        "on-primary-container": "#f4fffc",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#825100",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#fffbff",
+                        "on-tertiary-fixed": "#2a1700",
+                        "on-background": "#111c2d",
+                        "surface-container-low": "#f0f3ff",
+                        "secondary-container": "#58bcfd",
+                        "tertiary-fixed": "#ffddb8",
+                        "primary-container": "#008378",
+                        "background": "#f9f9ff",
+                        "surface-dim": "#cfdaf2",
+                        "on-error": "#ffffff",
+                        "primary": "#00685f",
+                        "inverse-primary": "#6bd8cb",
+                        "surface-container-high": "#dee8ff",
+                        "surface": "#f9f9ff",
+                        "primary-fixed": "#89f5e7",
+                        "on-secondary-container": "#004a6d",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#d8e3fb",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#005049",
+                        "surface-bright": "#f9f9ff",
+                        "inverse-on-surface": "#ecf1ff",
+                        "secondary": "#006492",
+                        "on-secondary-fixed-variant": "#004b6f",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "on-primary-fixed": "#00201d",
+                        "outline-variant": "#bcc9c6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "container-max": "1280px",
+                        "margin-desktop": "40px",
+                        "unit": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-sm": ["Plus Jakarta Sans"],
+                        "label-md": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background antialiased min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
+<!-- Background Decor -->
+<div class="absolute inset-0 z-0 pointer-events-none opacity-40">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary-fixed blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-fixed blur-[100px]"></div>
+</div>
+<div class="relative z-10 w-full max-w-container-max px-margin-mobile md:px-margin-desktop py-16 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<!-- Left: Copy & CTAs -->
+<div class="flex flex-col space-y-8 max-w-xl">
+<div class="flex items-center space-x-3 mb-4">
+<span class="material-symbols-outlined text-primary text-[32px]">health_and_safety</span>
+<span class="font-headline-md text-headline-md text-primary">MediSync</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-on-surface">
+                Understand your prescription.<br/>
+<span class="text-primary">Manage your medication with confidence.</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+                MediSync uses secure OCR technology and moderated AI assistance to help you manage your treatment routine. Transform messy handwriting into structured, actionable health data in seconds.
+            </p>
+<div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 pt-4">
+<button class="px-8 py-4 bg-[#0D9488] hover:bg-primary-container text-white font-label-md text-label-md rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center justify-center space-x-2 w-full sm:w-auto">
+<span>Sign In</span>
+<span class="material-symbols-outlined text-[20px]">login</span>
+</button>
+<button class="px-8 py-4 border-2 border-[#0D9488] text-[#0D9488] hover:bg-surface-container-low font-label-md text-label-md rounded-lg transition-all flex items-center justify-center w-full sm:w-auto">
+                    Create Account
+                </button>
+</div>
+<div class="flex items-center space-x-6 pt-8 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[18px]">lock</span>
+<span>Secure &amp; Private</span>
+</div>
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>Clinically Reviewed</span>
+</div>
+</div>
+</div>
+<!-- Right: Visual Concept -->
+<div class="relative h-full min-h-[500px] rounded-xl overflow-hidden shadow-[0px_12px_32px_rgba(30,41,59,0.12)] bg-surface-container-lowest border border-outline-variant/30 hidden md:block">
+<!-- OCR Concept Container -->
+<div class="absolute inset-0 flex flex-col">
+<!-- Top Half: Handwritten Prescription -->
+<div class="flex-1 relative overflow-hidden bg-[#fdfbf7] p-8 flex items-center justify-center border-b border-outline-variant/30">
+<div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#111c2d 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="relative w-full max-w-sm transform rotate-[-2deg] bg-white p-6 rounded shadow-sm border border-gray-200">
+<div class="flex justify-between items-start mb-6 border-b border-gray-300 pb-2">
+<div class="text-xs text-gray-500 font-serif">Dr. H. Smith, MD<br/>123 Medical Plaza</div>
+<span class="material-symbols-outlined text-gray-400">medical_services</span>
+</div>
+<!-- Cursive scribble representation -->
+<svg class="w-full h-auto stroke-current text-blue-800 fill-none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewbox="0 0 200 100">
+<path d="M10,30 Q30,10 40,40 T70,30 T100,50 T130,20 T180,40"></path>
+<path d="M20,60 Q40,40 60,70 T100,50 T150,80"></path>
+<text class="fill-current stroke-none text-gray-800" font-family="serif" font-size="14" x="10" y="20">Rx:</text>
+</svg>
+<!-- Scanning line animation -->
+<div class="absolute top-0 left-0 w-full h-1 bg-primary-fixed opacity-70 animate-[scan_3s_ease-in-out_infinite]"></div>
+</div>
+</div>
+<!-- Bottom Half: Structured Data -->
+<div class="flex-1 bg-surface-container-lowest p-8 flex flex-col justify-center items-center">
+<div class="w-full max-w-sm bg-white rounded-lg border border-outline-variant/30 shadow-sm p-5 space-y-4 transform transition-all duration-500 hover:-translate-y-1 hover:shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">medication</span>
+</div>
+<div>
+<h3 class="font-headline-md text-body-md text-on-surface font-semibold">Amoxicillin</h3>
+<p class="font-body-md text-label-sm text-on-surface-variant">500mg Capsule</p>
+</div>
+</div>
+<span class="px-2 py-1 bg-[#E0F2FE] text-[#004a6d] font-label-sm text-[10px] rounded flex items-center space-x-1">
+<span class="material-symbols-outlined text-[12px]">document_scanner</span>
+<span>Extracted</span>
+</span>
+</div>
+<div class="h-px w-full bg-outline-variant/30"></div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase">Dosage</p>
+<p class="font-body-md text-body-md text-on-surface">1 capsule, 3x daily</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase">Duration</p>
+<p class="font-body-md text-body-md text-on-surface">7 Days</p>
+</div>
+</div>
+<div class="bg-[#FEF3C7] p-3 rounded text-[#B45309] flex items-start space-x-2">
+<span class="material-symbols-outlined text-[16px] mt-0.5">warning</span>
+<p class="font-body-md text-label-sm">Take with food. May cause drowsiness.</p>
+</div>
+</div>
+</div>
+<!-- Central Icon -->
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-full p-2 shadow-lg border border-outline-variant/20 z-10">
+<div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[24px]">sync</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<style>
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.8; }
+            100% { top: 100%; opacity: 0; }
+        }
+    </style>
+</body></html>

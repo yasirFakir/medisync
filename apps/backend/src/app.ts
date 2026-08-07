@@ -25,6 +25,7 @@ import usersRouter from './routes/users.routes';
 import alternativesRouter from './routes/alternatives.routes';
 import pharmaciesRouter from './routes/pharmacies.routes';
 import availabilityRouter from './routes/availability.routes';
+import appointmentsRouter from './routes/appointments.routes';
 
 const app = express();
 
@@ -54,6 +55,7 @@ const limiter = rateLimit({
   max: config.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => config.nodeEnv === 'development',
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 app.use('/api', limiter);
@@ -101,6 +103,7 @@ app.use('/api/prescriptions', prescriptionsRouter);
 app.use('/api/ehr', ehrRouter);
 app.use('/api/triage', triageRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/appointments', appointmentsRouter);
 
 // ─── SPA Route Fallback ───────────────────────────────────────────────────────
 app.get('*', (req, res, next) => {

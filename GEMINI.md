@@ -421,7 +421,7 @@ Regression Test
 
 ---
 
-# Testing Rules
+# Testing Rules & Database Cleanup Policy
 
 Every implementation should consider:
 
@@ -430,7 +430,10 @@ Every implementation should consider:
 - Edge Cases
 - Regression Risk
 
-Do not consider a feature complete without verification.
+**Database Rollback Policy for AI Testing:**
+- Any automated test script or database verification executed by AI agents MUST run inside an explicit SQL transaction (e.g., `BEGIN; ... ROLLBACK;`) or execute cleanup routines to completely roll back and restore the previous state of the database after testing.
+- AI agents MUST NOT leave temporary test records, modified production entries, or polluted test rows in the database upon test completion.
+
 
 ---
 
@@ -448,13 +451,18 @@ Medical data requires strong privacy protection.
 
 ---
 
-# Git Rules
+# Git Rules & AI Commit Policy
 
 Never:
 
 - Commit directly to main
 - Force push protected branches
 - Combine unrelated features
+- Run `git commit` or `git push` automatically without explicit user authorization
+
+**AI Commit Authorization Policy:**
+- AI agents MUST NOT execute `git commit` or `git push` commands autonomously.
+- AI agents must ONLY create git commits and push code when the user explicitly requests or commands a commit or push.
 
 Use feature branches.
 
