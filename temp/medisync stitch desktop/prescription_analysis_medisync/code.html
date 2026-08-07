@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MediSync - Prescription Analysis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#263143",
+                        "on-surface-variant": "#3d4947",
+                        "primary-fixed-dim": "#6bd8cb",
+                        "tertiary-container": "#a36700",
+                        "on-secondary": "#ffffff",
+                        "surface-container-highest": "#d8e3fb",
+                        "surface-container": "#e7eeff",
+                        "secondary-fixed": "#cae6ff",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#8ccdff",
+                        "on-surface": "#111c2d",
+                        "on-primary": "#ffffff",
+                        "outline": "#6d7a77",
+                        "surface-tint": "#006a61",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-secondary-fixed": "#001e2f",
+                        "on-primary-container": "#f4fffc",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#825100",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#fffbff",
+                        "on-tertiary-fixed": "#2a1700",
+                        "on-background": "#111c2d",
+                        "surface-container-low": "#f0f3ff",
+                        "secondary-container": "#58bcfd",
+                        "tertiary-fixed": "#ffddb8",
+                        "primary-container": "#008378",
+                        "background": "#f9f9ff",
+                        "surface-dim": "#cfdaf2",
+                        "on-error": "#ffffff",
+                        "primary": "#00685f",
+                        "inverse-primary": "#6bd8cb",
+                        "surface-container-high": "#dee8ff",
+                        "surface": "#f9f9ff",
+                        "primary-fixed": "#89f5e7",
+                        "on-secondary-container": "#004a6d",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#d8e3fb",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#005049",
+                        "surface-bright": "#f9f9ff",
+                        "inverse-on-surface": "#ecf1ff",
+                        "secondary": "#006492",
+                        "on-secondary-fixed-variant": "#004b6f",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "on-primary-fixed": "#00201d",
+                        "outline-variant": "#bcc9c6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "container-max": "1280px",
+                        "margin-desktop": "40px",
+                        "unit": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-sm": ["Plus Jakarta Sans"],
+                        "label-md": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background h-full font-body-md overflow-hidden flex">
+<!-- SideNavBar -->
+<nav class="hidden md:flex fixed left-0 top-0 h-screen w-[280px] bg-surface-container-lowest shadow-[0px_4px_20px_rgba(30,41,59,0.05)] z-20 flex-col py-margin-desktop space-y-gutter">
+<div class="px-gutter mb-unit">
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">MediSync</h1>
+<p class="font-label-md text-label-md text-on-surface-variant mt-1">Health-Tech Platform</p>
+</div>
+<div class="flex-1 space-y-2 px-unit">
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-4" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg border-l-4 border-primary bg-surface-container-low text-primary translate-x-1 transition-transform duration-200 font-bold" href="#">
+<span class="material-symbols-outlined mr-4" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="font-label-md text-label-md">Prescriptions</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-4" style="font-variation-settings: 'FILL' 0;">medical_services</span>
+<span class="font-label-md text-label-md">Medicines</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-4" style="font-variation-settings: 'FILL' 0;">notifications_active</span>
+<span class="font-label-md text-label-md">Reminders</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-4" style="font-variation-settings: 'FILL' 0;">smart_toy</span>
+<span class="font-label-md text-label-md">AI Assistant</span>
+</a>
+</div>
+<div class="px-gutter mt-auto">
+<button class="w-full bg-[#0D9488] text-white py-3 rounded-lg font-label-md text-label-md hover:bg-primary transition-colors shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined mr-2 text-[20px]">upload_file</span>
+                Upload Prescription
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col md:ml-[280px] h-screen overflow-hidden">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center w-full px-margin-desktop h-16 bg-surface border-b border-outline-variant/30 z-10 shrink-0">
+<div class="flex items-center">
+<h2 class="font-headline-md text-headline-md text-primary hidden md:block">Prescription Analysis</h2>
+</div>
+<div class="flex items-center space-x-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-all rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-all rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden border border-outline-variant/30">
+<img alt="Dr. Alex Smith" class="w-full h-full object-cover" data-alt="Professional headshot of Dr. Alex Smith, a middle-aged male doctor with a kind smile, wearing a white coat over a blue shirt. Clean, bright studio lighting. Professional medical context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzY3YTLku2f4efqEcGFdcWkB4CLV4mr_CZht8jx-YmAj7eTf7G6MdV0xL0ACcbRjxEfYLUt5R1ggd5FsFhKh9oDjGjZ46khZzl-XRVl4i3mJT5hAC8iJ8GdNpIPCMwU8y00-VKw-ftPb1sOHb0P3P7NQS5Kq6J4HJYDFNhg8kY1c3LXDQLvNL3YLtKewFNSXXFaZpzwCRa0_HVEfISGOwWeMyo0Ddmc6IjMyxCNSKSz6NN2zlad1nw"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 overflow-y-auto p-margin-mobile md:p-margin-desktop bg-background">
+<div class="max-w-container-max mx-auto h-full">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter h-full">
+<!-- Left Column: Document Preview -->
+<div class="lg:col-span-5 flex flex-col h-full space-y-4">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(30,41,59,0.05)] border border-outline-variant/30 p-4 flex-1 flex flex-col">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-headline-md text-headline-md text-on-surface">Scanned Document</h3>
+<div class="flex space-x-2">
+<button class="p-2 rounded-md hover:bg-surface-container-low text-on-surface-variant"><span class="material-symbols-outlined text-[20px]">zoom_in</span></button>
+<button class="p-2 rounded-md hover:bg-surface-container-low text-on-surface-variant"><span class="material-symbols-outlined text-[20px]">zoom_out</span></button>
+</div>
+</div>
+<div class="flex-1 bg-surface-container-low rounded-lg overflow-hidden border border-outline-variant/20 relative group">
+<img alt="Scanned Prescription" class="w-full h-full object-contain p-2" data-alt="A highly detailed, realistic scan of a medical prescription form. The form is slightly crumpled paper texture, filled out in neat but realistic doctor's handwriting. High-key lighting, bright white and pale blue tones. Clinical and authentic appearance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDblE6EEI-37p8mq8lG7kDgHhLsjALA9HuDz0c_EQsTksbA8abEl2u0j9Dj-MSZXjMn9GEjrbDjVUp_q0aIfAyNBzbQAMiyxY3s825JrBj2Dz547cJTOUhvEoA2V3QmstZDD_7K8pgqHRRXqjNgCpSDG8PTM33ORRH8ByrIA1tMn7r73mTSXXwmJYjISYmo-HrX3x6PwUktaCj78D66eskOF2LW46ghc3aUf8hKoG-F-Mhn7NzwR1Aw"/>
+<!-- OCR Highlight Overlays (Simulated) -->
+<div class="absolute top-[30%] left-[20%] w-[40%] h-[5%] border-2 border-secondary-container bg-secondary-container/20 rounded mix-blend-multiply transition-opacity opacity-0 group-hover:opacity-100"></div>
+<div class="absolute top-[40%] left-[20%] w-[35%] h-[5%] border-2 border-secondary-container bg-secondary-container/20 rounded mix-blend-multiply transition-opacity opacity-0 group-hover:opacity-100"></div>
+</div>
+</div>
+</div>
+<!-- Right Column: Analysis Results -->
+<div class="lg:col-span-7 flex flex-col h-full space-y-6 overflow-y-auto pr-2 pb-8">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-2">Detected Medicines</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">We've extracted the following details from your upload.</p>
+</div>
+<!-- Safety Notice -->
+<div class="bg-[#FEF3C7] border border-[#FDE68A] rounded-lg p-4 flex items-start space-x-3 shadow-sm">
+<span class="material-symbols-outlined text-[#B45309] mt-0.5" style="font-variation-settings: 'FILL' 1;">info</span>
+<div>
+<h4 class="font-label-md text-label-md text-[#B45309]">AI-Assisted Information</h4>
+<p class="font-body-md text-body-md text-[#B45309]/80 mt-1">MediSync provides informational assistance to help you manage your health. This analysis is AI-generated and does not replace professional medical advice from your doctor.</p>
+</div>
+</div>
+<!-- Medicine Cards -->
+<div class="space-y-4">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-[0px_4px_20px_rgba(30,41,59,0.05)] border border-outline-variant/30 hover:-translate-y-[2px] hover:shadow-[0px_12px_32px_rgba(30,41,59,0.12)] transition-all duration-300">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="flex items-center space-x-3 mb-1">
+<h3 class="font-headline-md text-headline-md text-on-surface">Metformin</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#00685f]/10 text-primary border border-primary/20">
+<span class="material-symbols-outlined text-[14px] mr-1">check_circle</span>
+                                                Recognized (96%)
+                                            </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Type 2 Diabetes Management</p>
+</div>
+<div class="bg-[#E0F2FE] text-[#006492] px-3 py-1 rounded-full font-label-sm text-label-sm border border-[#BAE6FD]">
+                                        Extracted
+                                    </div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-b border-outline-variant/20 mb-4">
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Strength</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">500mg</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Form</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">Tablet</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Frequency</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">Twice daily</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Timing</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">After meals</p>
+</div>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-primary rounded-lg font-label-md text-label-md transition-colors flex items-center border border-primary/10">
+<span class="material-symbols-outlined text-[18px] mr-2">info</span>
+                                        Details
+                                    </button>
+<button class="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-primary rounded-lg font-label-md text-label-md transition-colors flex items-center border border-primary/10">
+<span class="material-symbols-outlined text-[18px] mr-2">storefront</span>
+                                        Availability
+                                    </button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-[0px_4px_20px_rgba(30,41,59,0.05)] border border-outline-variant/30 hover:-translate-y-[2px] hover:shadow-[0px_12px_32px_rgba(30,41,59,0.12)] transition-all duration-300">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="flex items-center space-x-3 mb-1">
+<h3 class="font-headline-md text-headline-md text-on-surface">Atorvastatin</h3>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#00685f]/10 text-primary border border-primary/20">
+<span class="material-symbols-outlined text-[14px] mr-1">check_circle</span>
+                                                Recognized (92%)
+                                            </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Cholesterol Management</p>
+</div>
+<div class="bg-[#E0F2FE] text-[#006492] px-3 py-1 rounded-full font-label-sm text-label-sm border border-[#BAE6FD]">
+                                        Extracted
+                                    </div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-b border-outline-variant/20 mb-4">
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Strength</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">20mg</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Form</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">Tablet</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Frequency</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">Once daily</p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Timing</p>
+<p class="font-body-md text-body-md font-semibold text-on-surface">At bedtime</p>
+</div>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-primary rounded-lg font-label-md text-label-md transition-colors flex items-center border border-primary/10">
+<span class="material-symbols-outlined text-[18px] mr-2">info</span>
+                                        Details
+                                    </button>
+<button class="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-primary rounded-lg font-label-md text-label-md transition-colors flex items-center border border-primary/10">
+<span class="material-symbols-outlined text-[18px] mr-2">storefront</span>
+                                        Availability
+                                    </button>
+</div>
+</div>
+</div>
+<!-- Global Actions -->
+<div class="flex items-center justify-end space-x-4 pt-4 mt-auto">
+<button class="px-6 py-3 border border-[#0D9488] text-[#0D9488] rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors flex items-center">
+                                Find Alternatives
+                            </button>
+<button class="px-6 py-3 bg-[#0D9488] text-white rounded-lg font-label-md text-label-md hover:bg-primary transition-colors shadow-sm flex items-center">
+<span class="material-symbols-outlined text-[20px] mr-2" style="font-variation-settings: 'FILL' 1;">add_alarm</span>
+                                Create Reminders
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

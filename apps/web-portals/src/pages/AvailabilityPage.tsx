@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Input, Spinner, EmptyState, StatCard } from '../../packages/ui/src/index';
+import { Card, Badge, Input, Spinner, EmptyState, Button } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import { 
   Search, Building, MapPin, Package, AlertTriangle, DollarSign, 
-  Clock, CheckCircle2, XCircle, FileText, ChevronDown, ChevronUp, 
-  Filter, Plus, Trash2, Sparkles, AlertCircle, ArrowRight, RefreshCw, Check
+  Clock, CheckCircle2, XCircle, FileText, ChevronDown, ChevronUp, ChevronRight,
+  Filter, Plus, Trash2, Sparkles, AlertCircle, ArrowRight, RefreshCw, Check,
+  Store, Pill, ShieldCheck, Tag, Navigation, Layers
 } from 'lucide-react';
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface PrescriptionItem {
   prescriptionId: string;
@@ -33,6 +36,7 @@ interface DrugSearchResult {
   genericName: string;
   strength: string;
   manufacturer: string;
+  price?: number;
 }
 
 interface MatchingMedicine {
@@ -53,6 +57,7 @@ interface AlternativeBrand {
   strength: string;
   quantity: number;
   currentPrice: number | null;
+  isGeneric?: boolean;
 }
 
 interface AlternativeMedicine {
@@ -137,30 +142,64 @@ export const AvailabilityPage: React.FC = () => {
     }
   };
 
-  // Search autocomplete debouncing
+  // Search autocomplete debouncing with exact match ranking
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchQuery.trim().length > 1) {
+      if (searchQuery.trim().length >= 1) {
         fetchDrugs();
       } else {
         setSearchResults([]);
       }
-    }, 300);
+    }, 200);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const fetchDrugs = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
     setIsSearching(true);
     try {
-      const res = await apiClient.get(`/drugs?search=${encodeURIComponent(searchQuery)}`);
-      const rawList = res.data?.data || [];
-      const mapped = rawList.map((d: any) => ({
-        id: d.drugId || d.id,
-        name: d.brandName,
-        genericName: d.saltComposition || '',
+      let rawList: any[] = [];
+      try {
+        const res = await apiClient.get('/drugs', { params: { search: q } });
+        rawList = Array.isArray(res.data?.data) ? res.data.data : (res.data?.data?.drugs || []);
+      } catch {
+        const res = await apiClient.get(`/drugs/search?q=${encodeURIComponent(q)}`);
+        rawList = Array.isArray(res.data?.data) ? res.data.data : (res.data?.data?.drugs || []);
+      }
+
+      const mapped: DrugSearchResult[] = rawList.map((d: any) => ({
+        id: d.drugId || d.id || d.drug_id,
+        name: d.brandName || d.brand_name || 'Unknown',
+        genericName: d.saltComposition || d.genericName || d.salt_composition || '',
         strength: d.strength || '',
-        manufacturer: d.manufacturer || 'Generic'
+        manufacturer: d.manufacturer || 'Generic',
+        price: Number(d.estimatedPrice || d.price || d.estimated_price || 0)
       }));
+
+      // Relevance sort: Exact brand match (#1), prefix match (#2), shorter brand names (#3)
+      const qLower = q.toLowerCase();
+      mapped.sort((a, b) => {
+        const aBrand = a.name.toLowerCase();
+        const bBrand = b.name.toLowerCase();
+
+        const aExact = aBrand === qLower;
+        const bExact = bBrand === qLower;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        const aStarts = aBrand.startsWith(qLower);
+        const bStarts = bBrand.startsWith(qLower);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        if (aStarts && bStarts && aBrand.length !== bBrand.length) {
+          return aBrand.length - bBrand.length;
+        }
+
+        return aBrand.localeCompare(bBrand);
+      });
+
       setSearchResults(mapped);
     } catch (err) {
       console.error('Failed to search drugs', err);
@@ -242,62 +281,47 @@ export const AvailabilityPage: React.FC = () => {
   const selectedPharmacy = pharmacyResults.find(p => p.pharmacyId === selectedPharmacyId) || pharmacyResults[0];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="bg-background text-on-background font-body-md min-h-screen p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto space-y-6">
       
-      {/* Header Banner */}
-      <div className="animate-fade-in" style={{
-        background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)',
-        borderRadius: 'var(--radius-lg, 16px)',
-        padding: '24px 28px',
-        border: '1px solid rgba(14, 165, 233, 0.2)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
+      {/* ── Page Header Banner ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div style={{
-              background: 'var(--color-brand-500, #0ea5e9)',
-              color: '#fff',
-              borderRadius: '10px',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <CheckCircle2 size={24} />
-            </div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              Find Medicines
-            </h1>
+          <div className="flex items-center gap-2 text-on-surface-variant mb-2">
+            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline">Active Selection</span>
+            <span className="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
+            <span className="font-label-sm text-label-sm text-primary font-bold">Find Medicines & Store Stock</span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', margin: 0, maxWidth: '700px' }}>
-            Select a prescription or search medicines to compare stock availability, bioequivalent generic alternatives, and missing stock across partner pharmacies.
+          <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-extrabold tracking-tight">
+            Find medicines across pharmacies
+          </h2>
+          <p className="text-xs text-on-surface-variant mt-1 max-w-2xl">
+            Select a scanned prescription or search medicines to compare pharmacy stock availability, bioequivalent generic alternatives, and missing items in real-time.
           </p>
         </div>
 
-        <button 
-          onClick={() => fetchPrescriptions()}
-          className="button button-secondary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px' }}
-        >
-          <RefreshCw size={16} />
-          Sync Prescriptions
-        </button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => fetchPrescriptions()}
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw size={14} />}
+          >
+            Sync Prescriptions
+          </Button>
+        </div>
       </div>
 
-      {/* Control Panel: Prescription Selector & Search Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+      {/* ── Top Control Bento Grid: Prescription Selector & Medicine Search ─────── */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         
-        {/* Prescription Selection Card */}
-        <Card style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <label style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileText size={18} style={{ color: 'var(--color-brand-500)' }} />
-              Select Prescription
+        {/* Card 1: Prescription Selection (md:col-span-6) */}
+        <div className="md:col-span-6 bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-on-surface flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              Select Scanned Prescription
             </label>
-            {isLoadingPrescriptions && <Spinner />}
+            {isLoadingPrescriptions && <Spinner size={14} />}
           </div>
 
           {prescriptions.length > 0 ? (
@@ -307,113 +331,90 @@ export const AvailabilityPage: React.FC = () => {
                 const rx = prescriptions.find(p => p.prescriptionId === e.target.value);
                 if (rx) handleSelectPrescription(rx);
               }}
-              style={{
-                width: '100%',
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-md, 8px)',
-                backgroundColor: 'var(--bg-elevated)',
-                border: '1px solid var(--border-default)',
-                color: 'var(--text-primary)',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                cursor: 'pointer'
-              }}
+              className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs font-semibold text-on-surface outline-none focus:border-primary transition-all cursor-pointer"
             >
               <option value="">-- Choose from your scanned prescriptions --</option>
               {prescriptions.map((rx) => (
                 <option key={rx.prescriptionId} value={rx.prescriptionId}>
-                  {rx.doctorName} ({rx.medicines?.length || 0} items) - {new Date(rx.createdAt).toLocaleDateString()}
+                  Dr. {rx.doctorName} ({rx.medicines?.length || 0} medicines) • {new Date(rx.createdAt).toLocaleDateString()}
                 </option>
               ))}
             </select>
           ) : (
-            <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '8px 0' }}>
-              No digitized prescriptions found. You can add medicines using the search box.
+            <div className="text-xs text-on-surface-variant italic py-1">
+              No scanned prescriptions found. You can add medicines using the search box.
             </div>
           )}
 
           {selectedPrescriptionId && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={14} style={{ color: '#f59e0b' }} />
-              Active prescription loaded with {queryItems.length} prescribed items.
+            <div className="text-[11px] text-primary flex items-center gap-1.5 font-medium">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              Loaded active prescription containing {queryItems.length} prescribed items.
             </div>
           )}
-        </Card>
+        </div>
 
-        {/* Add Additional Medicines Search Card */}
-        <Card style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'visible' }}>
-          <label style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Search size={18} style={{ color: 'var(--color-brand-500)' }} />
-            Search & Add Medicine
+        {/* Card 2: Live Medicine Search (md:col-span-6) */}
+        <div className="md:col-span-6 bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm space-y-3 relative overflow-visible">
+          <label className="text-xs font-bold text-on-surface flex items-center gap-2">
+            <Search className="w-4 h-4 text-primary" />
+            Search & Add Medicine to Compare
           </label>
 
-          <div style={{ position: 'relative' }}>
-            <Input
-              placeholder="Search drug by brand or generic name (e.g. Napa, Ace, Seclo)..."
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant pointer-events-none" style={{ top: '50%' }} />
+            <input
+              type="text"
+              className="w-full pl-9 pr-8 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              placeholder="Search 21k+ medicines (e.g. Napa, Seclo, Ace, Metformin)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              icon={<Search size={16} />}
             />
             {isSearching && (
-              <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)' }}>
-                <Spinner />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2" style={{ top: '50%' }}>
+                <Spinner size={14} />
               </div>
             )}
 
             {/* Dropdown Suggestions */}
             {searchResults.length > 0 && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                marginTop: '6px',
-                backgroundColor: 'var(--bg-elevated, #1e293b)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-md, 8px)',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
-                zIndex: 100,
-                maxHeight: '260px',
-                overflowY: 'auto'
-              }}>
+              <div className="absolute top-full left-0 right-0 mt-2 bg-surface-container-lowest border border-outline-variant/40 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto">
                 {searchResults.map((drug) => (
                   <div
                     key={drug.id}
                     onClick={() => handleAddDrugToQuery(drug)}
-                    style={{
-                      padding: '12px 16px',
-                      borderBottom: '1px solid var(--border-default)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
-                    className="dropdown-item-hover"
+                    className="px-4 py-3 border-b border-outline-variant/20 hover:bg-surface-container-low cursor-pointer transition-colors flex justify-between items-center text-xs"
                   >
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{drug.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {drug.genericName} • {drug.strength}
+                      <div className="font-bold text-on-surface text-sm">{drug.name}</div>
+                      <div className="text-[11px] text-on-surface-variant">
+                        {drug.genericName} • {drug.strength} • By {drug.manufacturer}
                       </div>
                     </div>
-                    <Badge variant="blue"><Plus size={12} /> Add</Badge>
+                    <div className="flex items-center gap-2">
+                      {drug.price ? <span className="font-bold text-primary text-xs">৳{drug.price}</span> : null}
+                      <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold flex items-center gap-0.5">
+                        <Plus size={10} /> Add
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </Card>
+        </div>
 
       </div>
 
-      {/* Selected Medicines Chips Bar */}
-      <Card style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+      {/* ── Selected Query Medicines Chips Bar ───────────────────────────────── */}
+      <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
+              <Pill className="w-4 h-4 text-primary" />
               Medicines to Search ({queryItems.length})
             </h3>
-            {isMatching && <Spinner />}
+            {isMatching && <Spinner size={14} />}
           </div>
 
           {queryItems.length > 0 && (
@@ -423,63 +424,35 @@ export const AvailabilityPage: React.FC = () => {
                 setSelectedPrescriptionId('');
                 setPharmacyResults([]);
               }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#ef4444',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
+              className="text-xs font-bold text-red-500 hover:underline flex items-center gap-1"
             >
-              <Trash2 size={14} /> Clear All
+              <Trash2 size={12} /> Clear All
             </button>
           )}
         </div>
 
         {queryItems.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            No medicines added yet. Select a prescription above or use the search bar to build your medicine list.
+          <div className="py-6 text-center text-xs text-on-surface-variant border border-dashed border-outline-variant/40 rounded-lg">
+            No medicines added yet. Choose a prescription above or use the search bar to build your medicine list.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+          <div className="flex flex-wrap gap-2 pt-1">
             {queryItems.map((item, idx) => (
               <div
                 key={idx}
-                style={{
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '20px',
-                  padding: '8px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '0.84rem'
-                }}
+                className="bg-surface-container-low border border-outline-variant/40 rounded-full px-3.5 py-1.5 flex items-center gap-2 text-xs shadow-sm"
               >
                 <div>
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.brandName}</span>
+                  <span className="font-bold text-on-surface">{item.brandName}</span>
                   {item.saltComposition && (
-                    <span style={{ color: 'var(--text-muted)', marginLeft: '6px', fontSize: '0.75rem' }}>
+                    <span className="text-on-surface-variant ml-1.5 text-[11px]">
                       ({item.saltComposition})
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => handleRemoveQueryItem(idx)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
+                  className="text-on-surface-variant hover:text-red-500 transition-colors p-0.5 rounded-full"
                   title="Remove medicine"
                 >
                   <XCircle size={14} />
@@ -488,76 +461,62 @@ export const AvailabilityPage: React.FC = () => {
             ))}
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Error state */}
       {error && <EmptyState icon={<AlertTriangle size={28} />} title="Error" description={error} />}
 
-      {/* Main Results Section: Side-by-Side 2-Column Layout */}
+      {/* ── Main Results Bento Section: 12-Column Grid ─────────────────────────── */}
       {pharmacyResults.length > 0 && !isMatching && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="space-y-4">
           
           {/* Header & Filter Controls */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="font-headline-md text-headline-md text-on-surface font-bold flex items-center gap-2">
+              <Store className="w-5 h-5 text-primary" />
               Pharmacy Results ({filteredPharmacies.length})
-            </h2>
+            </h3>
 
             {/* Filter Pills */}
-            <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-elevated)', padding: '4px', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--border-default)' }}>
+            <div className="flex items-center gap-1 bg-surface-container-high rounded-lg p-1 w-fit">
               <button
                 onClick={() => setFilterMode('ALL')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: filterMode === 'ALL' ? 'var(--color-brand-500, #0ea5e9)' : 'transparent',
-                  color: filterMode === 'ALL' ? '#fff' : 'var(--text-secondary)'
-                }}
+                className={`px-3 py-1 rounded-md font-label-sm text-xs transition-all ${
+                  filterMode === 'ALL'
+                    ? 'bg-surface-container-lowest text-primary shadow-sm font-bold'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
               >
                 All Stores ({pharmacyResults.length})
               </button>
               <button
                 onClick={() => setFilterMode('FULL')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: filterMode === 'FULL' ? 'var(--color-brand-500, #0ea5e9)' : 'transparent',
-                  color: filterMode === 'FULL' ? '#fff' : 'var(--text-secondary)'
-                }}
+                className={`px-3 py-1 rounded-md font-label-sm text-xs transition-all ${
+                  filterMode === 'FULL'
+                    ? 'bg-surface-container-lowest text-primary shadow-sm font-bold'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
               >
                 100% Available
               </button>
               <button
                 onClick={() => setFilterMode('ALTERNATIVES')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: filterMode === 'ALTERNATIVES' ? 'var(--color-brand-500, #0ea5e9)' : 'transparent',
-                  color: filterMode === 'ALTERNATIVES' ? '#fff' : 'var(--text-secondary)'
-                }}
+                className={`px-3 py-1 rounded-md font-label-sm text-xs transition-all ${
+                  filterMode === 'ALTERNATIVES'
+                    ? 'bg-surface-container-lowest text-primary shadow-sm font-bold'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
               >
                 Has Alternatives
               </button>
             </div>
           </div>
 
-          {/* Side-by-Side Grid Container */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(400px, 1.4fr)', gap: '24px', alignItems: 'start' }}>
+          {/* 12-Column Bento Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            {/* LEFT COLUMN: List of Pharmacy Cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* LEFT COLUMN: List of Pharmacy Cards (lg:col-span-5) */}
+            <div className="lg:col-span-5 space-y-3.5">
               {filteredPharmacies.map((pharmacy) => {
                 const isSelected = selectedPharmacy?.pharmacyId === pharmacy.pharmacyId;
                 const directCount = pharmacy.summary.directMatchCount;
@@ -565,33 +524,27 @@ export const AvailabilityPage: React.FC = () => {
                 const missingCount = pharmacy.summary.missingCount;
 
                 return (
-                  <Card
+                  <div
                     key={pharmacy.pharmacyId}
                     onClick={() => {
                       setSelectedPharmacyId(pharmacy.pharmacyId);
                       setActiveTab('matching');
                     }}
-                    style={{
-                      padding: '18px 20px',
-                      cursor: 'pointer',
-                      border: isSelected ? '2px solid var(--color-brand-500, #0ea5e9)' : '1px solid var(--border-default)',
-                      backgroundColor: isSelected ? 'rgba(14, 165, 233, 0.06)' : 'var(--bg-elevated)',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px',
-                      boxShadow: isSelected ? '0 8px 20px -4px rgba(14, 165, 233, 0.25)' : 'none'
-                    }}
+                    className={`bg-surface-container-lowest rounded-xl p-5 border cursor-pointer transition-all duration-200 space-y-3 ${
+                      isSelected
+                        ? 'border-2 border-primary shadow-md ring-2 ring-primary/20 bg-primary/5'
+                        : 'border-outline-variant/30 hover:border-outline-variant hover:shadow-sm'
+                    }`}
                   >
-                    {/* Top Store Info */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    {/* Top Store Header */}
+                    <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h4 style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Building size={18} style={{ color: 'var(--color-brand-500)' }} />
+                        <h4 className="font-headline-md text-base font-bold text-on-surface flex items-center gap-2">
+                          <Building className="w-4 h-4 text-primary" />
                           {pharmacy.storeName}
                         </h4>
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                          <MapPin size={13} />
+                        <div className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
+                          <MapPin size={12} />
                           {pharmacy.streetAddress}, {pharmacy.city}
                         </div>
                       </div>
@@ -602,106 +555,69 @@ export const AvailabilityPage: React.FC = () => {
                     </div>
 
                     {/* Progress Bar */}
-                    <div style={{ height: '6px', width: '100%', background: 'var(--border-default)', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                    <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden flex">
                       <div 
-                        style={{ 
-                          width: `${(directCount / pharmacy.summary.totalRequested) * 100}%`, 
-                          background: '#10b981', 
-                          height: '100%' 
-                        }} 
+                        style={{ width: `${(directCount / pharmacy.summary.totalRequested) * 100}%` }} 
+                        className="bg-[#10B981] h-full"
                         title={`${directCount} Direct Matches`}
                       />
                       <div 
-                        style={{ 
-                          width: `${(altCount / pharmacy.summary.totalRequested) * 100}%`, 
-                          background: '#f59e0b', 
-                          height: '100%' 
-                        }} 
+                        style={{ width: `${(altCount / pharmacy.summary.totalRequested) * 100}%` }} 
+                        className="bg-[#F59E0B] h-full"
                         title={`${altCount} Alternatives Available`}
                       />
                       <div 
-                        style={{ 
-                          width: `${(missingCount / pharmacy.summary.totalRequested) * 100}%`, 
-                          background: '#ef4444', 
-                          height: '100%' 
-                        }} 
+                        style={{ width: `${(missingCount / pharmacy.summary.totalRequested) * 100}%` }} 
+                        className="bg-[#EF4444] h-full"
                         title={`${missingCount} Missing`}
                       />
                     </div>
 
                     {/* Summary Breakdown Badges */}
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        background: 'rgba(16, 185, 129, 0.12)',
-                        color: '#10b981',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="bg-[#10B981]/10 text-[#047857] px-2.5 py-0.5 rounded-md font-bold flex items-center gap-1">
                         <CheckCircle2 size={12} /> {directCount} Exact Match
                       </span>
 
                       {altCount > 0 && (
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          background: 'rgba(245, 158, 11, 0.12)',
-                          color: '#f59e0b',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}>
+                        <span className="bg-[#F59E0B]/10 text-[#B45309] px-2.5 py-0.5 rounded-md font-bold flex items-center gap-1">
                           <Sparkles size={12} /> {altCount} Alternative
                         </span>
                       )}
 
                       {missingCount > 0 && (
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          background: 'rgba(239, 68, 68, 0.12)',
-                          color: '#ef4444',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}>
+                        <span className="bg-[#EF4444]/10 text-[#B91C1C] px-2.5 py-0.5 rounded-md font-bold flex items-center gap-1">
                           <XCircle size={12} /> {missingCount} Missing
                         </span>
                       )}
                     </div>
 
-                    <div style={{ fontSize: '0.75rem', color: isSelected ? 'var(--color-brand-500)' : 'var(--text-muted)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
-                      <span>{isSelected ? '✓ Selected Store' : 'Click to inspect breakdown'}</span>
-                      <ArrowRight size={14} />
+                    <div className="flex items-center justify-between text-xs font-bold pt-1 border-t border-outline-variant/20">
+                      <span className={isSelected ? 'text-primary' : 'text-on-surface-variant'}>
+                        {isSelected ? '✓ Selected Store' : 'Click to inspect breakdown'}
+                      </span>
+                      <ChevronRight size={14} className={isSelected ? 'text-primary' : 'text-outline'} />
                     </div>
-                  </Card>
+                  </div>
                 );
               })}
             </div>
 
-            {/* RIGHT COLUMN: Detailed Inventory Breakdown Card */}
+            {/* RIGHT COLUMN: Detailed Inventory Breakdown Card (lg:col-span-7) */}
             {selectedPharmacy ? (
-              <Card style={{ padding: '24px', border: '1px solid var(--color-brand-500, #0ea5e9)', position: 'sticky', top: '24px' }}>
+              <div className="lg:col-span-7 bg-surface-container-lowest rounded-xl p-6 border-2 border-primary/40 shadow-lg sticky top-6 space-y-5">
                 
-                {/* Detailed View Store Title Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+                {/* Store Info Sticky Header */}
+                <div className="flex items-start justify-between flex-wrap gap-3 pb-3 border-b border-outline-variant/30">
                   <div>
-                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-brand-500)', fontWeight: 800 }}>
+                    <div className="text-[10px] uppercase font-bold text-primary tracking-wider">
                       Detailed Inventory Breakdown
                     </div>
-                    <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: '4px 0 0 0' }}>
+                    <h3 className="font-headline-md text-xl font-bold text-on-surface mt-0.5">
                       {selectedPharmacy.storeName}
                     </h3>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <MapPin size={13} />
+                    <div className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
+                      <MapPin size={12} />
                       {selectedPharmacy.streetAddress}, {selectedPharmacy.city}
                     </div>
                   </div>
@@ -711,65 +627,41 @@ export const AvailabilityPage: React.FC = () => {
                   </Badge>
                 </div>
 
-                {/* Navigation Tabs (Matching / Alternatives / Missing) */}
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-default)', marginBottom: '20px', gap: '4px' }}>
+                {/* 3 Navigation Tabs (Matching / Alternatives / Missing) */}
+                <div className="flex border-b border-outline-variant/30 gap-2">
                   <button
                     onClick={() => setActiveTab('matching')}
-                    style={{
-                      padding: '8px 14px',
-                      border: 'none',
-                      background: 'transparent',
-                      borderBottom: activeTab === 'matching' ? '3px solid #10b981' : '3px solid transparent',
-                      color: activeTab === 'matching' ? '#10b981' : 'var(--text-secondary)',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
+                    className={`pb-2.5 px-3 font-label-md text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                      activeTab === 'matching'
+                        ? 'border-[#10B981] text-[#10B981]'
+                        : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
                   >
-                    <CheckCircle2 size={15} />
+                    <CheckCircle2 size={14} />
                     Matching ({selectedPharmacy.matching.length})
                   </button>
 
                   <button
                     onClick={() => setActiveTab('alternatives')}
-                    style={{
-                      padding: '8px 14px',
-                      border: 'none',
-                      background: 'transparent',
-                      borderBottom: activeTab === 'alternatives' ? '3px solid #f59e0b' : '3px solid transparent',
-                      color: activeTab === 'alternatives' ? '#f59e0b' : 'var(--text-secondary)',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
+                    className={`pb-2.5 px-3 font-label-md text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                      activeTab === 'alternatives'
+                        ? 'border-[#F59E0B] text-[#F59E0B]'
+                        : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
                   >
-                    <Sparkles size={15} />
+                    <Sparkles size={14} />
                     Alternatives ({selectedPharmacy.alternatives.length})
                   </button>
 
                   <button
                     onClick={() => setActiveTab('missing')}
-                    style={{
-                      padding: '8px 14px',
-                      border: 'none',
-                      background: 'transparent',
-                      borderBottom: activeTab === 'missing' ? '3px solid #ef4444' : '3px solid transparent',
-                      color: activeTab === 'missing' ? '#ef4444' : 'var(--text-secondary)',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
+                    className={`pb-2.5 px-3 font-label-md text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                      activeTab === 'missing'
+                        ? 'border-[#EF4444] text-[#EF4444]'
+                        : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                    }`}
                   >
-                    <XCircle size={15} />
+                    <XCircle size={14} />
                     Missing ({selectedPharmacy.missing.length})
                   </button>
                 </div>
@@ -784,39 +676,29 @@ export const AvailabilityPage: React.FC = () => {
                         description="This pharmacy does not carry exact brand matches for your requested list."
                       />
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div className="space-y-3">
                         {selectedPharmacy.matching.map((item, i) => (
                           <div
                             key={i}
-                            style={{
-                              padding: '14px 16px',
-                              background: 'var(--bg-elevated)',
-                              borderRadius: 'var(--radius-md, 8px)',
-                              border: '1px solid var(--border-default)',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              flexWrap: 'wrap',
-                              gap: '10px'
-                            }}
+                            className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30 flex justify-between items-center flex-wrap gap-2 text-xs"
                           >
                             <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontWeight: 800, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-on-surface">
                                   {item.brandName}
                                 </span>
                                 <Badge variant="green">In Stock</Badge>
                               </div>
-                              <div style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              <div className="text-on-surface-variant text-[11px] mt-1">
                                 {item.saltComposition} • {item.strength} {item.manufacturer ? `• ${item.manufacturer}` : ''}
                               </div>
                             </div>
 
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                Stock: <strong style={{ color: 'var(--text-primary)' }}>{item.quantity} units</strong>
+                            <div className="text-right">
+                              <div className="text-[11px] text-outline">
+                                Stock: <strong className="text-on-surface">{item.quantity} units</strong>
                               </div>
-                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--color-brand-500)' }}>
+                              <div className="text-base font-extrabold text-primary">
                                 {item.currentPrice !== null ? `৳${item.currentPrice}` : 'Price N/A'}
                               </div>
                             </div>
@@ -827,7 +709,7 @@ export const AvailabilityPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Tab Content 2: ALTERNATIVE MEDICINES & AVAILABLE BRANDS */}
+                {/* Tab Content 2: ALTERNATIVE MEDICINES & SHOW ALL AVAILABLE BRANDS */}
                 {activeTab === 'alternatives' && (
                   <div>
                     {selectedPharmacy.alternatives.length === 0 ? (
@@ -837,71 +719,65 @@ export const AvailabilityPage: React.FC = () => {
                         description="No requested items were replaced by generic alternatives at this pharmacy."
                       />
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div className="space-y-4">
                         {selectedPharmacy.alternatives.map((altItem, i) => (
                           <div
                             key={i}
-                            style={{
-                              padding: '16px',
-                              background: 'rgba(245, 158, 11, 0.05)',
-                              borderRadius: 'var(--radius-md, 8px)',
-                              border: '1px solid rgba(245, 158, 11, 0.25)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '12px'
-                            }}
+                            className="bg-[#F59E0B]/5 p-4 rounded-xl border border-[#F59E0B]/30 space-y-3"
                           >
-                            {/* Requested out of stock label */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            {/* Requested Out of Stock Brand Header */}
+                            <div className="flex justify-between items-start gap-2">
                               <div>
-                                <div style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                <div className="text-[10px] text-[#B45309] font-bold uppercase tracking-wider">
                                   Requested Brand Out of Stock
                                 </div>
-                                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0' }}>
+                                <h4 className="text-base font-bold text-on-surface mt-0.5">
                                   {altItem.requestedBrand}
                                 </h4>
-                                <div style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)' }}>
-                                  Salt: <strong>{altItem.saltComposition}</strong>
+                                <div className="text-xs text-on-surface-variant mt-0.5">
+                                  Generic Salt: <strong className="text-on-surface">{altItem.saltComposition}</strong>
                                 </div>
                               </div>
                               <Badge variant="yellow">
-                                {altItem.availableBrands.length} Alternative Brand{altItem.availableBrands.length > 1 ? 's' : ''}
+                                {altItem.availableBrands.length} Alternative Brand{altItem.availableBrands.length > 1 ? 's' : ''} Available
                               </Badge>
                             </div>
 
-                            <div className="divider" style={{ borderTopColor: 'rgba(245, 158, 11, 0.2)', margin: '0' }} />
-
-                            {/* List of Available Brands at this pharmacy */}
-                            <div>
-                              <div style={{ fontSize: '0.78125rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
-                                Available Brands at {selectedPharmacy.storeName}:
+                            <div className="border-t border-[#F59E0B]/20 pt-3 space-y-2">
+                              <div className="text-xs font-bold text-on-surface flex items-center justify-between">
+                                <span>All Available Alternative Brands at {selectedPharmacy.storeName}:</span>
+                                <span className="text-[11px] text-on-surface-variant font-normal">
+                                  Same active formulation
+                                </span>
                               </div>
 
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {/* LIST ALL AVAILABLE ALTERNATIVE BRANDS AT THIS PHARMACY */}
+                              <div className="space-y-2">
                                 {altItem.availableBrands.map((brand, bIdx) => (
                                   <div
                                     key={bIdx}
-                                    style={{
-                                      padding: '10px 12px',
-                                      background: 'var(--bg-elevated)',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--border-default)',
-                                      display: 'flex',
-                                      justifyContent: 'space-between',
-                                      alignItems: 'center'
-                                    }}
+                                    className="bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/30 flex justify-between items-center text-xs hover:border-primary/50 transition-colors"
                                   >
-                                    <div>
-                                      <div style={{ fontWeight: 800, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                                    <div className="space-y-0.5">
+                                      <div className="font-bold text-on-surface text-sm flex items-center gap-1.5">
                                         {brand.brandName}
+                                        <Badge variant={brand.isGeneric ? 'green' : 'purple'}>
+                                          {brand.isGeneric ? 'Generic' : 'Brand'}
+                                        </Badge>
                                       </div>
-                                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                                        {brand.strength} {brand.manufacturer ? `• ${brand.manufacturer}` : ''} • <span style={{ color: '#10b981', fontWeight: 600 }}>{brand.quantity} in stock</span>
+                                      <div className="text-[11px] text-on-surface-variant">
+                                        {brand.strength} {brand.manufacturer ? `• By ${brand.manufacturer}` : ''}
+                                      </div>
+                                      <div className="text-[11px] text-[#10B981] font-semibold flex items-center gap-1">
+                                        <CheckCircle2 size={11} /> {brand.quantity} units in stock
                                       </div>
                                     </div>
 
-                                    <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-brand-500)' }}>
-                                      {brand.currentPrice !== null ? `৳${brand.currentPrice}` : 'N/A'}
+                                    <div className="text-right">
+                                      <div className="text-xs font-label-sm text-on-surface-variant">Unit Price</div>
+                                      <div className="text-base font-extrabold text-primary">
+                                        {brand.currentPrice !== null ? `৳${brand.currentPrice}` : 'N/A'}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -918,29 +794,21 @@ export const AvailabilityPage: React.FC = () => {
                 {activeTab === 'missing' && (
                   <div>
                     {selectedPharmacy.missing.length === 0 ? (
-                      <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', color: '#10b981', fontWeight: 700, fontSize: '0.875rem' }}>
+                      <div className="p-4 text-center bg-[#10B981]/10 rounded-xl text-[#047857] font-bold text-xs">
                         🎉 Zero Missing Items! This store carries all requested medicines or generic substitutes.
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div className="space-y-2">
                         {selectedPharmacy.missing.map((item, i) => (
                           <div
                             key={i}
-                            style={{
-                              padding: '12px 14px',
-                              background: 'rgba(239, 68, 68, 0.06)',
-                              borderRadius: '8px',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
+                            className="bg-[#EF4444]/5 p-3.5 rounded-xl border border-[#EF4444]/20 flex justify-between items-center text-xs"
                           >
                             <div>
-                              <div style={{ fontWeight: 800, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                              <div className="font-bold text-on-surface text-sm">
                                 {item.requestedBrand}
                               </div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              <div className="text-[11px] text-on-surface-variant mt-0.5">
                                 Salt: {item.saltComposition}
                               </div>
                             </div>
@@ -953,11 +821,11 @@ export const AvailabilityPage: React.FC = () => {
                   </div>
                 )}
 
-              </Card>
+              </div>
             ) : (
-              <Card style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div className="lg:col-span-7 bg-surface-container-lowest rounded-xl p-8 text-center text-xs text-on-surface-variant border border-outline-variant/30">
                 Select a pharmacy on the left to inspect its detailed inventory breakdown.
-              </Card>
+              </div>
             )}
 
           </div>
@@ -967,11 +835,13 @@ export const AvailabilityPage: React.FC = () => {
 
       {/* Initial Empty State when no results */}
       {pharmacyResults.length === 0 && !isMatching && (
-        <EmptyState
-          icon={<Search size={32} />}
-          title="Compare Pharmacy Inventories"
-          description="Select a prescription or add medicines above to see real-time matching, generic alternatives, and missing items across partner pharmacies."
-        />
+        <div className="bg-surface-container-lowest rounded-xl p-10 border border-dashed border-outline-variant/40 text-center space-y-3">
+          <Store className="w-10 h-10 text-primary mx-auto opacity-70" />
+          <h4 className="text-base font-bold text-on-surface">Compare Pharmacy Stock & Find Medicines</h4>
+          <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+            Select a prescription or add medicines using the search bar above to calculate real-time availability, generic alternatives, and missing items across partner pharmacies.
+          </p>
+        </div>
       )}
 
     </div>

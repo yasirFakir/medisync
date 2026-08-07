@@ -54,6 +54,7 @@ const limiter = rateLimit({
   max: config.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => config.nodeEnv === 'development',
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 app.use('/api', limiter);

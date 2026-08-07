@@ -40,8 +40,8 @@ When you execute `/buddy <command> <argument>`:
 ## Extension and Customization
 
 To add new workflows or modify commands:
-1. **Routing Manifest**: Edit the routing table in [.agents/skills/buddy/SKILL.md](file:///data/rspace/codespace/projects/medisync/.agents/skills/buddy/SKILL.md).
-2. **Command Playbooks**: Create or update playbooks in [.agents/skills/buddy/references/](file:///data/rspace/codespace/projects/medisync/.agents/skills/buddy/references/).
+1. **Routing Manifest**: Edit the routing table in [.agents/skills/buddy/SKILL.md](file://.agents/skills/buddy/SKILL.md).
+2. **Command Playbooks**: Create or update playbooks in [.agents/skills/buddy/references/](file://.agents/skills/buddy/references/).
 3. **Re-cache Plugin**: Run the following commands to reload the changes in `agy`:
    ```bash
    agy plugin validate .agents && agy plugin install .agents

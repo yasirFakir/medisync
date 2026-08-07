@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
+import { ErrorBoundary } from './ErrorBoundary';
+
 export const PortalLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const location = useLocation();
@@ -33,9 +35,8 @@ export const PortalLayout: React.FC = () => {
           { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
           { label: 'AI Triage', path: '/triage', icon: <MessageSquareText size={18} /> },
           { label: 'Prescriptions', path: '/prescriptions', icon: <FileText size={18} /> },
-          { label: 'Find Pharmacy', path: '/locator', icon: <MapPin size={18} /> },
           { label: 'Medicine Alternatives', path: '/alternatives', icon: <GitCompare size={18} /> },
-          { label: 'Pharmacy Directory', path: '/pharmacies', icon: <Building size={18} /> },
+          { label: 'Pharmacies', path: '/pharmacies', icon: <Building size={18} /> },
           { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
           { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
@@ -121,21 +122,23 @@ export const PortalLayout: React.FC = () => {
   const meta = getPageMeta();
 
   return (
-    <div className={roleClass} style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className={roleClass} style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-base)' }}>
       <Sidebar
         navItems={getNavItems()}
         user={user}
         onLogout={logout}
         accentColor={getAccentColor()}
       />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
         <TopBar
           title={meta.title}
           subtitle={meta.subtitle}
           user={user}
         />
         <main style={{ flex: 1, padding: '28px', overflowY: 'auto' }}>
-          <Outlet />
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

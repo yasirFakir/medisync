@@ -21,7 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ navItems, user, onLogout }) =>
   const navigate = useNavigate();
 
   return (
-    <aside className="w-[280px] h-screen sticky top-0 bg-white border-r border-[#bcc9c6]/30 flex flex-col justify-between py-6 px-4 flex-shrink-0 z-20 font-sans shadow-[0px_4px_20px_rgba(30,41,59,0.05)]">
+    <aside className="w-[280px] h-full overflow-y-auto bg-white border-r border-[#bcc9c6]/30 flex flex-col justify-between py-6 px-4 flex-shrink-0 z-20 font-sans shadow-[0px_4px_20px_rgba(30,41,59,0.05)]">
       {/* Top Header & Brand */}
       <div>
         <div className="px-3 mb-6">

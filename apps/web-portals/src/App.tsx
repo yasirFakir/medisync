@@ -39,7 +39,7 @@ const App: React.FC = () => {
             {/* Patient routes */}
             <Route path="/triage" element={<TriagePage />} />
             <Route path="/prescriptions" element={<PrescriptionsPage />} />
-            <Route path="/locator" element={<LocatorPage />} />
+            <Route path="/locator" element={<Navigate to="/pharmacies" replace />} />
             <Route path="/alternatives" element={<AlternativesPage />} />
             <Route path="/pharmacies" element={<PharmaciesPage />} />
             <Route path="/availability" element={<AvailabilityPage />} />

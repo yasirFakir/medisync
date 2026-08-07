@@ -31,24 +31,55 @@ export const listDrugs = async (req: AuthRequest, res: Response): Promise<void> 
   const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
   const limit = Math.min(100, parseInt(req.query.limit as string || '20', 10));
   const offset = (page - 1) * limit;
-  const search = req.query.search as string | undefined;
+  const search = (req.query.search as string || '').trim();
 
-  const searchPattern = search ? `%${search}%` : null;
+  let drugs: any[] = [];
+  let total = 0;
 
-  const drugs = await query(
-    `SELECT ${DRUG_FIELDS}
-     FROM master_pharmacy
-     WHERE ($1::text IS NULL OR LOWER(brand_name) LIKE LOWER($1) OR LOWER(salt_composition) LIKE LOWER($1) OR LOWER(manufacturer) LIKE LOWER($1))
-     ORDER BY brand_name ASC LIMIT $2 OFFSET $3`,
-    [searchPattern, limit, offset]
-  );
+  if (search) {
+    const qLower = search.toLowerCase();
+    const exact = qLower;
+    const prefix = `${qLower}%`;
+    const contains = `%${qLower}%`;
 
-  const [countResult] = await query<{ count: string }>(
-    `SELECT COUNT(*) AS count FROM master_pharmacy
-     WHERE ($1::text IS NULL OR LOWER(brand_name) LIKE LOWER($1) OR LOWER(salt_composition) LIKE LOWER($1) OR LOWER(manufacturer) LIKE LOWER($1))`,
-    [searchPattern]
-  );
-  const total = parseInt(countResult?.count || '0', 10);
+    drugs = await query(
+      `SELECT ${DRUG_FIELDS}
+       FROM master_pharmacy
+       WHERE LOWER(brand_name) LIKE $3
+          OR LOWER(salt_composition) LIKE $3
+          OR LOWER(manufacturer) LIKE $3
+       ORDER BY 
+         CASE 
+           WHEN LOWER(brand_name) = $1 THEN 1
+           WHEN LOWER(brand_name) LIKE $2 THEN 2
+           WHEN LOWER(salt_composition) LIKE $2 THEN 3
+           ELSE 4 
+         END ASC, 
+         LENGTH(brand_name) ASC, 
+         brand_name ASC 
+       LIMIT $4 OFFSET $5`,
+      [exact, prefix, contains, limit, offset]
+    );
+
+    const [countResult] = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM master_pharmacy
+       WHERE LOWER(brand_name) LIKE $1
+          OR LOWER(salt_composition) LIKE $1
+          OR LOWER(manufacturer) LIKE $1`,
+      [contains]
+    );
+    total = parseInt(countResult?.count || '0', 10);
+  } else {
+    drugs = await query(
+      `SELECT ${DRUG_FIELDS}
+       FROM master_pharmacy
+       ORDER BY brand_name ASC LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    const [countResult] = await query<{ count: string }>('SELECT COUNT(*) AS count FROM master_pharmacy');
+    total = parseInt(countResult?.count || '0', 10);
+  }
 
   res.json({
     success: true,
@@ -75,32 +106,49 @@ export const searchDrugs = async (req: AuthRequest, res: Response): Promise<void
     return;
   }
 
-  const searchPattern = `%${q}%`;
+  const qLower = q.toLowerCase();
+  const exact = qLower;
+  const prefix = `${qLower}%`;
+  const contains = `%${qLower}%`;
+
   const drugs = await query(
     `SELECT ${DRUG_FIELDS}
      FROM master_pharmacy
-     WHERE LOWER(brand_name) LIKE LOWER($1)
-        OR LOWER(salt_composition) LIKE LOWER($1)
-        OR LOWER(manufacturer) LIKE LOWER($1)
-        OR LOWER(uses) LIKE LOWER($1)
-     ORDER BY brand_name ASC LIMIT $2 OFFSET $3`,
-    [searchPattern, limit, offset]
+     WHERE LOWER(brand_name) LIKE $3
+        OR LOWER(salt_composition) LIKE $3
+        OR LOWER(manufacturer) LIKE $3
+        OR LOWER(uses) LIKE $3
+     ORDER BY 
+       CASE 
+         WHEN LOWER(brand_name) = $1 THEN 1
+         WHEN LOWER(brand_name) LIKE $2 THEN 2
+         WHEN LOWER(salt_composition) LIKE $2 THEN 3
+         ELSE 4 
+       END ASC, 
+       LENGTH(brand_name) ASC, 
+       brand_name ASC 
+     LIMIT $4 OFFSET $5`,
+    [exact, prefix, contains, limit, offset]
   );
 
   const [countResult] = await query<{ count: string }>(
     `SELECT COUNT(*) AS count FROM master_pharmacy
-     WHERE LOWER(brand_name) LIKE LOWER($1)
-        OR LOWER(salt_composition) LIKE LOWER($1)
-        OR LOWER(manufacturer) LIKE LOWER($1)
-        OR LOWER(uses) LIKE LOWER($1)`,
-    [searchPattern]
+     WHERE LOWER(brand_name) LIKE $1
+        OR LOWER(salt_composition) LIKE $1
+        OR LOWER(manufacturer) LIKE $1
+        OR LOWER(uses) LIKE $1`,
+    [contains]
   );
   const total = parseInt(countResult?.count || '0', 10);
 
-  const result = { drugs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
-  await setCache(cacheKey, result, 300);
+  await setCache(cacheKey, { drugs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }, 300);
 
-  res.json({ success: true, message: 'Search results', data: result, timestamp: new Date().toISOString() });
+  res.json({ 
+    success: true, 
+    message: 'Search results', 
+    data: { drugs, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }, 
+    timestamp: new Date().toISOString() 
+  });
 };
 
 // ─── GET /api/drugs/:drugId ───────────────────────────────────────────────────
