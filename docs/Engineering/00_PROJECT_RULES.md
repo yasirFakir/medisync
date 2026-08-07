@@ -78,6 +78,10 @@ Before introducing AI, determine whether the task can be solved using:
 
 If deterministic logic can solve the problem, AI MUST NOT be used.
 
+**AI Git Commit Authorization Rule:**
+- AI agents MUST NOT execute `git commit` or `git push` commands autonomously.
+- AI agents are ONLY permitted to commit and push code when explicitly requested by the user.
+
 ---
 
 # Medical Safety Policy

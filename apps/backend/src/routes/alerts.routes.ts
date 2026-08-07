@@ -40,8 +40,8 @@ router.get('/dose-logs', authenticate, authorize('PATIENT'), alertsController.ge
 // POST /api/alerts/:alertId/taken  [PATIENT]
 router.post('/:alertId/taken', authenticate, authorize('PATIENT'), alertsController.markDoseTaken);
 
-// PATCH /api/alerts/:alertId  — Update status [PATIENT]
-router.patch('/:alertId', authenticate, authorize('PATIENT'), alertsController.updateAlertStatus);
+// PATCH /api/alerts/:alertId  — Update fields & status [PATIENT]
+router.patch('/:alertId', authenticate, authorize('PATIENT'), alertsController.updateAlert);
 
 // DELETE /api/alerts/:alertId  [PATIENT]
 router.delete('/:alertId', authenticate, authorize('PATIENT'), alertsController.deleteAlert);

@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS medication_alerts (
   medicine_name  VARCHAR(255) NOT NULL,
   dosage         VARCHAR(100) NOT NULL,
   frequency      VARCHAR(100) NOT NULL,
-  scheduled_time VARCHAR(10) NOT NULL,  -- HH:mm
+  scheduled_time VARCHAR(255) NOT NULL,  -- HH:mm or comma-separated slot times
   status         alert_status_enum NOT NULL DEFAULT 'ACTIVE',
   created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -151,8 +151,9 @@ CREATE TABLE IF NOT EXISTS dose_logs (
   alert_id    UUID NOT NULL REFERENCES medication_alerts(alert_id) ON DELETE CASCADE,
   patient_id  UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   taken_date  DATE NOT NULL DEFAULT CURRENT_DATE,
+  slot_name   VARCHAR(50) NOT NULL DEFAULT 'Morning',
   taken_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(alert_id, taken_date)
+  UNIQUE(alert_id, taken_date, slot_name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_dose_logs_alert ON dose_logs (alert_id);

@@ -54,24 +54,49 @@ export const getMyAlerts = async (req: AuthRequest, res: Response): Promise<void
 };
 
 // ─── PATCH /api/alerts/:alertId  [PATIENT] ───────────────────────────────────
-export const updateAlertStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateAlert = async (req: AuthRequest, res: Response): Promise<void> => {
   const { alertId } = req.params;
-  const { status } = req.body;
+  const { medicineName, dosage, frequency, scheduledTime, status } = req.body;
   const patientId = req.user!.userId;
 
-  if (!['ACTIVE', 'SUSPENDED', 'ARCHIVED'].includes(status)) {
-    throw new AppError('Invalid status value', 422);
+  const fields: string[] = [];
+  const values: any[] = [];
+  let idx = 1;
+
+  if (medicineName !== undefined) { fields.push(`medicine_name = $${idx++}`); values.push(medicineName); }
+  if (dosage !== undefined) { fields.push(`dosage = $${idx++}`); values.push(dosage); }
+  if (frequency !== undefined) { fields.push(`frequency = $${idx++}`); values.push(frequency); }
+  if (scheduledTime !== undefined) { fields.push(`scheduled_time = $${idx++}`); values.push(scheduledTime); }
+  if (status !== undefined) {
+    if (!['ACTIVE', 'SUSPENDED', 'ARCHIVED'].includes(status)) {
+      throw new AppError('Invalid status value', 422);
+    }
+    fields.push(`status = $${idx++}`);
+    values.push(status);
   }
 
+  if (fields.length === 0) {
+    throw new AppError('No fields provided for update', 400);
+  }
+
+  const alertIdIdx = idx++;
+  values.push(alertId);
+
+  const patientIdIdx = idx++;
+  values.push(patientId);
+
   const [alert] = await query(
-    `UPDATE medication_alerts SET status = $1 WHERE alert_id = $2 AND patient_id = $3
-     RETURNING alert_id AS "alertId", medicine_name AS "medicineName", status`,
-    [status, alertId, patientId]
+    `UPDATE medication_alerts 
+     SET ${fields.join(', ')} 
+     WHERE alert_id = $${alertIdIdx} AND patient_id = $${patientIdIdx}
+     RETURNING alert_id AS "alertId", patient_id AS "patientId", medicine_name AS "medicineName",
+               dosage, frequency, scheduled_time AS "scheduledTime", status`,
+    values
   );
 
   if (!alert) throw new AppError('Alert not found', 404);
 
-  res.json({ success: true, message: 'Alert status updated', data: alert, timestamp: new Date().toISOString() });
+  res.json({ success: true, message: 'Medication alert updated', data: alert, timestamp: new Date().toISOString() });
 };
 
 // ─── DELETE /api/alerts/:alertId  [PATIENT] ──────────────────────────────────
@@ -89,6 +114,7 @@ export const markDoseTaken = async (req: AuthRequest, res: Response): Promise<vo
   const { alertId } = req.params;
   const patientId = req.user!.userId;
   const takenDate = req.body.date || new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const slotName = req.body.slotName || 'Morning';
 
   // Verify alert belongs to patient
   const alert = await queryOne(
@@ -98,11 +124,11 @@ export const markDoseTaken = async (req: AuthRequest, res: Response): Promise<vo
   if (!alert) throw new AppError('Alert not found', 404);
 
   const [log] = await query(
-    `INSERT INTO dose_logs (log_id, alert_id, patient_id, taken_date)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (alert_id, taken_date) DO UPDATE SET taken_at = CURRENT_TIMESTAMP
-     RETURNING log_id AS "logId", alert_id AS "alertId", taken_date AS "takenDate", taken_at AS "takenAt"`,
-    [uuidv4(), alertId, patientId, takenDate]
+    `INSERT INTO dose_logs (log_id, alert_id, patient_id, taken_date, slot_name)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (alert_id, taken_date, slot_name) DO UPDATE SET taken_at = CURRENT_TIMESTAMP
+     RETURNING log_id AS "logId", alert_id AS "alertId", taken_date AS "takenDate", slot_name AS "slotName", taken_at AS "takenAt"`,
+    [uuidv4(), alertId, patientId, takenDate, slotName]
   );
 
   res.status(201).json({ success: true, message: 'Dose marked as taken', data: log, timestamp: new Date().toISOString() });
@@ -115,7 +141,7 @@ export const getDoseLogs = async (req: AuthRequest, res: Response): Promise<void
 
   const logs = await query(
     `SELECT dl.log_id AS "logId", dl.alert_id AS "alertId", dl.taken_date AS "takenDate",
-            dl.taken_at AS "takenAt", ma.medicine_name AS "medicineName", ma.dosage
+            dl.slot_name AS "slotName", dl.taken_at AS "takenAt", ma.medicine_name AS "medicineName", ma.dosage
      FROM dose_logs dl
      JOIN medication_alerts ma ON ma.alert_id = dl.alert_id
      WHERE dl.patient_id = $1 AND dl.taken_date >= CURRENT_DATE - $2::int

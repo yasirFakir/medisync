@@ -4,9 +4,10 @@ import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
   AlarmClock, Plus, Trash2, Bell, BellOff, Clock, Calendar, Pill,
   CheckCircle, AlertCircle, Check, XCircle, Heart, TrendingUp, FileText, CheckSquare, Square,
+  Sparkles, Sun, Moon, Sunset, Coffee, AlertTriangle, ChevronRight, Edit3
 } from 'lucide-react';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface MedicationAlert {
   alertId: string;
@@ -22,6 +23,7 @@ interface DoseLog {
   alertId: string;
   takenDate: string;
   takenAt: string;
+  slotName?: string;
   medicineName: string;
   dosage: string;
 }
@@ -50,106 +52,106 @@ interface Prescription {
   };
 }
 
-// ─── Palette tailored to app theme (--color-brand variables & slate/teal palette) ──
-const CARD_PALETTES = [
-  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: 'var(--color-brand-500, #0ea5e9)', gradient: 'linear-gradient(135deg, #0ea5e9, #0284c7)', light: '#e0f2fe' },
-  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #059669)', light: '#d1fae5' },
-  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', light: '#ede9fe' },
-  { bg: 'var(--bg-elevated, #f8fafc)', border: 'var(--border-default, #e2e8f0)', accent: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', light: '#fef3c7' },
-];
+export interface DoseSlotConfig {
+  slotName: 'Morning' | 'Noon' | 'Night' | 'Bedtime';
+  doseCount: number;
+  defaultTime: string;
+  customTime: string;
+}
 
-const getPalette = (index: number) => CARD_PALETTES[index % CARD_PALETTES.length];
-
-// ─── Medical Schedule Time Slot Ranges & Target Defaults ────────────────────────
-// • Morning (Breakfast):  07:00 AM – 10:00 AM  (Target Default: 08:00 AM)
-// • Midday  (Lunch):      12:00 PM – 03:00 PM  (Target Default: 01:00 PM / 13:00)
-// • Evening (Dinner/Night): 07:00 PM – 10:00 PM  (Target Default: 08:00 PM / 20:00)
-
-const SLOT_CONFIG = {
-  morning: { label: 'Morning (7:00 AM - 10:00 AM)', time: '08:00', targetMins: 8 * 60 },
-  lunch:   { label: 'Lunch (12:00 PM - 3:00 PM)',   time: '13:00', targetMins: 13 * 60 },
-  dinner:  { label: 'Dinner (7:00 PM - 10:00 PM)',  time: '20:00', targetMins: 20 * 60 },
-};
-
-const fmt12h = (t: string) => {
-  if (!t) return t;
-  const [h, m] = t.split(':').map(Number);
+// Helper to format 24h string to 12h AM/PM
+const fmt12h = (timeStr: string) => {
+  if (!timeStr) return '';
+  const firstTime = timeStr.split(',')[0].trim();
+  const [h, m] = firstTime.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return timeStr;
   const ampm = h >= 12 ? 'PM' : 'AM';
   const hour = h % 12 || 12;
   return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
 };
 
-/** Parses numeric e.g. "1+0+1", "0+1+0" or descriptive frequency string */
-const getDoseTimes = (scheduledTime: string, frequency: string): string[] => {
-  const normFreq = (frequency || '').trim();
-  const digits = normFreq.replace(/\D/g, '');
+// ─── Prescription Frequency Parser ────────────────────────────────────────────
+export const parseFrequencySlots = (freqStr: string, scheduledTimeStr?: string): DoseSlotConfig[] => {
+  const norm = (freqStr || '').trim();
+  const times = (scheduledTimeStr || '').split(',').map(t => t.trim()).filter(Boolean);
+  const matches = norm.match(/\d+/g);
 
-  if (digits.length === 3) {
-    const [m, l, d] = digits.split('').map(Number);
-    const times: string[] = [];
+  const slotTemplates = [
+    { name: 'Morning' as const, defaultTime: '08:00' },
+    { name: 'Noon' as const, defaultTime: '13:00' },
+    { name: 'Night' as const, defaultTime: '20:00' },
+    { name: 'Bedtime' as const, defaultTime: '22:00' }
+  ];
 
-    if (m > 0) times.push(`${fmt12h(SLOT_CONFIG.morning.time)} (7-10 AM)`);
-    if (l > 0) times.push(`${fmt12h(SLOT_CONFIG.lunch.time)} (12-3 PM)`);
-    if (d > 0) times.push(`${fmt12h(SLOT_CONFIG.dinner.time)} (7-10 PM)`);
+  if (matches && matches.length >= 2) {
+    const slots: DoseSlotConfig[] = [];
+    let timeIdx = 0;
+    matches.forEach((valStr, idx) => {
+      const count = parseInt(valStr, 10);
+      if (count > 0 && idx < slotTemplates.length) {
+        const chosen = times[timeIdx] || slotTemplates[idx].defaultTime;
+        slots.push({
+          slotName: slotTemplates[idx].name,
+          doseCount: count,
+          defaultTime: slotTemplates[idx].defaultTime,
+          customTime: chosen
+        });
+        timeIdx++;
+      }
+    });
 
-    if (times.length > 0) return times;
+    if (slots.length > 0) return slots;
   }
 
-  const [hh, mm] = (scheduledTime || '08:00').split(':').map(Number);
-  const base = hh * 60 + mm;
-  const offsets: Record<string, number[]> = {
-    'Once daily': [0],
-    'Twice daily': [0, 720],
-    'Three times daily': [0, 480, 960],
-    'Every 8 hours': [0, 480, 960],
-  };
-  const offs = offsets[frequency] ?? [0];
-  return offs.map(o => {
-    const total = (base + o) % 1440;
-    const h = Math.floor(total / 60);
-    const m = total % 60;
-    return fmt12h(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-  });
+  // Text fallbacks e.g. "Twice daily", "Three times daily"
+  const lower = norm.toLowerCase();
+  if (lower.includes('twice') || lower.includes('2 times')) {
+    return [
+      { slotName: 'Morning', doseCount: 1, defaultTime: '08:00', customTime: times[0] || '08:00' },
+      { slotName: 'Night', doseCount: 1, defaultTime: '20:00', customTime: times[1] || '20:00' }
+    ];
+  }
+  if (lower.includes('three') || lower.includes('3 times') || lower.includes('tds')) {
+    return [
+      { slotName: 'Morning', doseCount: 1, defaultTime: '08:00', customTime: times[0] || '08:00' },
+      { slotName: 'Noon', doseCount: 1, defaultTime: '13:00', customTime: times[1] || '13:00' },
+      { slotName: 'Night', doseCount: 1, defaultTime: '20:00', customTime: times[2] || '20:00' }
+    ];
+  }
+
+  // Default: Morning 8:00 AM
+  return [
+    { slotName: 'Morning', doseCount: 1, defaultTime: '08:00', customTime: times[0] || '08:00' }
+  ];
 };
 
-const getNextDoseInfo = (scheduledTime: string, frequency: string): { label: string; minutes: number } => {
+const getSlotIcon = (slotName: string) => {
+  switch (slotName) {
+    case 'Morning': return <Sun className="w-3.5 h-3.5 text-amber-500" />;
+    case 'Noon': return <Coffee className="w-3.5 h-3.5 text-orange-500" />;
+    case 'Night': return <Sunset className="w-3.5 h-3.5 text-indigo-500" />;
+    case 'Bedtime': return <Moon className="w-3.5 h-3.5 text-[#8B5CF6]" />;
+    default: return <Clock className="w-3.5 h-3.5 text-primary" />;
+  }
+};
+
+const todayStr = () => new Date().toISOString().split('T')[0];
+
+const getNextDoseCountdown = (scheduledTime: string): { label: string; minutes: number } => {
+  if (!scheduledTime) return { label: 'Scheduled', minutes: 999 };
+  const firstTime = scheduledTime.split(',')[0].trim();
   const now = new Date();
-  const digits = (frequency || '').replace(/\D/g, '');
+  const [hh, mm] = firstTime.split(':').map(Number);
+  if (isNaN(hh) || isNaN(mm)) return { label: 'Scheduled', minutes: 999 };
 
-  let doseTimesInMinutes: number[] = [];
+  let target = new Date(now);
+  target.setHours(hh, mm, 0, 0);
 
-  if (digits.length === 3) {
-    const [m, l, d] = digits.split('').map(Number);
-    if (m > 0) doseTimesInMinutes.push(SLOT_CONFIG.morning.targetMins);
-    if (l > 0) doseTimesInMinutes.push(SLOT_CONFIG.lunch.targetMins);
-    if (d > 0) doseTimesInMinutes.push(SLOT_CONFIG.dinner.targetMins);
-  } else {
-    const [hh, mm] = (scheduledTime || '08:00').split(':').map(Number);
-    const base = hh * 60 + mm;
-    const offsets: Record<string, number[]> = {
-      'Once daily': [0],
-      'Twice daily': [0, 720],
-      'Three times daily': [0, 480, 960],
-      'Every 8 hours': [0, 480, 960],
-    };
-    const offs = offsets[frequency] ?? [0];
-    doseTimesInMinutes = offs.map(o => (base + o) % 1440);
+  if (target <= now) {
+    target.setDate(target.getDate() + 1);
   }
 
-  let nearest: Date | null = null;
-
-  for (let day = 0; day <= 1; day++) {
-    for (const mins of doseTimesInMinutes) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + day);
-      d.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
-      if (d > now && (!nearest || d < nearest)) nearest = d;
-    }
-  }
-
-  if (!nearest) return { label: 'Soon', minutes: 0 };
-
-  const diffMs = nearest.getTime() - now.getTime();
+  const diffMs = target.getTime() - now.getTime();
   const diffMin = Math.round(diffMs / 60000);
   const diffH = Math.floor(diffMin / 60);
   const diffM = diffMin % 60;
@@ -158,275 +160,179 @@ const getNextDoseInfo = (scheduledTime: string, frequency: string): { label: str
   return { label: `in ${diffH}h ${diffM}m`, minutes: diffMin };
 };
 
-
-const todayStr = () => new Date().toISOString().split('T')[0];
-
-// ─── Countdown hook ───────────────────────────────────────────────────────────
-const useCountdown = (scheduledTime: string, frequency: string, active: boolean) => {
-  const [info, setInfo] = useState(() => getNextDoseInfo(scheduledTime, frequency));
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setInfo(getNextDoseInfo(scheduledTime, frequency)), 30000);
-    return () => clearInterval(id);
-  }, [scheduledTime, frequency, active]);
-  return info;
-};
-
-// ─── Individual Alert Card ─────────────────────────────────────────────────────
+// ─── Alert Card Component ──────────────────────────────────────────────────────
 const AlertCard: React.FC<{
   item: MedicationAlert;
   index: number;
-  takenToday: boolean;
+  takenSlotsSet: Set<string>;
+  onEdit: (item: MedicationAlert) => void;
   onDelete: (id: string) => void;
   onToggle: (id: string, current: MedicationAlert['status']) => void;
-  onMarkTaken: (id: string) => void;
-  markingId: string | null;
-}> = ({ item, index, takenToday, onDelete, onToggle, onMarkTaken, markingId }) => {
+  onMarkTaken: (id: string, slotName: string) => void;
+  markingKey: string | null;
+}> = ({ item, takenSlotsSet, onEdit, onDelete, onToggle, onMarkTaken, markingKey }) => {
   const isActive = item.status === 'ACTIVE';
-  const countdown = useCountdown(item.scheduledTime, item.frequency, isActive);
-  const doseTimes = getDoseTimes(item.scheduledTime, item.frequency);
-  const palette = getPalette(index);
+  const countdown = getNextDoseCountdown(item.scheduledTime);
+  const slots = parseFrequencySlots(item.frequency, item.scheduledTime);
+
+  const allSlotsTaken = slots.length > 0 && slots.every(s => takenSlotsSet.has(`${item.alertId}_${s.slotName}`));
 
   return (
     <div
-      style={{
-        background: 'var(--bg-elevated, #ffffff)',
-        border: '1px solid var(--border-default, #e2e8f0)',
-        borderRadius: '14px',
-        overflow: 'hidden',
-        opacity: item.status === 'ARCHIVED' ? 0.5 : 1,
-        transition: 'all 0.2s ease',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-      }}
+      className={`bg-surface-container-lowest border rounded-xl p-5 shadow-sm transition-all duration-200 flex flex-col justify-between space-y-4 ${
+        isActive
+          ? 'border-outline-variant/30 hover:border-primary/40 hover:shadow-md'
+          : 'border-outline-variant/20 opacity-60 bg-surface-container-low'
+      }`}
     >
-      {/* Top accent strip matching brand theme */}
-      <div style={{
-        background: isActive ? palette.gradient : 'var(--border-default, #cbd5e1)',
-        height: '4px',
-        width: '100%',
-      }} />
-
-      <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {/* Top row: icon + name + badge */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '10px',
-              background: isActive ? palette.gradient : 'var(--border-default, #e2e8f0)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <Pill size={18} color="#fff" />
+      <div className="space-y-3">
+        {/* Top Header */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+              <Pill className="w-5 h-5" />
             </div>
             <div>
-              <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary, #0f172a)', margin: 0 }}>
+              <h4 className="font-headline-md text-base font-bold text-on-surface">
                 {item.medicineName}
               </h4>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>{item.dosage}</span>
+              <p className="text-xs text-on-surface-variant font-medium">
+                {item.dosage}
+              </p>
             </div>
           </div>
+
           <Badge variant={isActive ? 'green' : item.status === 'SUSPENDED' ? 'yellow' : 'blue'}>
             {item.status}
           </Badge>
         </div>
 
-        {/* Dose time pills */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Calendar size={13} color="var(--text-secondary, #94a3b8)" />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>{item.frequency}</span>
+        {/* Frequency & Granular Dose Slots */}
+        <div className="space-y-2 pt-1 border-t border-outline-variant/20">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-on-surface-variant font-medium flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              Frequency: <strong className="text-on-surface">{item.frequency}</strong>
+            </span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {doseTimes.map((t, i) => (
-              <span key={i} style={{
-                padding: '4px 10px',
-                borderRadius: '8px',
-                background: palette.light,
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                color: palette.accent,
-                display: 'flex', alignItems: 'center', gap: '4px',
-              }}>
-                <Clock size={11} />
-                {t}
-              </span>
-            ))}
+
+          {/* Individual Slot Cards with Independent Taken Actions */}
+          <div className="space-y-2 pt-1">
+            {slots.map((slot, sIdx) => {
+              const slotKey = `${item.alertId}_${slot.slotName}`;
+              const isSlotTaken = takenSlotsSet.has(slotKey);
+              const isMarkingThis = markingKey === slotKey;
+
+              return (
+                <div
+                  key={sIdx}
+                  className={`p-2.5 rounded-lg border text-xs flex items-center justify-between gap-2 transition-all ${
+                    isSlotTaken
+                      ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#047857]'
+                      : 'bg-surface-container-low border-outline-variant/30 text-on-surface'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {getSlotIcon(slot.slotName)}
+                    <div>
+                      <span className="font-bold">{slot.slotName} ({fmt12h(slot.customTime)})</span>
+                      <span className="text-[10px] text-on-surface-variant ml-1.5">
+                        {slot.doseCount} {slot.doseCount > 1 ? 'doses' : 'dose'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isActive && (
+                    <div>
+                      {isSlotTaken ? (
+                        <span className="bg-[#10B981]/20 text-[#047857] px-2 py-0.5 rounded font-extrabold text-[11px] flex items-center gap-1">
+                          <Check size={12} /> Taken
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onMarkTaken(item.alertId, slot.slotName)}
+                          disabled={isMarkingThis}
+                          className="bg-primary text-on-primary px-2.5 py-1 rounded text-[11px] font-bold hover:bg-primary/90 transition-all flex items-center gap-1 shadow-sm"
+                        >
+                          <Check size={12} /> {isMarkingThis ? 'Saving...' : 'Mark Taken'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Next dose countdown */}
-        {isActive && (
-          <div style={{
-            background: 'var(--bg-surface, #f8fafc)',
-            borderRadius: '10px',
-            padding: '10px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            border: '1px solid var(--border-default, #e2e8f0)',
-          }}>
-            <AlarmClock size={16} style={{ color: countdown.minutes <= 30 ? '#ef4444' : palette.accent, flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary, #94a3b8)', fontWeight: 700, letterSpacing: '0.5px' }}>NEXT DOSE</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: countdown.minutes <= 30 ? '#ef4444' : palette.accent }}>
-                {fmt12h(item.scheduledTime)} — {countdown.label}
+        {/* Countdown Banner */}
+        {isActive && !allSlotsTaken && (
+          <div className="bg-surface-container-low border border-outline-variant/30 rounded-lg p-3 flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <AlarmClock className={`w-4 h-4 ${countdown.minutes <= 30 ? 'text-red-500 animate-bounce' : 'text-primary'}`} />
+              <div>
+                <div className="text-[10px] uppercase font-bold text-outline">Next Dose</div>
+                <div className={`font-bold ${countdown.minutes <= 30 ? 'text-red-500' : 'text-on-surface'}`}>
+                  {fmt12h(item.scheduledTime)} ({countdown.label})
+                </div>
               </div>
             </div>
+
             {countdown.minutes <= 30 && (
-              <span style={{
-                fontSize: '0.6rem', fontWeight: 800, padding: '2px 6px',
-                borderRadius: '6px', background: '#fef2f2', color: '#ef4444',
-              }}>
-                SOON
+              <span className="bg-red-500/10 text-red-500 px-2 py-0.5 rounded font-extrabold text-[10px]">
+                DUE SOON
               </span>
             )}
           </div>
         )}
 
-        {/* Taken today indicator */}
-        {isActive && takenToday && (
-          <div style={{
-            background: '#f0fdf4',
-            borderRadius: '10px',
-            padding: '8px 12px',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            border: '1px solid #bbf7d0',
-          }}>
-            <CheckCircle size={15} color="#22c55e" />
-            <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 600 }}>
-              ✓ Dose taken today
-            </span>
+        {/* All Doses Taken Today Banner */}
+        {isActive && allSlotsTaken && (
+          <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg p-2.5 flex items-center gap-2 text-xs text-[#047857] font-bold">
+            <CheckCircle className="w-4 h-4 fill-[#10B981] text-white" />
+            <span>✓ All daily doses recorded for today</span>
           </div>
         )}
+      </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {isActive && !takenToday && (
-            <button
-              onClick={() => onMarkTaken(item.alertId)}
-              disabled={markingId === item.alertId}
-              style={{
-                flex: 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                padding: '8px 12px',
-                background: palette.gradient,
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: markingId === item.alertId ? 'not-allowed' : 'pointer',
-                opacity: markingId === item.alertId ? 0.7 : 1,
-              }}
-            >
-              <Check size={14} />
-              {markingId === item.alertId ? 'Saving...' : "I've Taken This"}
-            </button>
-          )}
+      {/* Action Buttons */}
+      <div className="flex items-center gap-1.5 pt-2 border-t border-outline-variant/20">
+        <button
+          type="button"
+          onClick={() => onEdit(item)}
+          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-outline-variant/20 flex items-center gap-1 text-xs font-bold"
+          title="Edit Reminder & Time"
+        >
+          <Edit3 size={14} /> Edit
+        </button>
 
-          {isActive && takenToday && (
-            <div style={{
-              flex: 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              padding: '8px 12px',
-              background: '#f0fdf4',
-              color: '#16a34a',
-              border: '1px solid #bbf7d0',
-              borderRadius: '8px',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-            }}>
-              <CheckCircle size={14} />
-              Taken Today ✓
-            </div>
-          )}
-
-          {item.status !== 'ARCHIVED' && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onToggle(item.alertId, item.status)}
-              icon={isActive ? <BellOff size={14} /> : <Bell size={14} />}
-              style={{
-                fontSize: '0.75rem',
-                color: isActive ? '#d97706' : '#16a34a',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                borderRadius: '8px',
-                padding: '6px 10px',
-              }}
-            >
-              {isActive ? 'Pause' : 'Resume'}
-            </Button>
-          )}
-
-          <button
-            onClick={() => onDelete(item.alertId)}
-            style={{
-              padding: '6px 10px',
-              background: 'var(--bg-surface, #f8fafc)',
-              color: '#ef4444',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center',
-            }}
+        {item.status !== 'ARCHIVED' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            type="button"
+            onClick={() => onToggle(item.alertId, item.status)}
+            icon={isActive ? <BellOff size={14} /> : <Bell size={14} />}
           >
-            <Trash2 size={14} />
-          </button>
-        </div>
+            {isActive ? 'Pause' : 'Resume'}
+          </Button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onDelete(item.alertId)}
+          className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors border border-outline-variant/20"
+          title="Delete Reminder"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
     </div>
   );
 };
 
-// ─── Summary Stats bar ────────────────────────────────────────────────────────
-const SummaryBar: React.FC<{ alerts: MedicationAlert[]; takenCount: number; missedCount: number }> = ({ alerts, takenCount, missedCount }) => {
-  const active = alerts.filter(a => a.status === 'ACTIVE').length;
-  const suspended = alerts.filter(a => a.status === 'SUSPENDED').length;
-  const total = alerts.length;
-
-  const stats = [
-    { label: 'Total Reminders', value: total, color: 'var(--color-brand-500, #0ea5e9)', icon: <Pill size={16} /> },
-    { label: 'Active', value: active, color: '#10b981', icon: <Heart size={16} /> },
-    { label: 'Taken Today', value: takenCount, color: '#14b8a6', icon: <CheckCircle size={16} /> },
-    { label: 'Pending Today', value: missedCount, color: missedCount > 0 ? '#ef4444' : '#64748b', icon: <XCircle size={16} /> },
-    { label: 'Suspended', value: suspended, color: '#f59e0b', icon: <BellOff size={16} /> },
-  ];
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-      {stats.map(stat => (
-        <div
-          key={stat.label}
-          style={{
-            background: 'var(--bg-elevated, #ffffff)',
-            border: '1px solid var(--border-default, #e2e8f0)',
-            borderRadius: '12px',
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}
-        >
-          <div style={{
-            width: '34px', height: '34px', borderRadius: '8px',
-            background: 'var(--bg-surface, #f8fafc)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: stat.color,
-            border: '1px solid var(--border-default, #e2e8f0)',
-          }}>
-            {stat.icon}
-          </div>
-          <div>
-            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)', lineHeight: 1 }}>{stat.value}</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500, marginTop: '2px' }}>{stat.label}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Alerts Page ──────────────────────────────────────────────────────────
 export const AlertsPage: React.FC = () => {
   const [alerts, setAlerts] = useState<MedicationAlert[]>([]);
   const [doseLogs, setDoseLogs] = useState<DoseLog[]>([]);
@@ -436,20 +342,29 @@ export const AlertsPage: React.FC = () => {
   // Modals
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [isRxModalOpen, setIsRxModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<MedicationAlert | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [markingKey, setMarkingKey] = useState<string | null>(null);
 
   // Custom schedule state
   const [medicineName, setMedicineName] = useState('');
   const [dosage, setDosage] = useState('');
-  const [frequency, setFrequency] = useState('Once daily');
-  const [scheduledTime, setScheduledTime] = useState('08:00');
+  const [frequency, setFrequency] = useState('1+0+1');
+  const [customSlots, setCustomSlots] = useState<DoseSlotConfig[]>(parseFrequencySlots('1+0+1'));
+
+  // Edit schedule state
+  const [editMedName, setEditMedName] = useState('');
+  const [editDosage, setEditDosage] = useState('');
+  const [editFrequency, setEditFrequency] = useState('');
+  const [editSlots, setEditSlots] = useState<DoseSlotConfig[]>([]);
 
   // Prescription selection state
   const [selectedRxId, setSelectedRxId] = useState<string>('');
   const [selectedMeds, setSelectedMeds] = useState<{ [brandName: string]: boolean }>({});
-  const [rxScheduledTimes, setRxScheduledTimes] = useState<{ [brandName: string]: string }>({});
+  const [rxSlotTimes, setRxSlotTimes] = useState<{ [brandName: string]: { [slotName: string]: string } }>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -459,9 +374,9 @@ export const AlertsPage: React.FC = () => {
         apiClient.get('/alerts/dose-logs?days=1').catch(() => ({ data: { data: [] } })),
         apiClient.get('/prescriptions').catch(() => ({ data: { data: [] } })),
       ]);
-      setAlerts(alertsRes.data.data || []);
-      setDoseLogs(logsRes.data.data || []);
-      setPrescriptions(rxRes.data.data || []);
+      setAlerts(Array.isArray(alertsRes.data?.data) ? alertsRes.data.data : []);
+      setDoseLogs(Array.isArray(logsRes.data?.data) ? logsRes.data.data : []);
+      setPrescriptions(Array.isArray(rxRes.data?.data) ? rxRes.data.data : []);
     } catch (err) {
       console.error('Failed to fetch medication alerts or prescriptions', err);
     } finally {
@@ -473,15 +388,16 @@ export const AlertsPage: React.FC = () => {
 
   const today = todayStr();
   const toLocalDate = (d: string) => new Date(d).toLocaleDateString('en-CA');
-  const takenAlertIds = new Set(
+  
+  // Track taken status PER SLOT (e.g. alertId_Morning, alertId_Night)
+  const takenSlotsSet = new Set(
     doseLogs
       .filter(l => l.takenDate && toLocalDate(l.takenDate) === today)
-      .map(l => l.alertId)
+      .map(l => `${l.alertId}_${l.slotName || 'Morning'}`)
   );
 
   const activeAlerts = alerts.filter(a => a.status === 'ACTIVE');
-  const takenCount = activeAlerts.filter(a => takenAlertIds.has(a.alertId)).length;
-  const missedCount = activeAlerts.filter(a => !takenAlertIds.has(a.alertId)).length;
+  const takenCount = doseLogs.filter(l => l.takenDate && toLocalDate(l.takenDate) === today).length;
 
   // Single Custom Alert Submit
   const handleCreateCustomAlert = async (e: React.FormEvent) => {
@@ -489,15 +405,58 @@ export const AlertsPage: React.FC = () => {
     if (!medicineName || !dosage) return;
     setSaving(true);
     try {
-      const res = await apiClient.post('/alerts', { medicineName, dosage, frequency, scheduledTime });
+      const combinedTimes = customSlots.map(s => s.customTime).join(',');
+      const res = await apiClient.post('/alerts', {
+        medicineName,
+        dosage,
+        frequency,
+        scheduledTime: combinedTimes || '08:00'
+      });
       setAlerts(prev => [res.data.data, ...prev]);
       setIsCustomModalOpen(false);
       setMedicineName('');
       setDosage('');
-      setFrequency('Once daily');
-      setScheduledTime('08:00');
+      setFrequency('1+0+1');
     } catch (err) {
       console.error('Failed to create alert', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Open Edit Modal for an alert
+  const handleOpenEdit = (item: MedicationAlert) => {
+    setEditingAlert(item);
+    setEditMedName(item.medicineName);
+    setEditDosage(item.dosage);
+    setEditFrequency(item.frequency);
+    const parsed = parseFrequencySlots(item.frequency, item.scheduledTime);
+    setEditSlots(parsed);
+    setIsEditModalOpen(true);
+  };
+
+  // Save Edit Alert Submit
+  const handleUpdateAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAlert || !editMedName || !editDosage) return;
+    setSaving(true);
+    try {
+      const combinedTimes = editSlots.map(s => s.customTime).join(',');
+      const res = await apiClient.patch(`/alerts/${editingAlert.alertId}`, {
+        medicineName: editMedName,
+        dosage: editDosage,
+        frequency: editFrequency,
+        scheduledTime: combinedTimes || '08:00'
+      });
+
+      const updated = res.data?.data;
+      if (updated) {
+        setAlerts(prev => prev.map(a => a.alertId === editingAlert.alertId ? { ...a, ...updated } : a));
+      }
+      setIsEditModalOpen(false);
+      setEditingAlert(null);
+    } catch (err) {
+      console.error('Failed to update alert', err);
     } finally {
       setSaving(false);
     }
@@ -510,21 +469,26 @@ export const AlertsPage: React.FC = () => {
     if (!rx) return;
 
     const medMap: { [brandName: string]: boolean } = {};
-    const timeMap: { [brandName: string]: string } = {};
+    const slotTimesMap: { [brandName: string]: { [slotName: string]: string } } = {};
 
     const medsList = rx.medicines?.length ? rx.medicines : (rx.ocrResult?.medicines?.map(m => ({
       brandName: m.brand_name?.value || 'Unknown',
       dosage: m.strength?.value || m.dosage?.value || 'Standard',
-      frequency: m.frequency?.value || 'Once daily',
+      frequency: m.frequency?.value || '1+0+1',
     })) || []);
 
     medsList.forEach(m => {
       medMap[m.brandName] = true;
-      timeMap[m.brandName] = '08:00';
+      const slots = parseFrequencySlots(m.frequency || '1+0+1');
+      const timeSlotsForMed: { [slotName: string]: string } = {};
+      slots.forEach(s => {
+        timeSlotsForMed[s.slotName] = s.defaultTime;
+      });
+      slotTimesMap[m.brandName] = timeSlotsForMed;
     });
 
     setSelectedMeds(medMap);
-    setRxScheduledTimes(timeMap);
+    setRxSlotTimes(slotTimesMap);
   };
 
   // Batch create alerts from selected prescription
@@ -535,22 +499,32 @@ export const AlertsPage: React.FC = () => {
     const medsList = rx.medicines?.length ? rx.medicines : (rx.ocrResult?.medicines?.map(m => ({
       brandName: m.brand_name?.value || 'Unknown',
       dosage: m.strength?.value || m.dosage?.value || 'Standard',
-      frequency: m.frequency?.value || 'Once daily',
+      frequency: m.frequency?.value || '1+0+1',
     })) || []);
 
-    const toImport = medsList.filter(m => selectedMeds[m.brandName]).map(m => ({
-      medicineName: m.brandName,
-      dosage: m.dosage || 'Standard',
-      frequency: m.frequency || 'Once daily',
-      scheduledTime: rxScheduledTimes[m.brandName] || '08:00',
-    }));
+    const toImport: Array<{ medicineName: string; dosage: string; frequency: string; scheduledTime: string }> = [];
+
+    medsList.forEach(m => {
+      if (selectedMeds[m.brandName]) {
+        const slots = parseFrequencySlots(m.frequency || '1+0+1');
+        const medTimes = rxSlotTimes[m.brandName] || {};
+        const chosenTimesList = slots.map(slot => medTimes[slot.slotName] || slot.defaultTime);
+        
+        toImport.push({
+          medicineName: m.brandName,
+          dosage: m.dosage || 'Standard',
+          frequency: m.frequency || '1+0+1',
+          scheduledTime: chosenTimesList.join(',')
+        });
+      }
+    });
 
     if (toImport.length === 0) return;
 
     setSaving(true);
     try {
       const res = await apiClient.post('/alerts', { alerts: toImport });
-      const created = Array.isArray(res.data.data) ? res.data.data : [res.data.data];
+      const created = Array.isArray(res.data?.data) ? res.data.data : [res.data?.data];
       setAlerts(prev => [...created, ...prev]);
       setIsRxModalOpen(false);
       setSelectedRxId('');
@@ -583,43 +557,54 @@ export const AlertsPage: React.FC = () => {
     }
   };
 
-  const handleMarkTaken = async (alertId: string) => {
-    setMarkingId(alertId);
+  // Mark specific slot (Morning, Noon, Night) as taken
+  const handleMarkTaken = async (alertId: string, slotName: string) => {
+    const key = `${alertId}_${slotName}`;
+    setMarkingKey(key);
     try {
-      const res = await apiClient.post(`/alerts/${alertId}/taken`, { date: todayStr() });
-      const log = res.data.data;
+      const res = await apiClient.post(`/alerts/${alertId}/taken`, { date: todayStr(), slotName });
+      const log = res.data?.data;
       const alert = alerts.find(a => a.alertId === alertId);
-      setDoseLogs(prev => [...prev, {
-        logId: log.logId,
-        alertId: log.alertId,
-        takenDate: log.takenDate,
-        takenAt: log.takenAt,
-        medicineName: alert?.medicineName || '',
-        dosage: alert?.dosage || '',
-      }]);
+      if (log) {
+        setDoseLogs(prev => [...prev, {
+          logId: log.logId,
+          alertId: log.alertId,
+          takenDate: log.takenDate,
+          takenAt: log.takenAt,
+          slotName: log.slotName || slotName,
+          medicineName: alert?.medicineName || '',
+          dosage: alert?.dosage || '',
+        }]);
+      }
     } catch (err) {
       console.error('Failed to mark dose as taken', err);
     } finally {
-      setMarkingId(null);
+      setMarkingKey(null);
     }
   };
 
   const displayAlerts = alerts.filter(a => a.status !== 'ARCHIVED');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '100%', overflowX: 'hidden', boxSizing: 'border-box' }}>
-      {/* Page header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ minWidth: '240px', flex: '1 1 auto' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-            My Medication Schedule
-          </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', fontWeight: 500 }}>
-            Sync schedules directly from digitised prescriptions or set custom reminders.
+    <div className="bg-background text-on-background font-body-md min-h-screen p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto space-y-6">
+      
+      {/* ── Page Header Banner ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-on-surface-variant mb-2">
+            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline">Active Selection</span>
+            <span className="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
+            <span className="font-label-sm text-label-sm text-primary font-bold">Medication Reminders & Dose Alarms</span>
+          </div>
+          <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-extrabold tracking-tight">
+            Medication Alarms & Dosage Schedule
+          </h2>
+          <p className="text-xs text-on-surface-variant mt-1 max-w-2xl">
+            Automatically set medication alarms from prescription frequencies (e.g. 1+0+1) with customizable morning, noon, and night dose timings.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2">
           <Button
             variant="secondary"
             onClick={() => setIsRxModalOpen(true)}
@@ -636,218 +621,417 @@ export const AlertsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary stats */}
+      {/* ── Summary Stats Bento Grid ─────────────────────────────────────────── */}
       {!loading && alerts.length > 0 && (
-        <SummaryBar alerts={alerts} takenCount={takenCount} missedCount={missedCount} />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+              <Pill size={20} />
+            </div>
+            <div>
+              <div className="text-xl font-black text-on-surface">{alerts.length}</div>
+              <div className="text-[11px] font-semibold text-on-surface-variant">Total Alarms</div>
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#10B981]/10 text-[#10B981] flex items-center justify-center flex-shrink-0">
+              <Heart size={20} />
+            </div>
+            <div>
+              <div className="text-xl font-black text-on-surface">{activeAlerts.length}</div>
+              <div className="text-[11px] font-semibold text-on-surface-variant">Active Alarms</div>
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#14B8A6]/10 text-[#14B8A6] flex items-center justify-center flex-shrink-0">
+              <CheckCircle size={20} />
+            </div>
+            <div>
+              <div className="text-xl font-black text-on-surface">{takenCount}</div>
+              <div className="text-[11px] font-semibold text-on-surface-variant">Doses Taken Today</div>
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center flex-shrink-0">
+              <AlarmClock size={20} />
+            </div>
+            <div>
+              <div className="text-xl font-black text-on-surface">{alerts.length}</div>
+              <div className="text-[11px] font-semibold text-on-surface-variant">Scheduled Alarms</div>
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center flex-shrink-0">
+              <BellOff size={20} />
+            </div>
+            <div>
+              <div className="text-xl font-black text-on-surface">{alerts.length - activeAlerts.length}</div>
+              <div className="text-[11px] font-semibold text-on-surface-variant">Paused</div>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Alerts grid */}
-      <div style={{ width: '100%', boxSizing: 'border-box' }}>
+      {/* ── Active Reminders Grid ────────────────────────────────────────────── */}
+      <div>
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
-            <Spinner size={32} />
-          </div>
+          <div className="flex justify-center py-16"><Spinner size={32} /></div>
         ) : displayAlerts.length === 0 ? (
-          <EmptyState
-            icon={<AlarmClock size={28} />}
-            title="No Dosage Reminders Set"
-            description="You don't have any medication reminders scheduled. Import from your prescriptions or create a custom schedule."
-            action={
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Button variant="secondary" onClick={() => setIsRxModalOpen(true)} icon={<FileText size={16} />}>
-                  Follow Prescription
-                </Button>
-                <Button onClick={() => setIsCustomModalOpen(true)} icon={<Plus size={16} />}>
-
-                  Custom Schedule
-                </Button>
-              </div>
-            }
-          />
+          <div className="bg-surface-container-lowest rounded-xl p-10 border border-dashed border-outline-variant/40 text-center space-y-4">
+            <AlarmClock className="w-12 h-12 text-primary mx-auto opacity-70" />
+            <h4 className="text-base font-bold text-on-surface">No Dosage Reminders Scheduled</h4>
+            <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+              Follow a prescription to parse frequency patterns (like 1+0+1) or create custom medication alarms with customizable dose times.
+            </p>
+            <div className="flex justify-center gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setIsRxModalOpen(true)} icon={<FileText size={16} />}>
+                Follow Prescription
+              </Button>
+              <Button onClick={() => setIsCustomModalOpen(true)} icon={<Plus size={16} />}>
+                Custom Schedule
+              </Button>
+            </div>
+          </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {displayAlerts.map((item, index) => (
-              <div key={item.alertId} style={{ opacity: togglingId === item.alertId ? 0.6 : 1, transition: 'opacity 0.2s', minWidth: 0 }}>
-                <AlertCard
-                  item={item}
-                  index={index}
-                  takenToday={takenAlertIds.has(item.alertId)}
-                  onDelete={handleDeleteAlert}
-                  onToggle={handleToggleStatus}
-                  onMarkTaken={handleMarkTaken}
-                  markingId={markingId}
-                />
-              </div>
+              <AlertCard
+                key={item.alertId}
+                item={item}
+                index={index}
+                takenSlotsSet={takenSlotsSet}
+                onEdit={handleOpenEdit}
+                onDelete={handleDeleteAlert}
+                onToggle={handleToggleStatus}
+                onMarkTaken={handleMarkTaken}
+                markingKey={markingKey}
+              />
             ))}
           </div>
-
         )}
       </div>
 
-      {/* ── 1. FOLLOW PRESCRIPTION MODAL ────────────────────────────────────── */}
-      <Modal isOpen={isRxModalOpen} onClose={() => setIsRxModalOpen(false)} title="Import Schedule from Prescription" size="md">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
-              Select Digitised Prescription
-            </label>
-            {prescriptions.length === 0 ? (
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No prescriptions available. Upload a prescription first in the Prescriptions tab.</p>
-            ) : (
-              <select
-                value={selectedRxId}
-                onChange={e => handleSelectRx(e.target.value)}
-                style={{
-                  width: '100%', padding: '10px 12px', fontSize: '0.85rem',
-                  border: '1px solid var(--border-default)', borderRadius: '8px',
-                  background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontWeight: 600,
-                  outline: 'none',
+      {/* ── MODAL 1: EDIT MEDICATION REMINDER MODAL ────────────────────────────── */}
+      {isEditModalOpen && editingAlert && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingAlert(null);
+          }}
+          title={`Edit Reminder: ${editingAlert.medicineName}`}
+          size="md"
+        >
+          <form onSubmit={handleUpdateAlert} className="space-y-4">
+            <Input
+              label="Medicine Brand Name"
+              value={editMedName}
+              onChange={e => setEditMedName(e.target.value)}
+              required
+            />
+
+            <Input
+              label="Dosage Strength"
+              value={editDosage}
+              onChange={e => setEditDosage(e.target.value)}
+              required
+            />
+
+            <div>
+              <label className="text-xs font-bold text-on-surface block mb-1.5">
+                Frequency Pattern (e.g. 1+0+1, 1+1+1)
+              </label>
+              <input
+                type="text"
+                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs font-semibold text-on-surface outline-none focus:border-primary transition-all"
+                value={editFrequency}
+                onChange={e => {
+                  setEditFrequency(e.target.value);
+                  const parsed = parseFrequencySlots(e.target.value, editSlots.map(s => s.customTime).join(','));
+                  setEditSlots(parsed);
                 }}
-              >
-                <option value="">-- Select Prescription --</option>
-                {prescriptions.map(p => (
-                  <option key={p.prescriptionId} value={p.prescriptionId}>
-                    Rx #{p.prescriptionId.substring(0, 8)} — Dr. {p.doctorName || p.ocrResult?.doctor_name?.value || 'Prescriber'} ({new Date(p.createdAt).toLocaleDateString()})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+              />
+            </div>
 
-          {/* Selected Prescription Medicines Checklist */}
-          {selectedRxId && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-surface, #f8fafc)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                Select Medicines to Schedule
-              </span>
-              {(() => {
-                const rx = prescriptions.find(p => p.prescriptionId === selectedRxId);
-                const meds = rx?.medicines?.length ? rx.medicines : (rx?.ocrResult?.medicines?.map(m => ({
-                  brandName: m.brand_name?.value || 'Unknown',
-                  dosage: m.strength?.value || m.dosage?.value || 'Standard',
-                  frequency: m.frequency?.value || 'Once daily',
-                })) || []);
+            {/* Custom Time per Dose Slot in Edit Modal */}
+            {editSlots.length > 0 && (
+              <div className="space-y-2 bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/30">
+                <div className="text-xs font-bold text-on-surface flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>Customize Dose Scheduled Times:</span>
+                </div>
 
-                return meds.map((med, idx) => {
-                  const isChecked = selectedMeds[med.brandName] ?? true;
-                  return (
-                    <div key={idx} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                      padding: '10px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
-                      borderRadius: '8px',
-                    }}>
-                      <div
-                        onClick={() => setSelectedMeds(p => ({ ...p, [med.brandName]: !isChecked }))}
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}
-                      >
-                        {isChecked ? <CheckSquare size={18} color="var(--color-brand-500)" /> : <Square size={18} color="var(--text-secondary)" />}
-                        <div>
-                          <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>{med.brandName}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{med.dosage} • {med.frequency}</div>
-                        </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {editSlots.map((slot, idx) => (
+                    <div key={idx} className="bg-surface-container-lowest p-2.5 rounded-lg border border-outline-variant/30 space-y-1">
+                      <div className="text-xs font-bold text-on-surface flex items-center gap-1">
+                        {getSlotIcon(slot.slotName)}
+                        {slot.slotName} ({slot.doseCount} dose)
                       </div>
+                      <input
+                        type="time"
+                        value={slot.customTime}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditSlots(prev => prev.map((s, i) => i === idx ? { ...s, customTime: val } : s));
+                        }}
+                        className="w-full px-2 py-1 bg-surface-container-low border border-outline-variant rounded text-xs font-bold text-on-surface outline-none focus:border-primary"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                      {/* Scheduled Time input for this medicine */}
-                      {isChecked && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Clock size={14} color="var(--text-secondary)" />
-                          <input
-                            type="time"
-                            value={rxScheduledTimes[med.brandName] || '08:00'}
-                            onChange={e => setRxScheduledTimes(p => ({ ...p, [med.brandName]: e.target.value }))}
-                            style={{
-                              padding: '4px 8px', fontSize: '0.8rem', border: '1px solid var(--border-default)',
-                              borderRadius: '6px', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600,
-                            }}
-                          />
-                        </div>
-                      )}
+            <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant/20">
+              <Button type="button" variant="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+              <Button type="submit" loading={saving} disabled={saving}>
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── MODAL 2: FOLLOW PRESCRIPTION MODAL ───────────────────────────────── */}
+      {isRxModalOpen && (
+        <Modal 
+          isOpen={isRxModalOpen} 
+          onClose={() => setIsRxModalOpen(false)} 
+          title="Import Reminders from Scanned Prescription" 
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-on-surface block mb-1.5">
+                Select Scanned Prescription
+              </label>
+              {prescriptions.length === 0 ? (
+                <div className="text-xs text-on-surface-variant italic py-2">
+                  No scanned prescriptions found. Upload a prescription first in the Prescriptions page.
+                </div>
+              ) : (
+                <select
+                  value={selectedRxId}
+                  onChange={e => handleSelectRx(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs font-semibold text-on-surface outline-none focus:border-primary transition-all cursor-pointer"
+                >
+                  <option value="">-- Select Prescription --</option>
+                  {prescriptions.map(p => (
+                    <option key={p.prescriptionId} value={p.prescriptionId}>
+                      Rx #{p.prescriptionId.substring(0, 8)} — Dr. {p.doctorName || p.ocrResult?.doctor_name?.value || 'Prescriber'} ({new Date(p.createdAt).toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Selected Prescription Medicines List & Customizable Dose Times */}
+            {selectedRxId && (
+              <div className="space-y-3 bg-surface-container-low p-4 rounded-xl border border-outline-variant/30">
+                <div className="text-xs font-bold uppercase tracking-wider text-primary flex items-center justify-between">
+                  <span>Select Medicines & Customize Dose Times</span>
+                  <span className="text-[11px] text-on-surface-variant font-normal">
+                    1st = Morning • 2nd = Noon • 3rd = Night
+                  </span>
+                </div>
+
+                {(() => {
+                  const rx = prescriptions.find(p => p.prescriptionId === selectedRxId);
+                  const meds = rx?.medicines?.length ? rx.medicines : (rx?.ocrResult?.medicines?.map(m => ({
+                    brandName: m.brand_name?.value || 'Unknown',
+                    dosage: m.strength?.value || m.dosage?.value || 'Standard',
+                    frequency: m.frequency?.value || '1+0+1',
+                  })) || []);
+
+                  return (
+                    <div className="space-y-3">
+                      {meds.map((med, idx) => {
+                        const isChecked = selectedMeds[med.brandName] ?? true;
+                        const slots = parseFrequencySlots(med.frequency || '1+0+1');
+                        const medTimes = rxSlotTimes[med.brandName] || {};
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-3.5 rounded-xl border transition-all space-y-3 ${
+                              isChecked
+                                ? 'bg-surface-container-lowest border-primary/40 shadow-sm'
+                                : 'bg-surface-container-low border-outline-variant/20 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div
+                                onClick={() => setSelectedMeds(p => ({ ...p, [med.brandName]: !isChecked }))}
+                                className="flex items-center gap-3 cursor-pointer flex-1"
+                              >
+                                {isChecked ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5 text-outline" />}
+                                <div>
+                                  <div className="font-bold text-sm text-on-surface">{med.brandName}</div>
+                                  <div className="text-xs text-on-surface-variant">
+                                    {med.dosage} • Frequency: <strong className="text-primary">{med.frequency}</strong>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* CUSTOMIZABLE TIME PER DOSE SLOT */}
+                            {isChecked && slots.length > 0 && (
+                              <div className="pt-2 border-t border-outline-variant/20 space-y-2">
+                                <div className="text-[11px] font-bold text-on-surface-variant flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-primary" />
+                                  <span>Customize Dose Times for {med.brandName}:</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  {slots.map((slot, sIdx) => {
+                                    const currentVal = medTimes[slot.slotName] || slot.defaultTime;
+
+                                    return (
+                                      <div
+                                        key={sIdx}
+                                        className="bg-surface-container-low p-2.5 rounded-lg border border-outline-variant/30 space-y-1"
+                                      >
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="font-bold text-on-surface flex items-center gap-1">
+                                            {getSlotIcon(slot.slotName)}
+                                            {slot.slotName} ({slot.doseCount} {slot.doseCount > 1 ? 'doses' : 'dose'})
+                                          </span>
+                                        </div>
+
+                                        <input
+                                          type="time"
+                                          value={currentVal}
+                                          onChange={(e) => {
+                                            const newTime = e.target.value;
+                                            setRxSlotTimes(prev => ({
+                                              ...prev,
+                                              [med.brandName]: {
+                                                ...(prev[med.brandName] || {}),
+                                                [slot.slotName]: newTime
+                                              }
+                                            }));
+                                          }}
+                                          className="w-full px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded text-xs font-bold text-on-surface outline-none focus:border-primary"
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
-                });
-              })()}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
-            <Button variant="secondary" onClick={() => setIsRxModalOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleImportRxAlerts}
-              disabled={!selectedRxId || saving}
-              loading={saving}
-            >
-              Set Selected Reminders
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* ── 2. CUSTOM SCHEDULE REMINDER MODAL ────────────────────────────────── */}
-      <Modal isOpen={isCustomModalOpen} onClose={() => setIsCustomModalOpen(false)} title="Schedule Custom Dosage Reminder" size="sm">
-        <form onSubmit={handleCreateCustomAlert} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Input
-            label="Medicine Brand Name"
-            placeholder="e.g. Napa"
-            value={medicineName}
-            onChange={e => setMedicineName(e.target.value)}
-            required
-          />
-
-          <Input
-            label="Dosage Strength"
-            placeholder="e.g. 500mg"
-            value={dosage}
-            onChange={e => setDosage(e.target.value)}
-            required
-          />
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>Frequency</label>
-            <select
-              value={frequency}
-              onChange={e => setFrequency(e.target.value)}
-              style={{
-                width: '100%', padding: '10px 14px', background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-default)', borderRadius: '8px',
-                color: 'var(--text-primary)', outline: 'none', fontSize: '0.875rem', fontWeight: 500,
-              }}
-            >
-              <option value="Once daily">Once daily</option>
-              <option value="Twice daily">Twice daily</option>
-              <option value="Three times daily">Three times daily</option>
-              <option value="Every 8 hours">Every 8 hours</option>
-            </select>
-          </div>
-
-          <Input
-            label="First Dose Time"
-            type="time"
-            value={scheduledTime}
-            onChange={e => setScheduledTime(e.target.value)}
-            required
-          />
-
-          {scheduledTime && (
-            <div style={{
-              background: 'var(--bg-surface, #f8fafc)', border: '1px solid var(--border-default)',
-              borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px',
-            }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>PREVIEW SCHEDULE</span>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {getDoseTimes(scheduledTime, frequency).map((t, i) => (
-                  <span key={i} style={{ padding: '4px 10px', borderRadius: '6px', background: 'var(--color-brand-500)', color: '#fff', fontSize: '0.75rem', fontWeight: 700 }}>
-                    {t}
-                  </span>
-                ))}
+                })()}
               </div>
-            </div>
-          )}
+            )}
 
-          <Button type="submit" loading={saving} style={{ width: '100%', marginTop: '8px' }}>
-            Save Reminder
-          </Button>
-        </form>
-      </Modal>
+            <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant/20">
+              <Button type="button" variant="secondary" onClick={() => setIsRxModalOpen(false)}>Cancel</Button>
+              <Button
+                type="button"
+                onClick={handleImportRxAlerts}
+                disabled={!selectedRxId || saving}
+                loading={saving}
+              >
+                Set Selected Reminders
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── MODAL 3: CUSTOM DOSAGE SCHEDULE REMINDER MODAL ────────────────────── */}
+      {isCustomModalOpen && (
+        <Modal 
+          isOpen={isCustomModalOpen} 
+          onClose={() => setIsCustomModalOpen(false)} 
+          title="Schedule Custom Dosage Reminder" 
+          size="md"
+        >
+          <form onSubmit={handleCreateCustomAlert} className="space-y-4">
+            <Input
+              label="Medicine Brand Name"
+              placeholder="e.g. Napa, Seclo, Metformin"
+              value={medicineName}
+              onChange={e => setMedicineName(e.target.value)}
+              required
+            />
+
+            <Input
+              label="Dosage Strength"
+              placeholder="e.g. 500mg, 20mg"
+              value={dosage}
+              onChange={e => setDosage(e.target.value)}
+              required
+            />
+
+            <div>
+              <label className="text-xs font-bold text-on-surface block mb-1.5">
+                Frequency Pattern (e.g. 1+0+1, 1+1+1)
+              </label>
+              <input
+                type="text"
+                className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs font-semibold text-on-surface outline-none focus:border-primary transition-all"
+                placeholder="1+0+1 (Morning & Night), 1+1+1 (Morning, Noon, Night)..."
+                value={frequency}
+                onChange={e => {
+                  setFrequency(e.target.value);
+                  setCustomSlots(parseFrequencySlots(e.target.value));
+                }}
+              />
+              <span className="text-[11px] text-on-surface-variant mt-1 block">
+                Format: 1st number = Morning, 2nd = Noon, 3rd = Night
+              </span>
+            </div>
+
+            {/* Custom Dose Slots Time Selectors */}
+            {customSlots.length > 0 && (
+              <div className="space-y-2 bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/30">
+                <div className="text-xs font-bold text-on-surface flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>Customize Time Per Dose:</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {customSlots.map((slot, idx) => (
+                    <div key={idx} className="bg-surface-container-lowest p-2.5 rounded-lg border border-outline-variant/30 space-y-1">
+                      <div className="text-xs font-bold text-on-surface flex items-center gap-1">
+                        {getSlotIcon(slot.slotName)}
+                        {slot.slotName} ({slot.doseCount} dose)
+                      </div>
+                      <input
+                        type="time"
+                        value={slot.customTime}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomSlots(prev => prev.map((s, i) => i === idx ? { ...s, customTime: val } : s));
+                        }}
+                        className="w-full px-2 py-1 bg-surface-container-low border border-outline-variant rounded text-xs font-bold text-on-surface outline-none focus:border-primary"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-outline-variant/20">
+              <Button type="button" variant="secondary" onClick={() => setIsCustomModalOpen(false)}>Cancel</Button>
+              <Button type="submit" loading={saving} disabled={saving || !medicineName || !dosage}>
+                Save Reminder
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
     </div>
   );
 };
