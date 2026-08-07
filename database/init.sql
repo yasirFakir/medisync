@@ -81,6 +81,10 @@ CREATE TABLE IF NOT EXISTS prescriptions (
   created_at         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS ocr_result JSONB;
+ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medicines JSONB;
+ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS validation_summary JSONB;
+
 CREATE INDEX IF NOT EXISTS idx_prescriptions_patient ON prescriptions (patient_id);
 
 -- ─── EHR Records ───────────────────────────────────────────────────────────────

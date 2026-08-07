@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Button, Table, Modal, Badge, Spinner } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
-import { Upload, Eye, Calendar, AlertTriangle, CheckCircle, AlertCircle, Trash2, Plus, Search } from 'lucide-react';
+import { Upload, Eye, Calendar, AlertTriangle, CheckCircle, AlertCircle, Trash2, Plus, Search, Tag, ArrowRightLeft } from 'lucide-react';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -132,7 +133,8 @@ const PrescriptionResultModal: React.FC<{
   onClose: () => void;
   onDelete: (id: string) => void;
   onUpdate: (updated: Prescription) => void;
-}> = ({ prescription, onClose, onDelete, onUpdate }) => {
+  onFindAlternatives?: (rx: Prescription) => void;
+}> = ({ prescription, onClose, onDelete, onUpdate, onFindAlternatives }) => {
   const [showRawText, setShowRawText] = useState(false);
   const [isEditing,   setIsEditing]   = useState(false);
   const [saving,      setSaving]      = useState(false);
@@ -360,6 +362,11 @@ const PrescriptionResultModal: React.FC<{
             </>
           ) : (
             <>
+              {onFindAlternatives && (
+                <Button size="sm" variant="primary" icon={<Tag size={14} />} onClick={() => onFindAlternatives(prescription)}>
+                  💡 Find Cheap Alternatives
+                </Button>
+              )}
               <Button size="sm" variant="secondary" onClick={() => setIsEditing(true)}>✏️ Edit & Correct</Button>
               <Button size="sm" variant="secondary" onClick={() => setShowRawText(!showRawText)}>
                 {showRawText ? '📋 View Medical Pad' : '📄 View Raw OCR Text'}
@@ -768,7 +775,7 @@ const PrescriptionResultModal: React.FC<{
                     </div>
                     {isFlagged && (
                       <div style={{ marginTop: '2px', padding: '2px 6px', background: '#fef3c7', borderLeft: '3px solid #b45309', fontSize: '0.65rem', color: '#b45309', fontWeight: 500 }}>
-                        ⚠️ <strong>Review:</strong> {dbMatch.flagReason || 'Check OCR match'}
+                        ⚠️ <strong>Review:</strong> {dbMatch?.flagReason || 'Check OCR match'}
                       </div>
                     )}
                   </div>
@@ -798,7 +805,9 @@ const PrescriptionResultModal: React.FC<{
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export const PrescriptionsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [prescriptions,        setPrescriptions]        = useState<Prescription[]>([]);
+  const [selectedRxIds,        setSelectedRxIds]        = useState<string[]>([]);
   const [loading,              setLoading]              = useState(true);
   const [uploading,            setUploading]            = useState(false);
   const [uploadProgress,       setUploadProgress]       = useState(0);
@@ -820,10 +829,20 @@ export const PrescriptionsPage: React.FC = () => {
 
   useEffect(() => { fetchPrescriptions(); }, []);
 
+  const handleFindAlternatives = (selected: Prescription[]) => {
+    if (!selected || selected.length === 0) return;
+    navigate('/alternatives', {
+      state: {
+        selectedPrescriptions: selected
+      }
+    });
+  };
+
   const handleDeletePrescription = async (prescriptionId: string) => {
     try {
       await apiClient.delete(`/prescriptions/${prescriptionId}`);
       setPrescriptions(prev => prev.filter(p => p.prescriptionId !== prescriptionId));
+      setSelectedRxIds(prev => prev.filter(id => id !== prescriptionId));
       if (selectedPrescription?.prescriptionId === prescriptionId) setSelectedPrescription(null);
     } catch (err: any) {
       console.error('Failed to delete prescription', err);
@@ -870,6 +889,38 @@ export const PrescriptionsPage: React.FC = () => {
 
   const columns = [
     {
+      key: 'select',
+      label: (
+        <input
+          type="checkbox"
+          checked={prescriptions.length > 0 && selectedRxIds.length === prescriptions.length}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setSelectedRxIds(prescriptions.map(p => p.prescriptionId));
+            } else {
+              setSelectedRxIds([]);
+            }
+          }}
+          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--color-brand-600)' }}
+        />
+      ),
+      render: (_val: any, row: Prescription) => (
+        <input
+          type="checkbox"
+          checked={selectedRxIds.includes(row.prescriptionId)}
+          onChange={(e) => {
+            e.stopPropagation();
+            if (e.target.checked) {
+              setSelectedRxIds(prev => [...prev, row.prescriptionId]);
+            } else {
+              setSelectedRxIds(prev => prev.filter(id => id !== row.prescriptionId));
+            }
+          }}
+          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--color-brand-600)' }}
+        />
+      )
+    },
+    {
       key: 'createdAt', label: 'Upload Date',
       render: (val: any) => (
         <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -899,6 +950,7 @@ export const PrescriptionsPage: React.FC = () => {
       render: (_val: any, row: Prescription) => (
         <div style={{ display: 'flex', gap: '8px' }}>
           <Button size="sm" variant="secondary" icon={<Eye size={14} />} onClick={() => setSelectedPrescription(row)}>View & Correct</Button>
+          <Button size="sm" variant="primary" icon={<Tag size={14} />} onClick={() => handleFindAlternatives([row])}>Alternatives</Button>
           <Button size="sm" variant="danger" icon={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); handleDeletePrescription(row.prescriptionId); }}>Delete</Button>
         </div>
       )
@@ -955,7 +1007,45 @@ export const PrescriptionsPage: React.FC = () => {
 
         {/* Scan History Table */}
         <Card style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '20px' }}>Previous Scan Logs</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Previous Scan Logs</h3>
+            {selectedRxIds.length > 0 && (
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <Badge variant="blue">{selectedRxIds.length} Selected</Badge>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={<ArrowRightLeft size={14} />}
+                  onClick={() => handleFindAlternatives(prescriptions.filter(p => selectedRxIds.includes(p.prescriptionId)))}
+                >
+                  Find Cheap Alternatives
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedRxIds([])}>Clear</Button>
+              </div>
+            )}
+          </div>
+
+          {selectedRxIds.length > 0 && (
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 16px', background: 'linear-gradient(90deg, rgba(0,104,95,0.08), rgba(14,165,233,0.08))',
+              border: '1px solid var(--color-brand-300)', borderRadius: 'var(--radius-md)', marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', fontWeight: 600 }}>
+                <Tag size={16} color="var(--color-brand-600)" />
+                <span>Selected {selectedRxIds.length} Prescription(s) for Cost Savings Analysis</span>
+              </div>
+              <Button
+                size="sm"
+                variant="primary"
+                icon={<ArrowRightLeft size={14} />}
+                onClick={() => handleFindAlternatives(prescriptions.filter(p => selectedRxIds.includes(p.prescriptionId)))}
+              >
+                Find Cheap Alternatives ({selectedRxIds.length})
+              </Button>
+            </div>
+          )}
+
           <Table columns={columns} data={prescriptions} loading={loading} keyExtractor={row => row.prescriptionId} />
         </Card>
 
@@ -973,6 +1063,7 @@ export const PrescriptionsPage: React.FC = () => {
               onClose={() => setSelectedPrescription(null)}
               onDelete={handleDeletePrescription}
               onUpdate={handleUpdatePrescription}
+              onFindAlternatives={(rx) => handleFindAlternatives([rx])}
             />
           )}
         </Modal>

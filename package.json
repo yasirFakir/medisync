@@ -16,6 +16,9 @@
     "db:init": "node database/init.js",
     "db:seed": "node database/seed.js seed.sql",
     "db:seed:drugs": "node database/seed.js seed.sql && node database/seed.js drugs_seed.sql",
+    "db:seed:pharmacies": "node database/seed.js pharmacy_seed.sql",
+    "db:seed:prescriptions": "node database/seed.js prescription_seed.sql",
+    "db:seed:all": "node database/seed.js seed.sql && node database/seed.js drugs_seed.sql && node database/seed.js pharmacy_seed.sql && node database/seed.js prescription_seed.sql",
     "db:migrate:drugs": "node database/seed.js ../apps/backend/prisma/migrations/20260726_task003_medicine_database/migration.sql",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
