@@ -36,7 +36,7 @@ export const PortalLayout: React.FC = () => {
           { label: 'Find Pharmacy', path: '/locator', icon: <MapPin size={18} /> },
           { label: 'Medicine Alternatives', path: '/alternatives', icon: <GitCompare size={18} /> },
           { label: 'Pharmacy Directory', path: '/pharmacies', icon: <Building size={18} /> },
-          { label: 'Stock Availability', path: '/availability', icon: <CheckCircle2 size={18} /> },
+          { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
           { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
@@ -93,7 +93,7 @@ export const PortalLayout: React.FC = () => {
       case '/pharmacies':
         return { title: 'Partner Pharmacy Directory', subtitle: 'Search and inspect verified healthcare partner locations' };
       case '/availability':
-        return { title: 'Medicine Stock Availability', subtitle: 'Check real-time inventory levels across nearby pharmacies' };
+        return { title: 'Find Medicines', subtitle: 'Search prescription medicines, compare pharmacy stock availability, alternatives, and missing items' };
       case '/alerts':
         return { title: 'Medication Reminders', subtitle: 'Manage dosage alarms' };
       case '/patients':

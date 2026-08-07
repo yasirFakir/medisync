@@ -26,6 +26,13 @@ router.get(
   availabilityController.batchCheckAvailability
 );
 
+// POST /api/availability/search-prescription — prescription & multi-drug matching across pharmacies
+router.post(
+  '/search-prescription',
+  authenticate,
+  availabilityController.searchPrescriptionAvailability
+);
+
 // GET /api/availability/:drugId — detailed availability for a single drug
 router.get(
   '/:drugId',
