@@ -170,6 +170,10 @@ Never hardcode IDs.
 
 Never rely on implicit ordering.
 
+**Database Testing Rollback Policy:**
+- All automated test scripts or database verification executed by AI agents MUST run inside explicit SQL transactions (`BEGIN; ... ROLLBACK;`) or execute cleanup routines to completely roll back and restore the previous state of the database after testing.
+- AI agents MUST NOT leave temporary test records, modified production entries, or polluted test rows in the database upon test completion.
+
 ---
 
 # API Rules
