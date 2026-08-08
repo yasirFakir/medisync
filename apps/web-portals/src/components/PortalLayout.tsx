@@ -34,13 +34,13 @@ export const PortalLayout: React.FC = () => {
       case 'PATIENT':
         return [
           { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
+          { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
           { label: 'AI Triage', path: '/triage', icon: <MessageSquareText size={18} /> },
+          { label: 'Book Appointment', path: '/appointments', icon: <CalendarDays size={18} /> },
           { label: 'Prescriptions', path: '/prescriptions', icon: <FileText size={18} /> },
+          { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
           { label: 'Medicine Alternatives', path: '/alternatives', icon: <GitCompare size={18} /> },
           { label: 'Pharmacies', path: '/pharmacies', icon: <Building size={18} /> },
-          { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
-          { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
-          { label: 'Book Appointment', path: '/appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'DOCTOR':

@@ -36,10 +36,15 @@ interface AvailabilitySlot {
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const fmt12h = (t: string) => {
-  if (!t) return '';
-  const [h, m] = t.split(':').map(Number);
+  if (!t || typeof t !== 'string') return '';
+  const parts = t.trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+  if (isNaN(h)) return t;
+  const safeM = isNaN(m) ? 0 : Math.min(Math.max(m, 0), 59);
   const ampm = h >= 12 ? 'PM' : 'AM';
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(safeM).padStart(2, '0')} ${ampm}`;
 };
 
 const statusConfig: Record<string, { label: string; variant: 'yellow' | 'green' | 'red' | 'blue' | 'purple'; icon: React.ReactNode }> = {

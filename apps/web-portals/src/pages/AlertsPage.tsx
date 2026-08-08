@@ -60,14 +60,45 @@ export interface DoseSlotConfig {
 }
 
 // Helper to format 24h string to 12h AM/PM
-const fmt12h = (timeStr: string) => {
-  if (!timeStr) return '';
-  const firstTime = timeStr.split(',')[0].trim();
-  const [h, m] = firstTime.split(':').map(Number);
-  if (isNaN(h) || isNaN(m)) return timeStr;
+export const fmt12h = (timeStr: string): string => {
+  if (!timeStr || typeof timeStr !== 'string') return '';
+
+  // If timeStr contains comma-separated times (e.g. "08:00, 20:00"), format each
+  if (timeStr.includes(',')) {
+    return timeStr
+      .split(',')
+      .map(t => fmt12h(t.trim()))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  const clean = timeStr.trim();
+  if (!clean) return '';
+
+  // If already formatted with AM/PM (e.g. "08:00 AM", "8:00pm", "8 AM")
+  const amPmMatch = clean.match(/^(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)$/i);
+  if (amPmMatch) {
+    const rawH = parseInt(amPmMatch[1], 10);
+    const rawM = amPmMatch[2] ? parseInt(amPmMatch[2], 10) : 0;
+    const period = amPmMatch[3].toUpperCase();
+    if (!isNaN(rawH)) {
+      const h12 = rawH > 12 ? rawH % 12 || 12 : rawH === 0 ? 12 : rawH;
+      const mStr = isNaN(rawM) ? '00' : String(Math.min(Math.max(rawM, 0), 59)).padStart(2, '0');
+      return `${h12}:${mStr} ${period}`;
+    }
+  }
+
+  // Standard 24h or HH:MM or HH:MM:SS or H format (e.g. "08:00", "20:00", "8:00", "8")
+  const parts = clean.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+
+  if (isNaN(h)) return clean;
+  const safeM = isNaN(m) ? 0 : Math.min(Math.max(m, 0), 59);
+
   const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(safeM).padStart(2, '0')} ${ampm}`;
 };
 
 // ─── Prescription Frequency Parser ────────────────────────────────────────────
@@ -139,25 +170,40 @@ const todayStr = () => new Date().toISOString().split('T')[0];
 
 const getNextDoseCountdown = (scheduledTime: string): { label: string; minutes: number } => {
   if (!scheduledTime) return { label: 'Scheduled', minutes: 999 };
-  const firstTime = scheduledTime.split(',')[0].trim();
+  const allTimes = scheduledTime.split(',').map(t => t.trim()).filter(Boolean);
+  if (allTimes.length === 0) return { label: 'Scheduled', minutes: 999 };
+
   const now = new Date();
-  const [hh, mm] = firstTime.split(':').map(Number);
-  if (isNaN(hh) || isNaN(mm)) return { label: 'Scheduled', minutes: 999 };
+  let nearestDiffMin = Infinity;
 
-  let target = new Date(now);
-  target.setHours(hh, mm, 0, 0);
+  allTimes.forEach(timeStr => {
+    const parts = timeStr.split(':');
+    const hh = parseInt(parts[0], 10);
+    const mm = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+    if (isNaN(hh)) return;
+    const safeMm = isNaN(mm) ? 0 : Math.min(Math.max(mm, 0), 59);
 
-  if (target <= now) {
-    target.setDate(target.getDate() + 1);
-  }
+    let target = new Date(now);
+    target.setHours(hh, safeMm, 0, 0);
 
-  const diffMs = target.getTime() - now.getTime();
-  const diffMin = Math.round(diffMs / 60000);
-  const diffH = Math.floor(diffMin / 60);
-  const diffM = diffMin % 60;
+    if (target <= now) {
+      target.setDate(target.getDate() + 1);
+    }
 
-  if (diffMin < 60) return { label: `in ${diffMin}m`, minutes: diffMin };
-  return { label: `in ${diffH}h ${diffM}m`, minutes: diffMin };
+    const diffMs = target.getTime() - now.getTime();
+    const diffMin = Math.round(diffMs / 60000);
+    if (diffMin < nearestDiffMin) {
+      nearestDiffMin = diffMin;
+    }
+  });
+
+  if (nearestDiffMin === Infinity) return { label: 'Scheduled', minutes: 999 };
+
+  const diffH = Math.floor(nearestDiffMin / 60);
+  const diffM = nearestDiffMin % 60;
+
+  if (nearestDiffMin < 60) return { label: `in ${nearestDiffMin}m`, minutes: nearestDiffMin };
+  return { label: `in ${diffH}h ${diffM}m`, minutes: nearestDiffMin };
 };
 
 // ─── Alert Card Component ──────────────────────────────────────────────────────

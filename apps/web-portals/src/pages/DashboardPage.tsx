@@ -9,7 +9,7 @@ import {
   AlarmClock, Sun, Sunset, Coffee, Heart, TrendingUp, Check, Key,
   Store, AlertTriangle, RefreshCw
 } from 'lucide-react';
-import { parseFrequencySlots, DoseSlotConfig } from './AlertsPage';
+import { parseFrequencySlots, DoseSlotConfig, fmt12h } from './AlertsPage';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -27,15 +27,22 @@ interface DoseLog {
   alertId: string;
   takenDate: string;
   takenAt: string;
+  slotName?: string;
   medicineName: string;
   dosage: string;
+}
+
+interface PrescriptionMedicine {
+  brandName: string;
+  dosage: string;
+  frequency: string;
 }
 
 interface Prescription {
   prescriptionId: string;
   doctorName?: string;
   createdAt: string;
-  medicines: Array<{ brandName: string; dosage: string; frequency: string }>;
+  medicines: PrescriptionMedicine[];
   ocrResult?: {
     doctor_name?: { value?: string };
     medicines?: Array<{
@@ -54,14 +61,6 @@ interface TodayScheduleItem {
   scheduledTime: string;
   isTaken: boolean;
 }
-
-const fmt12h = (timeStr: string) => {
-  if (!timeStr) return '';
-  const [h, m] = timeStr.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
-};
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 
@@ -120,16 +119,17 @@ export const DashboardPage: React.FC = () => {
   };
 
   // Mark dose as taken today
-  const handleMarkTaken = async (alertId: string) => {
+  const handleMarkTaken = async (alertId: string, slotName?: string) => {
     setMarkingId(alertId);
     try {
-      const res = await apiClient.post(`/alerts/${alertId}/taken`, { date: todayStr() });
+      const res = await apiClient.post(`/alerts/${alertId}/taken`, { date: todayStr(), slotName });
       const log = res.data?.data;
       const alertItem = alerts.find(a => a.alertId === alertId);
       if (log) {
         setDoseLogs(prev => [...prev, {
           logId: log.logId,
           alertId: log.alertId,
+          slotName: slotName || log.slotName,
           takenDate: log.takenDate,
           takenAt: log.takenAt,
           medicineName: alertItem?.medicineName || '',
@@ -149,22 +149,25 @@ export const DashboardPage: React.FC = () => {
   const takenAlertIds = new Set(
     doseLogs
       .filter(l => l.takenDate && toLocalDate(l.takenDate) === today)
-      .map(l => l.alertId)
+      .map(l => l.slotName ? `${l.alertId}_${l.slotName}` : l.alertId)
   );
 
   const activeAlerts = alerts.filter(a => a.status === 'ACTIVE');
 
   // Build Today's Timeline Items from Active Alerts
   const todayTimelineItems: TodayScheduleItem[] = activeAlerts.flatMap(alert => {
-    const slots = parseFrequencySlots(alert.frequency);
-    return slots.map(slot => ({
-      alertId: alert.alertId,
-      medicineName: alert.medicineName,
-      dosage: alert.dosage,
-      slotName: slot.slotName,
-      scheduledTime: alert.scheduledTime || slot.customTime,
-      isTaken: takenAlertIds.has(alert.alertId)
-    }));
+    const slots = parseFrequencySlots(alert.frequency, alert.scheduledTime);
+    return slots.map(slot => {
+      const slotKey = `${alert.alertId}_${slot.slotName}`;
+      return {
+        alertId: alert.alertId,
+        medicineName: alert.medicineName,
+        dosage: alert.dosage,
+        slotName: slot.slotName,
+        scheduledTime: slot.customTime || slot.defaultTime || '08:00',
+        isTaken: takenAlertIds.has(slotKey) || takenAlertIds.has(alert.alertId)
+      };
+    });
   });
 
   // Sort timeline chronologically by scheduledTime
@@ -176,16 +179,27 @@ export const DashboardPage: React.FC = () => {
     const now = new Date();
     const nowMins = now.getHours() * 60 + now.getMinutes();
 
-    let upcoming = activeAlerts.map(alert => {
-      const [h, m] = (alert.scheduledTime || '08:00').split(':').map(Number);
-      const mins = h * 60 + m;
-      let diff = mins - nowMins;
-      if (diff < 0) diff += 1440; // next day
-      return { alert, mins, diff };
+    let candidates: Array<{ alert: MedicationAlert; slotName: string; timeStr: string; mins: number; diff: number }> = [];
+
+    activeAlerts.forEach(alert => {
+      const slots = parseFrequencySlots(alert.frequency, alert.scheduledTime);
+      slots.forEach(slot => {
+        const timeStr = slot.customTime || slot.defaultTime || '08:00';
+        const parts = timeStr.split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+        if (isNaN(h)) return;
+        const safeM = isNaN(m) ? 0 : Math.min(Math.max(m, 0), 59);
+        const mins = h * 60 + safeM;
+        let diff = mins - nowMins;
+        if (diff < 0) diff += 1440; // next day
+        candidates.push({ alert, slotName: slot.slotName, timeStr, mins, diff });
+      });
     });
 
-    upcoming.sort((a, b) => a.diff - b.diff);
-    return upcoming[0] || null;
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => a.diff - b.diff);
+    return candidates[0];
   };
 
   const nextUpcoming = getNextUpcomingAlert();
@@ -378,32 +392,36 @@ export const DashboardPage: React.FC = () => {
                     {otp}
                   </span>
                 ) : (
-                  <button onClick={generateOtp} className="text-primary font-bold hover:underline">
-                    {loadingOtp ? 'Generating...' : 'Get EHR OTP'}
+                  <button
+                    onClick={generateOtp}
+                    disabled={loadingOtp}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Key size={12} /> {loadingOtp ? 'Generating...' : 'Get Access OTP'}
                   </button>
                 )}
               </div>
 
-              <button 
+              <Button
+                size="sm"
+                variant="ghost"
                 onClick={() => navigate('/prescriptions')}
-                className="text-primary font-bold hover:underline flex items-center gap-1"
+                icon={<ChevronRight size={14} />}
               >
-                Inspect Prescriptions <ChevronRight size={14} />
-              </button>
+                View Details
+              </Button>
             </div>
           </div>
-
         </section>
 
-        {/* RIGHT COLUMN: Widgets & Quick Actions (lg:col-span-4) */}
+        {/* RIGHT COLUMN: Quick Actions & Highlights (lg:col-span-4) */}
         <aside className="lg:col-span-4 space-y-6">
-          
+
           {/* Quick Actions Card */}
           <div className="bg-surface-container-lowest rounded-xl p-5 border border-outline-variant/30 shadow-sm space-y-3">
-            <h3 className="text-xs font-bold text-outline uppercase tracking-wider">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-outline">
               Quick Actions
             </h3>
-
             <div className="space-y-2">
               <button
                 onClick={() => navigate('/prescriptions')}
@@ -415,9 +433,9 @@ export const DashboardPage: React.FC = () => {
 
               <button
                 onClick={() => navigate('/alerts')}
-                className="w-full bg-surface-container-low border border-primary/40 text-primary text-xs font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-surface-container-high transition-colors"
+                className="w-full bg-surface-container-low border border-outline-variant text-on-surface text-xs font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-surface-container-high transition-colors"
               >
-                <AlarmClock size={16} />
+                <AlarmClock size={16} className="text-primary" />
                 View Dosage Reminders
               </button>
 
@@ -449,12 +467,12 @@ export const DashboardPage: React.FC = () => {
               <div>
                 <h4 className="text-xl font-bold">{nextUpcoming.alert.medicineName}</h4>
                 <p className="text-xs opacity-90 mt-0.5">
-                  {nextUpcoming.alert.dosage} • Frequency: {nextUpcoming.alert.frequency}
+                  {nextUpcoming.alert.dosage} • Slot: <strong>{nextUpcoming.slotName}</strong>
                 </p>
               </div>
               <div className="flex items-center justify-between border-t border-white/20 pt-3 text-xs font-bold">
                 <span className="flex items-center gap-1 text-[#FEF08A]">
-                  <Clock size={14} /> {fmt12h(nextUpcoming.alert.scheduledTime)}
+                  <Clock size={14} /> {fmt12h(nextUpcoming.timeStr || nextUpcoming.alert.scheduledTime)}
                 </span>
                 <span className="bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-md text-[11px]">
                   Scheduled
