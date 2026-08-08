@@ -141,8 +141,17 @@ const PrescriptionResultModal: React.FC<{
   // Once user saves, OCR warnings are cleared
   const [userVerified, setUserVerified] = useState(false);
 
-  const ocr = prescription.ocrResult;
-  const vs  = prescription.validationSummary;
+  const ocr = typeof prescription.ocrResult === 'string'
+    ? (() => { try { return JSON.parse(prescription.ocrResult as unknown as string); } catch { return undefined; } })()
+    : prescription.ocrResult;
+  const vs: ValidationSummary | undefined = (() => {
+    const raw = prescription.validationSummary;
+    if (!raw) return undefined;
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw) as ValidationSummary; } catch { return undefined; }
+    }
+    return raw as ValidationSummary;
+  })();
 
   // ── Editable header fields ─────────────────────────────────────────────────
   const [doctorName,        setDoctorName]        = useState(ocr?.doctor_name?.value        || (prescription as any).doctorName        || 'Prescriber');
@@ -172,7 +181,7 @@ const PrescriptionResultModal: React.FC<{
       }));
     }
     if (ocr?.medicines) {
-      return ocr.medicines.map(m => ({
+      return ocr.medicines.map((m: ParsedMedicine) => ({
         brandName: m.brand_name.value || '',
         dosage:    m.strength.value   || m.dosage.value || '',
         frequency: m.frequency.value  || '',
@@ -402,6 +411,29 @@ const PrescriptionResultModal: React.FC<{
           </button>
         </div>
       )}
+
+      {/* ── Clinical Coherence Warning — medicines flagged for diagnosis mismatch ── */}
+      {!userVerified && !isEditing && vs && (vs.flaggedForReviewCount ?? 0) > 0 && (() => {
+        const flagged = vs.medicines.filter(m => m.requiresReview);
+        return (
+          <div className="no-print" style={{
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px',
+            padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa',
+            borderLeft: '4px solid #ea580c', borderRadius: '8px',
+            fontSize: '0.75rem', color: '#c2410c',
+          }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
+              <div>
+                <strong>Clinical Alignment Notice:</strong>{' '}
+                {flagged.length} medicine{flagged.length !== 1 ? 's' : ''} may not align with the recorded diagnosis.{' '}
+                {flagged.map(m => m.input.brandName || m.input.genericName).filter(Boolean).join(', ')}.
+                {' '}Please verify with <strong>✏️ Edit & Correct</strong>.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {showRawText ? (
         /* ── Raw OCR text view ─────────────────────────────────────────── */
@@ -704,25 +736,30 @@ const PrescriptionResultModal: React.FC<{
           </div>
 
 
-          {/* Clinical Diagnosis & Tests */}
-          {(clinicalDiagnosis || ocr?.clinical_diagnosis?.value || ocr?.clinical_tests?.length) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: '#f9f9ff', border: '1px solid #d8e3fb', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.75rem' }}>
-              {(clinicalDiagnosis || ocr?.clinical_diagnosis?.value) && (
-                <div>
-                  <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🩺 Clinical Diagnosis</div>
-                  <div style={{ color: '#3d4947', fontWeight: 600 }}>{clinicalDiagnosis || ocr?.clinical_diagnosis?.value}</div>
-                </div>
-              )}
-              {ocr?.clinical_tests?.length ? (
-                <div>
-                  <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🧪 Investigations Advised</div>
-                  <div style={{ color: '#00685f', fontWeight: 600, display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {ocr.clinical_tests.map((t, i) => <span key={i} style={{ background: '#e7eeff', color: '#00685f', padding: '1px 6px', borderRadius: '4px' }}>{t.value}</span>)}
+          {/* Clinical Findings — always visible; shows OCR value or placeholder */}
+          {(() => {
+            const diagValue = clinicalDiagnosis || (ocr as any)?.clinical_diagnosis?.value || '';
+            const testsValue = ocr?.clinical_tests?.length ? ocr.clinical_tests : [];
+            if (!diagValue && !testsValue.length) return null;
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: diagValue && testsValue.length ? '1fr 1fr' : '1fr', gap: '12px', background: '#f9f9ff', border: '1px solid #d8e3fb', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '0.75rem' }}>
+                {diagValue && (
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🩺 Clinical Diagnosis</div>
+                    <div style={{ color: '#3d4947', fontWeight: 600 }}>{diagValue}</div>
                   </div>
-                </div>
-              ) : null}
-            </div>
-          )}
+                )}
+                {testsValue.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#111c2d', marginBottom: '4px', textTransform: 'uppercase', fontSize: '0.68rem' }}>🧪 Investigations Advised</div>
+                    <div style={{ color: '#00685f', fontWeight: 600, display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {testsValue.map((t: any, i: number) => <span key={i} style={{ background: '#e7eeff', color: '#00685f', padding: '1px 6px', borderRadius: '4px' }}>{t.value}</span>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
 
 
@@ -732,7 +769,7 @@ const PrescriptionResultModal: React.FC<{
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', top: '-14px', left: '0', fontSize: '2.2rem', fontWeight: 900, fontFamily: 'serif', color: '#00685f', opacity: 0.9, userSelect: 'none', lineHeight: 1 }}>Rx</div>
             <div style={{ paddingTop: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px' }}>
-              {displayMeds.map((med, i) => {
+              {displayMeds.map((med: ParsedMedicine, i: number) => {
                 const dbMatch = vs?.medicines[i];
                 const displayBrand = dbMatch?.matchedDrug?.brandName || med.brand_name.value || 'Unknown';
                 const isFlagged = Boolean(dbMatch?.requiresReview);

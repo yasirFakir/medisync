@@ -104,27 +104,42 @@ export function normalizeStrength(strengthInput: string): { normalized: string |
   return { normalized: strengthInput, verified: false };
 }
 
+// ─── Brand Name Cleaner ───────────────────────────────────────────────────────
+// Strips OCR artefacts that prevent exact DB lookup:
+//   "1. Tab. Bisoren 2.5"  →  "Bisoren"
+//   "Cap. Amoxil 500mg"   →  "Amoxil"
+export function cleanBrandForMatching(raw: string): string {
+  if (!raw) return '';
+  let s = raw.trim();
+  s = s.replace(/^\d+[\.)\-:\s]+\s*/, '');                                         // leading number
+  s = s.replace(/^(?:Tab|Cap|Syp|Inj|Syr|Tap|T96|Ta6|Tob|Tal|Tol|Tos|TGb|Cqp)[.:\s]+/i, ''); // form prefix
+  s = s.replace(/\s+\d+(?:\.\d+)?\s*(?:mg|ml|mcg|g|iu)?$/i, '');                 // trailing strength
+  return s.trim();
+}
+
 // ─── Deterministic & Fuzzy Matching Service ────────────────────────────────────
 export class MedicineMatchingService {
   /**
    * Main matching function: matches an OCR extracted medicine record against master_pharmacy
    */
   public static async matchMedicine(input: ExtractedMedicineInput): Promise<ValidatedMedicineResult> {
-    const rawBrand = (input.brandName || input.rawText || '').trim();
+    const rawBrand   = (input.brandName || input.rawText || '').trim();
+    const cleanBrand = cleanBrandForMatching(rawBrand);          // strip OCR noise before DB lookup
     const rawGeneric = (input.genericName || '').trim();
     const rawStrength = input.strength || input.dosage || '';
 
     const { normalized: normStrength, verified: strengthVerified } = normalizeStrength(rawStrength);
 
-    // 1. Exact Match by Brand Name
-    if (rawBrand) {
+    // 1. Exact Match by Brand Name (try cleaned name first, then raw)
+    const brandCandidates = [...new Set([cleanBrand, rawBrand].filter(Boolean))];
+    for (const candidate of brandCandidates) {
       const exactBrandMatches = await query<MatchedDrug>(
         `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
                 strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
          FROM master_pharmacy
          WHERE LOWER(brand_name) = LOWER($1)
          LIMIT 5`,
-        [rawBrand]
+        [candidate]
       );
 
       if (exactBrandMatches.length > 0) {
@@ -140,7 +155,7 @@ export class MedicineMatchingService {
           alternatives: exactBrandMatches.slice(1),
         };
       }
-    }
+    } // end brandCandidates loop
 
     // 2. Exact Match by Generic / Salt Composition
     if (rawGeneric) {
@@ -169,8 +184,10 @@ export class MedicineMatchingService {
     }
 
     // 3. PostgreSQL Trigram / Fuzzy Match on Brand Name (handles OCR typos like Aztox -> Aztor, Vastaxel -> Vastarel)
-    if (rawBrand.length >= 2) {
-      const firstWord = rawBrand.split(/\s+/)[0];
+    // Use cleanBrand for fuzzy search so prefix noise ("1. Tab.") doesn't corrupt the LIKE queries
+    const fuzzyBrand = cleanBrand || rawBrand;
+    if (fuzzyBrand.length >= 2) {
+      const firstWord = fuzzyBrand.split(/\s+/)[0];
       const p3 = firstWord.length >= 3 ? `${firstWord.substring(0, 3).toLowerCase()}%` : `${firstWord.toLowerCase()}%`;
       const p2 = `${firstWord.substring(0, 2).toLowerCase()}%`;
 
@@ -184,7 +201,7 @@ export class MedicineMatchingService {
             OR LOWER(brand_name) LIKE LOWER($3)
             OR LOWER(brand_name) LIKE LOWER($4)
          LIMIT 200`,
-        [`%${rawBrand}%`, `%${firstWord}%`, p3, p2]
+        [`%${fuzzyBrand}%`, `%${firstWord}%`, p3, p2]
       );
 
       // If no prefix match found, pull all master drugs to score Levenshtein similarity
@@ -204,7 +221,7 @@ export class MedicineMatchingService {
 
         for (const item of fuzzyBrandMatches) {
           const score = Math.max(
-            similarityScore(rawBrand, item.brandName),
+            similarityScore(fuzzyBrand, item.brandName),
             similarityScore(firstWord, item.brandName)
           );
           if (score > bestScore) {

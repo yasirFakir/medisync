@@ -161,11 +161,48 @@ export const getAvailableSlots = async (req: AuthRequest, res: Response): Promis
 
 export const bookAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
   const patientId = req.user!.userId;
+  const userRole = req.user!.role || 'PATIENT';
   const { doctorId, slotId, appointmentDate, startTime, endTime, reason } = req.body;
 
-  // Validate slot
-  const slot = await queryOne(`SELECT location_name, address FROM doctor_availability WHERE slot_id = $1 AND doctor_id = $2`, [slotId, doctorId]);
-  if (!slot) throw new AppError('Invalid slot or doctor', 400);
+  if (!doctorId) throw new AppError('Doctor ID is required', 400);
+  if (!appointmentDate) throw new AppError('Appointment date is required', 400);
+
+  // Validate doctor existence
+  const doctorExists = await queryOne(`SELECT doctor_id FROM doctor_profiles WHERE doctor_id = $1`, [doctorId]);
+  if (!doctorExists) throw new AppError('Doctor profile not found', 404);
+
+  // Determine slot details & location
+  let locationName = 'Doctor Consultation Chamber';
+  let address = 'Main Clinic';
+  let validSlotId: string | null = null;
+
+  if (slotId) {
+    const slot = await queryOne<{ slot_id: string; location_name: string; address: string }>(
+      `SELECT slot_id, location_name, address FROM doctor_availability WHERE slot_id = $1 AND doctor_id = $2`,
+      [slotId, doctorId]
+    );
+    if (slot) {
+      validSlotId = slot.slot_id;
+      locationName = slot.location_name || locationName;
+      address = slot.address || address;
+    }
+  }
+
+  if (!validSlotId) {
+    const defaultSlot = await queryOne<{ slot_id: string; location_name: string; address: string }>(
+      `SELECT slot_id, location_name, address FROM doctor_availability WHERE doctor_id = $1 AND is_active = true LIMIT 1`,
+      [doctorId]
+    );
+    if (defaultSlot) {
+      validSlotId = defaultSlot.slot_id;
+      locationName = defaultSlot.location_name || locationName;
+      address = defaultSlot.address || address;
+    }
+  }
+
+  // Format times safely
+  const formattedStart = startTime ? (startTime.length === 5 ? `${startTime}:00` : startTime) : '09:00:00';
+  const formattedEnd = endTime ? (endTime.length === 5 ? `${endTime}:00` : endTime) : '10:00:00';
 
   // Check overlap
   const overlap = await queryOne(`
@@ -173,18 +210,29 @@ export const bookAppointment = async (req: AuthRequest, res: Response): Promise<
     WHERE doctor_id = $1 AND appointment_date = $2 
     AND status IN ('PENDING', 'CONFIRMED')
     AND start_time < $4 AND end_time > $3
-  `, [doctorId, appointmentDate, startTime, endTime]);
+  `, [doctorId, appointmentDate, formattedEnd, formattedStart]);
 
   if (overlap) throw new AppError('Time slot overlaps with an existing appointment', 409);
 
   const [appointment] = await query(`
-    INSERT INTO appointments (appointment_id, patient_id, doctor_id, slot_id, appointment_date, start_time, end_time, location_name, address, reason, status, created_by)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING', 'PATIENT')
+    INSERT INTO appointments (
+      appointment_id, patient_id, doctor_id, slot_id, appointment_date, 
+      start_time, end_time, location_name, address, reason, status, created_by
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING', $11)
     RETURNING appointment_id AS "appointmentId", patient_id AS "patientId", doctor_id AS "doctorId", slot_id AS "slotId", 
               appointment_date AS "appointmentDate", start_time AS "startTime", end_time AS "endTime", status
-  `, [uuidv4(), patientId, doctorId, slotId, appointmentDate, startTime, endTime, slot.location_name, slot.address, reason]);
+  `, [
+    uuidv4(), patientId, doctorId, validSlotId, appointmentDate, 
+    formattedStart, formattedEnd, locationName, address, reason || '', userRole
+  ]);
 
-  res.status(201).json({ success: true, message: 'Appointment booked successfully', data: appointment, timestamp: new Date().toISOString() });
+  res.status(201).json({ 
+    success: true, 
+    message: 'Appointment booked successfully', 
+    data: appointment, 
+    timestamp: new Date().toISOString() 
+  });
 };
 
 export const getMyAppointments = async (req: AuthRequest, res: Response): Promise<void> => {

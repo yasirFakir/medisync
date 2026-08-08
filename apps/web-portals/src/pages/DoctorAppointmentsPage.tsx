@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Badge, Spinner } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
-  CheckCircle, XCircle, Clock, MapPin, CalendarPlus, CalendarCheck, CalendarX,
+  CheckCircle, XCircle, Clock, MapPin, Calendar, CalendarPlus, CalendarCheck, CalendarX,
   User, Trash2, Plus, Building2, ChevronRight, Stethoscope, RefreshCw,
   Loader2, Save, AlertCircle
 } from 'lucide-react';
@@ -48,10 +48,10 @@ const fmt12h = (t: string) => {
 };
 
 const statusConfig: Record<string, { label: string; variant: 'yellow' | 'green' | 'red' | 'blue' | 'purple'; icon: React.ReactNode }> = {
-  PENDING:   { label: 'Pending',   variant: 'yellow', icon: <Clock size={12} /> },
-  CONFIRMED: { label: 'Confirmed', variant: 'green',  icon: <CheckCircle size={12} /> },
+  PENDING:   { label: 'Pending Approval', variant: 'yellow', icon: <Clock size={12} /> },
+  CONFIRMED: { label: 'Upcoming Scheduled Visit', variant: 'blue', icon: <Calendar size={12} /> },
   CANCELLED: { label: 'Cancelled', variant: 'red',    icon: <XCircle size={12} /> },
-  COMPLETED: { label: 'Completed', variant: 'blue',   icon: <CheckCircle size={12} /> },
+  COMPLETED: { label: 'Completed', variant: 'green',  icon: <CheckCircle size={12} /> },
 };
 
 const EMPTY_SLOT: AvailabilitySlot = {

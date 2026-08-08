@@ -8,8 +8,9 @@ const router = Router();
 
 const otpRequestSchema = Joi.object({
   patientId: Joi.string().uuid().required(),
-  otpToken: Joi.string().length(6).required(),
-});
+  otpToken: Joi.string().length(6).optional(),
+  otp: Joi.string().length(6).optional(),
+}).or('otpToken', 'otp');
 
 const createRecordSchema = Joi.object({
   patientId: Joi.string().uuid().required(),
@@ -19,11 +20,19 @@ const createRecordSchema = Joi.object({
   prescriptionId: Joi.string().uuid().optional(),
 });
 
-// POST /api/ehr/request-access  — Doctor requests OTP-gated access [DOCTOR]
+// POST /api/ehr/request-access & POST /api/ehr/verify-otp — Doctor requests OTP-gated access [DOCTOR, ADMIN]
 router.post(
   '/request-access',
   authenticate,
-  authorize('DOCTOR'),
+  authorize('DOCTOR', 'ADMIN'),
+  validateBody(otpRequestSchema),
+  ehrController.requestAccess
+);
+
+router.post(
+  '/verify-otp',
+  authenticate,
+  authorize('DOCTOR', 'ADMIN'),
   validateBody(otpRequestSchema),
   ehrController.requestAccess
 );
@@ -51,6 +60,14 @@ router.post(
   authenticate,
   authorize('PATIENT'),
   ehrController.generateOtp
+);
+
+// POST /api/ehr/send-otp  — Doctor/System triggers sending OTP email to patient [PATIENT, DOCTOR, ADMIN]
+router.post(
+  '/send-otp',
+  authenticate,
+  authorize('PATIENT', 'DOCTOR', 'ADMIN'),
+  ehrController.sendPatientOtpEmail
 );
 
 export default router;
