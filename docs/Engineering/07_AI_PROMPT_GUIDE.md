@@ -251,6 +251,17 @@ Quality of retrieval directly affects response quality.
 
 ---
 
+# UI Design Theme Prompting Standards
+
+Prompts instructing models to construct user interfaces, widgets, cards, or patient-facing response formatting MUST enforce the **MediSync Design System**:
+
+* **Color Palette:** Primary Teal (`#00685f`), Extracted OCR Sky Blue (`#006492`), Safety Notice Amber (`#F59E0B`), Neutral Dark Charcoal text (`#111c2d`).
+* **Typography:** `Plus Jakarta Sans`.
+* **Rhythm:** 8px grid spacing multiples (`8px`, `16px`, `24px`).
+* **Tone:** Calm Professionalism & Human-Centric Medical accessibility.
+
+---
+
 # OCR Prompting
 
 OCR prompts should focus only on extraction.

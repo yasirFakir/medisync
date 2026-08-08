@@ -373,6 +373,21 @@ Avoid unnecessary abstraction.
 
 ---
 
+# Design System & UI Generation Policy
+
+All AI-generated code, UI components, and prompts MUST adhere to the MediSync Design System (`temp/medisync stitch desktop/medisync/DESIGN.md`):
+
+- **Brand Aesthetic:** Calm Professionalism & Radical Accessibility (Human-Centric Medical Minimalism).
+- **Typography:** `Plus Jakarta Sans` for all text & headlines.
+- **Design Tokens:**
+  - Primary Teal: `#00685f` / `#0D9488`
+  - Secondary Sky Blue: `#006492` / `#2D9CDB` (OCR / Extracted data)
+  - Safety Amber: `#825100` / `#F59E0B` (AI Notices & Cautions)
+  - Canvas: `#f9f9ff`
+- **Layout:** 8px rhythm grid multiples (`8px`, `16px`, `24px`), 280px fixed sidebar with left active border (`border-l-4 border-[#00685f]`).
+
+---
+
 # Documentation Rules
 
 Whenever implementation changes:

@@ -1,8 +1,8 @@
 # MediSync AI — Project Progress Tracker
 
-> **Last Updated:** 2026-08-06  
+> **Last Updated:** 2026-08-08  
 > **Current Phase:** Phase 3 — AI Service Integration & Medication Routines  
-> **Overall Status:** 🟢 TASK-003 through TASK-008 Implemented & Verified
+> **Overall Status:** 🟢 TASK-003 through TASK-009 Implemented & Verified
 
 ---
 
@@ -12,7 +12,7 @@
 |-------|------|--------|--------|
 | 1 | Monorepo Setup + Backend API | ✅ Complete | Week 1-2 |
 | 2 | Web Portals (Admin / Doctor / Pharmacy / Patient) | ✅ Complete | Week 3-5 |
-| 3 | AI Service Integration (OCR + Triage + Reminders + Alternatives) | ✅ Complete (TASK-008 Complete) | Week 6-7 |
+| 3 | AI Service Integration (OCR + Triage + Reminders + Dashboard) | ✅ Complete (TASK-008 & TASK-009 Complete) | Week 6-7 |
 | 4 | Mobile App (React Native) | ⬜ Not Started | Week 8-10 |
 | 5 | Testing, Security Audit & Deployment | ⬜ Not Started | Week 11-12 |
 
@@ -60,6 +60,23 @@
 - [x] System health node status checker
 
 ---
+
+## 📋 Upcoming Tasks
+
+### TASK-010 — Doctor Review & Rating System (Verified Appointment Prerequisite)
+- [ ] Database Schema: `doctor_reviews` table
+- [ ] Verification Gate: Require completed appointment (`status = 'COMPLETED'`) to review doctor
+- [ ] Backend API: `/api/reviews/doctor` endpoints
+- [ ] Patient Web Portal: Star rating modal & review submission form
+- [ ] Doctor Directory & Profile Cards: Aggregated rating badge & review list
+- [ ] Doctor Portal: View reviews & post official doctor response
+
+### TASK-011 — Pharmacy Review & Rating System (Verified Purchase Prerequisite — Future Phase)
+- [ ] Database Schema: `pharmacy_reviews` table
+- [ ] Verification Gate: Require fulfilled order transaction (`order_status = 'FULFILLED'`) to review pharmacy
+- [ ] Backend API: `/api/reviews/pharmacy` endpoints
+- [ ] Pharmacy Directory & Cards: Aggregated rating badge & review list
+- [ ] Pharmacy Portal: View feedback & post official pharmacy store response
 
 ## 🐛 Known Issues / Blockers
 
