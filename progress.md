@@ -78,6 +78,15 @@
 - [ ] Pharmacy Directory & Cards: Aggregated rating badge & review list
 - [ ] Pharmacy Portal: View feedback & post official pharmacy store response
 
+### TASK-012 — Doctor Site & Clinical Portal Complete Implementation
+- [ ] Backend Data Models: `DoctorProfile`, `DoctorAvailabilitySlot`, `DoctorAppointment`, `ClinicalObservation`
+- [ ] Backend REST APIs: `/api/doctor/profile`, `/api/doctor/availability`, `/api/doctor/appointments`, `/api/ehr/verify-otp`
+- [ ] Clinical Overview Dashboard: Queue timeline, stat cards, & quick actions
+- [ ] EHR Verification Gate: Single-use 6-digit OTP verification gate
+- [ ] Patient EHR Viewer & Observation Form: Prescription history & clinical notes entry form
+- [ ] Chamber Schedule Configurator: Days, hours, chamber address, & seat limits
+- [ ] Appointment Queue Management: Accept, Decline, Complete, & Cancel workflows
+
 ## 🐛 Known Issues / Blockers
 
 | # | Issue | Status | Priority |
