@@ -33,7 +33,8 @@ const formatFrequency = (val: string): string => {
   return val;
 };
 
-type EditMed = { brandName: string; dosage: string; frequency: string; duration: string; isCustomDuration?: boolean };
+type EditMed = { brandName: string; dosage: string; frequency: string; duration: string; specialInstructions?: string; isCustomDuration?: boolean };
+
 
 export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = ({
   isOpen,
@@ -51,6 +52,7 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
   const [hospitalName, setHospitalName] = useState('Central Health Clinic');
   const [rxDate, setRxDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [clinicalDiagnosis, setClinicalDiagnosis] = useState('');
+  const [notes, setNotes] = useState('');
 
   // ── Clinical Tests / Investigations Advised state ──
   const [clinicalTests, setClinicalTests] = useState<string[]>([]);
@@ -79,14 +81,14 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
             const rawName = userData.fullName.trim();
             setDoctorName(rawName.toLowerCase().startsWith('dr.') ? rawName : `Dr. ${rawName}`);
           }
-          if (userData.qualifications) {
-            setDoctorDegrees(userData.qualifications);
+          if (userData.qualifications || userData.degrees) {
+            setDoctorDegrees(userData.qualifications || userData.degrees);
           }
-          if (userData.designation || userData.specialization) {
-            setDoctorSpecialty(userData.designation || userData.specialization);
+          if (userData.designation || userData.specialization || userData.specialty) {
+            setDoctorSpecialty(userData.designation || userData.specialization || userData.specialty);
           }
-          if (userData.area || userData.city) {
-            setHospitalName(`${userData.area || userData.city || 'Central'} Medical Center`);
+          if (userData.clinicLocation || userData.area || userData.city) {
+            setHospitalName(userData.clinicLocation || `${userData.area || userData.city || 'Central'} Medical Center`);
           }
         }
       } catch {
@@ -165,10 +167,6 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
       setError('Patient ID is missing.');
       return;
     }
-    if (editMeds.length === 0 || editMeds.every(m => !m.brandName.trim())) {
-      setError('Please add at least one medicine to the prescription.');
-      return;
-    }
 
     setSubmitting(true);
     setError('');
@@ -186,6 +184,7 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
         prescriptionDate: rxDate,
         clinicalDiagnosis,
         clinicalTests,
+        notes,
         medicines: editMeds.filter(m => m.brandName.trim())
       };
 
@@ -198,6 +197,7 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
       setSubmitting(false);
     }
   };
+
 
   return (
     <Modal
@@ -262,6 +262,21 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
             value={clinicalDiagnosis}
             onChange={e => setClinicalDiagnosis(e.target.value)}
             style={{ width: '100%' }}
+          />
+        </div>
+
+        {/* ── Notes / Special Instructions & Advice ── */}
+        <div>
+          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#334155', marginBottom: '4px', textTransform: 'uppercase' }}>
+            Notes / Special Advice & Patient Instructions
+          </label>
+          <textarea
+            className="input"
+            rows={2}
+            placeholder="e.g. Drink plenty of warm water, rest for 3 days. Return if fever exceeds 102°F..."
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.8125rem' }}
           />
         </div>
 
@@ -377,135 +392,155 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
 
               return (
                 <div key={i} style={{
-                  display: 'grid', gridTemplateColumns: '3fr 2fr 2fr 2fr auto',
-                  gap: '10px', alignItems: 'flex-end',
+                  display: 'flex', flexDirection: 'column', gap: '8px',
                   padding: '12px 14px', borderRadius: '10px',
                   background: '#f8fafc', border: '1px solid #e2e8f0',
                   position: 'relative',
                 }}>
-                  {/* Brand Name + Autocomplete */}
-                  <div style={{ position: 'relative' }}>
-                    <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
-                      Brand Name
-                    </label>
+                  {/* Top row: Brand Name, Dosage, Frequency, Duration, Delete */}
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: '3fr 2fr 2fr 2fr auto',
+                    gap: '10px', alignItems: 'flex-end',
+                  }}>
+                    {/* Brand Name + Autocomplete */}
                     <div style={{ position: 'relative' }}>
-                      <input
-                        type="text"
-                        value={med.brandName}
-                        onChange={e => handleMedChange(i, 'brandName', e.target.value)}
-                        onFocus={() => { if (med.brandName.trim()) searchDrugs(i, med.brandName); setActiveDropdown(i); }}
-                        placeholder="Type to search medicine..."
-                        style={{
-                          width: '100%', padding: '7px 28px 7px 10px', fontSize: '0.8125rem',
-                          border: '1px solid #cbd5e1', borderRadius: '6px',
-                          background: '#ffffff', color: '#0f172a', fontWeight: 600,
-                          outline: 'none', boxSizing: 'border-box',
-                        }}
-                        required
-                      />
-                      <Search size={14} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                    </div>
-                    {activeDropdown === i && drugMatches.length > 0 && (
-                      <div style={{
-                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
-                        background: '#ffffff', border: '1px solid #00685f',
-                        borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                        maxHeight: '180px', overflowY: 'auto', marginTop: '4px',
-                      }}>
-                        {drugMatches.map(drug => (
-                          <button
-                            key={drug.drugId}
-                            type="button"
-                            onClick={() => selectDrug(i, drug)}
-                            style={{
-                              width: '100%', textAlign: 'left', padding: '8px 12px',
-                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                              background: '#ffffff', border: 'none', cursor: 'pointer',
-                              fontSize: '0.8rem', borderBottom: '1px solid #f1f5f9', color: '#0f172a',
-                            }}
-                          >
-                            <span style={{ fontWeight: 700, color: '#0f172a' }}>{drug.brandName}</span>
-                            <span style={{ fontSize: '0.7rem', color: '#00685f', fontWeight: 700, background: '#e0f2fe', padding: '2px 6px', borderRadius: '4px' }}>{drug.strength}</span>
-                          </button>
-                        ))}
+                      <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Brand Name
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          value={med.brandName}
+                          onChange={e => handleMedChange(i, 'brandName', e.target.value)}
+                          onFocus={() => { if (med.brandName.trim()) searchDrugs(i, med.brandName); setActiveDropdown(i); }}
+                          placeholder="Type to search medicine..."
+                          style={{
+                            width: '100%', padding: '7px 28px 7px 10px', fontSize: '0.8125rem',
+                            border: '1px solid #cbd5e1', borderRadius: '6px',
+                            background: '#ffffff', color: '#0f172a', fontWeight: 600,
+                            outline: 'none', boxSizing: 'border-box',
+                          }}
+                        />
+                        <Search size={14} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
                       </div>
-                    )}
-                  </div>
 
-                  {/* Strength / Dosage */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
-                      Dosage / Strength
-                    </label>
-                    {strengthOpts.length > 0 ? (
-                      <select
-                        value={med.dosage}
-                        onChange={e => handleMedChange(i, 'dosage', e.target.value)}
-                        style={{ width: '100%', padding: '7px 8px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none' }}
-                      >
-                        {strengthOpts.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    ) : (
+                      {activeDropdown === i && drugMatches.length > 0 && (
+                        <div style={{
+                          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+                          background: '#ffffff', border: '1px solid #00685f',
+                          borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                          maxHeight: '180px', overflowY: 'auto', marginTop: '4px',
+                        }}>
+                          {drugMatches.map(drug => (
+                            <button
+                              key={drug.drugId}
+                              type="button"
+                              onClick={() => selectDrug(i, drug)}
+                              style={{
+                                width: '100%', textAlign: 'left', padding: '8px 12px',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                background: '#ffffff', border: 'none', cursor: 'pointer',
+                                fontSize: '0.8rem', borderBottom: '1px solid #f1f5f9', color: '#0f172a',
+                              }}
+                            >
+                              <span style={{ fontWeight: 700, color: '#0f172a' }}>{drug.brandName}</span>
+                              <span style={{ fontSize: '0.7rem', color: '#00685f', fontWeight: 700, background: '#e0f2fe', padding: '2px 6px', borderRadius: '4px' }}>{drug.strength}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Strength / Dosage */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Dosage / Strength
+                      </label>
+                      {strengthOpts.length > 0 ? (
+                        <select
+                          value={med.dosage}
+                          onChange={e => handleMedChange(i, 'dosage', e.target.value)}
+                          style={{ width: '100%', padding: '7px 8px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none' }}
+                        >
+                          {strengthOpts.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={med.dosage}
+                          onChange={e => handleMedChange(i, 'dosage', e.target.value)}
+                          placeholder="e.g. 500mg"
+                          style={{ width: '100%', padding: '7px 10px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
+                        />
+                      )}
+                    </div>
+
+                    {/* Frequency */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Frequency
+                      </label>
                       <input
                         type="text"
-                        value={med.dosage}
-                        onChange={e => handleMedChange(i, 'dosage', e.target.value)}
-                        placeholder="e.g. 500mg"
+                        value={med.frequency}
+                        onChange={e => handleMedChange(i, 'frequency', e.target.value)}
+                        placeholder="e.g. 1+0+1"
                         style={{ width: '100%', padding: '7px 10px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
                       />
-                    )}
+                    </div>
+
+                    {/* Duration */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Duration
+                      </label>
+                      {med.isCustomDuration ? (
+                        <input
+                          type="text"
+                          value={med.duration}
+                          onChange={e => handleMedChange(i, 'duration', e.target.value)}
+                          placeholder="Type duration..."
+                          style={{ width: '100%', padding: '7px 10px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
+                        />
+                      ) : (
+                        <select
+                          value={PRESET_DURATIONS.includes(med.duration) ? med.duration : (med.duration ? '__CUSTOM__' : '')}
+                          onChange={e => handleMedChange(i, 'duration', e.target.value)}
+                          style={{ width: '100%', padding: '7px 8px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none' }}
+                        >
+                          <option value="">-- Select --</option>
+                          {PRESET_DURATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                          <option value="__CUSTOM__">✏️ Custom...</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Remove */}
+                    <button
+                      type="button"
+                      onClick={() => setEditMeds(p => p.filter((_, j) => j !== i))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '6px', alignSelf: 'flex-end', marginBottom: '2px' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
 
-                  {/* Frequency */}
+                  {/* Optional Medicine Note / Special Instructions */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
-                      Frequency
-                    </label>
                     <input
                       type="text"
-                      value={med.frequency}
-                      onChange={e => handleMedChange(i, 'frequency', e.target.value)}
-                      placeholder="e.g. 1+0+1"
-                      style={{ width: '100%', padding: '7px 10px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
-                      required
+                      value={med.specialInstructions || ''}
+                      onChange={e => handleMedChange(i, 'specialInstructions', e.target.value)}
+                      placeholder="💡 Optional note for this medicine (e.g. Take after meals, Before sleep, Dissolve in water...)"
+                      style={{
+                        width: '100%', padding: '5px 10px', fontSize: '0.75rem',
+                        border: '1px dashed #cbd5e1', borderRadius: '5px',
+                        background: '#ffffff', color: '#475569', outline: 'none', boxSizing: 'border-box',
+                      }}
                     />
                   </div>
-
-                  {/* Duration */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>
-                      Duration
-                    </label>
-                    {med.isCustomDuration ? (
-                      <input
-                        type="text"
-                        value={med.duration}
-                        onChange={e => handleMedChange(i, 'duration', e.target.value)}
-                        placeholder="Type duration..."
-                        style={{ width: '100%', padding: '7px 10px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
-                      />
-                    ) : (
-                      <select
-                        value={PRESET_DURATIONS.includes(med.duration) ? med.duration : (med.duration ? '__CUSTOM__' : '')}
-                        onChange={e => handleMedChange(i, 'duration', e.target.value)}
-                        style={{ width: '100%', padding: '7px 8px', fontSize: '0.8125rem', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#ffffff', color: '#0f172a', fontWeight: 600, outline: 'none' }}
-                      >
-                        <option value="">-- Select --</option>
-                        {PRESET_DURATIONS.map(d => <option key={d} value={d}>{d}</option>)}
-                        <option value="__CUSTOM__">✏️ Custom...</option>
-                      </select>
-                    )}
-                  </div>
-
-                  {/* Remove */}
-                  <button
-                    type="button"
-                    onClick={() => setEditMeds(p => p.filter((_, j) => j !== i))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '6px', alignSelf: 'flex-end', marginBottom: '2px' }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
                 </div>
+
               );
             })}
           </div>

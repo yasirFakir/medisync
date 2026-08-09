@@ -148,6 +148,7 @@ export const createPrescription = async (req: AuthRequest, res: Response): Promi
     prescriptionDate,
     clinicalDiagnosis,
     clinicalTests,
+    notes,
     medicines
   } = req.body;
 
@@ -163,6 +164,8 @@ export const createPrescription = async (req: AuthRequest, res: Response): Promi
   const rawTests: string[] = Array.isArray(clinicalTests)
     ? clinicalTests
     : (typeof clinicalTests === 'string' ? clinicalTests.split(',').map(s => s.trim()).filter(Boolean) : []);
+  const adviceNotes = notes || '';
+
 
   const formattedInputs: ExtractedMedicineInput[] = rawMeds.map((m: any) => ({
     brandName: m.brandName || m.brand_name || '',
@@ -177,8 +180,10 @@ export const createPrescription = async (req: AuthRequest, res: Response): Promi
 
   const highConf = 'high';
   const ocrResult = {
-    raw_text: `Direct Doctor Prescription created on ${rxDate}.\nDiagnosis: ${clinicalDiagnosis || 'N/A'}`,
+    raw_text: `Direct Doctor Prescription created on ${rxDate}.\nDiagnosis: ${clinicalDiagnosis || 'N/A'}${adviceNotes ? `\nNotes: ${adviceNotes}` : ''}`,
+    notes: adviceNotes,
     doctor_name: { value: docName, confidence: highConf, score: 1.0 },
+
     doctor_degrees: { value: doctorDegrees || '', confidence: highConf, score: 1.0 },
     doctor_specialty: { value: doctorSpecialty || '', confidence: highConf, score: 1.0 },
     hospital_name: { value: hospitalName || 'Medical Center', confidence: highConf, score: 1.0 },
