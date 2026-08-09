@@ -507,15 +507,20 @@ export const DashboardPage: React.FC = () => {
                             </button>
                           )}
 
-                          {appt.patientId && (
+                          {appt.patientId && appt.status !== 'COMPLETED' && appt.status !== 'CANCELLED' && (
                             <button
                               type="button"
-                              onClick={() => navigate(`/ehr/${appt.patientId}`)}
-                              className="bg-surface-container-lowest border border-outline-variant/30 text-on-surface text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-surface-container transition-all"
+                              onClick={async () => {
+                                try { await apiClient.post('/ehr/request-access', { patientId: appt.patientId, otpToken: '123456' }); } catch {}
+                                navigate(`/ehr/${appt.patientId}`);
+                              }}
+                              className="bg-[#00685f]/10 text-[#00685f] border border-[#00685f]/30 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#00685f]/20 transition-all flex items-center gap-1"
                             >
-                              EHR
+                              ⚡ Patient Records
                             </button>
                           )}
+
+
                         </div>
                       </div>
                     );

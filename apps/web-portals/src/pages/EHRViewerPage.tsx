@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Button, Modal, Input, Spinner, Badge,
-  PrescriptionResultModal, type Prescription
+  PrescriptionResultModal, CreatePrescriptionModal, type Prescription
 } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import { Plus, Calendar, ArrowLeft, ClipboardList, Pill, Eye, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -31,6 +31,7 @@ export const EHRViewerPage: React.FC = () => {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateRxOpen, setIsCreateRxOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,6 +40,7 @@ export const EHRViewerPage: React.FC = () => {
   const [diagnosis, setDiagnosis] = useState('');
   const [observations, setObservations] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
+
 
   const fetchData = async () => {
     if (!patientId) return;
@@ -126,10 +128,14 @@ export const EHRViewerPage: React.FC = () => {
           Back to Directory
         </Button>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <Button variant="secondary" onClick={() => setIsCreateRxOpen(true)} icon={<Pill size={16} />}>
+            Create Prescription
+          </Button>
           <Button onClick={() => setIsModalOpen(true)} icon={<Plus size={16} />}>
             Add Clinical Note
           </Button>
         </div>
+
       </div>
 
       {loading ? (
@@ -303,7 +309,19 @@ export const EHRViewerPage: React.FC = () => {
         </Modal>
       )}
 
+      {/* ── Create Prescription Modal ── */}
+      <CreatePrescriptionModal
+        isOpen={isCreateRxOpen}
+        onClose={() => setIsCreateRxOpen(false)}
+        patientId={patientId || ''}
+        onCreated={(newRx) => {
+          setPrescriptions(prev => [newRx, ...prev]);
+          setSelectedRx(newRx);
+        }}
+      />
+
       {/* ── Add Clinical Note Modal ── */}
+
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

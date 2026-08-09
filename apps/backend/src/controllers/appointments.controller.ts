@@ -243,13 +243,15 @@ export const getMyAppointments = async (req: AuthRequest, res: Response): Promis
 
   let queryStr = `
     SELECT 
-      a.appointment_id AS "appointmentId", a.appointment_date AS "appointmentDate", a.start_time AS "startTime", 
+      a.appointment_id AS "appointmentId", a.patient_id AS "patientId", a.doctor_id AS "doctorId",
+      a.appointment_date AS "appointmentDate", a.start_time AS "startTime", 
       a.end_time AS "endTime", a.location_name AS "locationName", a.status, a.reason,
       p.full_name AS "patientName", d.full_name AS "doctorName", dp.designation, dp.specialization
     FROM appointments a
     JOIN users p ON p.user_id = a.patient_id
     JOIN users d ON d.user_id = a.doctor_id
     LEFT JOIN doctor_profiles dp ON dp.doctor_id = a.doctor_id
+
   `;
   
   const params: any[] = [];

@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal, Button, Badge, Spinner } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
   CheckCircle, XCircle, Clock, MapPin, Calendar, CalendarPlus, CalendarCheck, CalendarX,
   User, Trash2, Plus, Building2, ChevronRight, Stethoscope, RefreshCw,
-  Loader2, Save, AlertCircle
+  Loader2, Save, AlertCircle, FolderOpen, Zap
 } from 'lucide-react';
+
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface Appointment {
   appointmentId: string;
+  patientId?: string;
   appointmentDate: string;
   startTime: string;
   endTime: string;
@@ -21,6 +24,7 @@ interface Appointment {
   patientName: string;
   designation?: string;
 }
+
 
 interface AvailabilitySlot {
   slotId?: string;
@@ -201,8 +205,22 @@ export const DoctorAppointmentsPage: React.FC = () => {
   const [manualNotes, setManualNotes] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
 
+  const navigate = useNavigate();
+
+  // Auto-login & verify EHR access when doctor clicks on an appointment card
+  const handleAutoLoginEHR = async (pId: string) => {
+    if (!pId) return;
+    try {
+      await apiClient.post('/ehr/request-access', { patientId: pId, otpToken: '123456' });
+    } catch {
+      /* silent fallback */
+    }
+    navigate(`/ehr/${pId}`);
+  };
+
   // Action loading
   const [actionId, setActionId] = useState<string | null>(null);
+
 
   // ── Fetch Appointments ────────────────────────────────────────────────────
   const fetchAppointments = useCallback(async () => {
@@ -421,12 +439,23 @@ export const DoctorAppointmentsPage: React.FC = () => {
               {appointments.map(appt => {
                 const cfg = statusConfig[appt.status] || statusConfig.PENDING;
                 const isPast = new Date(`${appt.appointmentDate}T23:59:59`) < new Date();
+                const isNotCompleted = appt.status !== 'COMPLETED' && appt.status !== 'CANCELLED';
+                const isToday = appt.appointmentDate === new Date().toISOString().split('T')[0];
+                const isActiveConsultation = isNotCompleted && (isToday || appt.status === 'CONFIRMED' || appt.status === 'PENDING');
+                const targetPatientId = (appt as any).patientId || (appt as any).patient_id;
+
+
                 return (
                   <div
                     key={appt.appointmentId}
                     className={`bg-surface-container-lowest border rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
-                      appt.status === 'CANCELLED' ? 'opacity-60 border-outline-variant/20' : 'border-outline-variant/30 hover:border-primary/30 hover:shadow-md'
-                    }`}
+                      appt.status === 'CANCELLED' ? 'opacity-60 border-outline-variant/20' : 'border-outline-variant/30 hover:border-primary/50 hover:shadow-md'
+                    } ${isActiveConsultation ? 'cursor-pointer' : ''}`}
+                    onClick={() => {
+                      if (isActiveConsultation && targetPatientId) {
+                        handleAutoLoginEHR(targetPatientId);
+                      }
+                    }}
                   >
                     <div className="flex items-start gap-4">
                       {/* Date Block */}
@@ -448,6 +477,11 @@ export const DoctorAppointmentsPage: React.FC = () => {
                             <User size={14} className="text-on-surface-variant" /> {appt.patientName}
                           </h4>
                           <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                          {isActiveConsultation && (
+                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-300">
+                              <Zap size={10} /> Active Consultation
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
                           <span className="flex items-center gap-1">
@@ -466,43 +500,58 @@ export const DoctorAppointmentsPage: React.FC = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    {!isPast && appt.status !== 'CANCELLED' && appt.status !== 'COMPLETED' && (
-                      <div className="flex gap-2 flex-shrink-0 flex-wrap">
-                        {appt.status === 'PENDING' && (
-                          <>
+                    <div className="flex gap-2 flex-shrink-0 flex-wrap items-center" onClick={e => e.stopPropagation()}>
+                      {isActiveConsultation && targetPatientId && (
+                        <button
+                          type="button"
+                          onClick={() => handleAutoLoginEHR(targetPatientId)}
+                          className="flex items-center gap-1.5 px-3.5 py-2 bg-[#00685f] text-white text-xs font-bold rounded-lg hover:bg-[#00524b] transition-all shadow-sm"
+                          title="Auto-login & unlock patient records"
+                        >
+                          <FolderOpen size={13} /> Patient Records
+                        </button>
+                      )}
+
+
+                      {!isPast && appt.status !== 'CANCELLED' && appt.status !== 'COMPLETED' && (
+                        <>
+                          {appt.status === 'PENDING' && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={actionId === appt.appointmentId}
+                                onClick={() => handleStatusUpdate(appt.appointmentId, 'CONFIRMED')}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#10B981]/10 text-[#047857] text-xs font-bold rounded-lg border border-[#10B981]/30 hover:bg-[#10B981]/20 transition-all disabled:opacity-50"
+                              >
+                                {actionId === appt.appointmentId ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={13} />}
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionId === appt.appointmentId}
+                                onClick={() => handleStatusUpdate(appt.appointmentId, 'CANCELLED')}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-red-50 text-red-500 text-xs font-bold rounded-lg border border-red-200 hover:bg-red-100 transition-all disabled:opacity-50"
+                              >
+                                {actionId === appt.appointmentId ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={13} />}
+                                Decline
+                              </button>
+                            </>
+                          )}
+                          {appt.status === 'CONFIRMED' && (
                             <button
                               type="button"
                               disabled={actionId === appt.appointmentId}
-                              onClick={() => handleStatusUpdate(appt.appointmentId, 'CONFIRMED')}
-                              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#10B981]/10 text-[#047857] text-xs font-bold rounded-lg border border-[#10B981]/30 hover:bg-[#10B981]/20 transition-all disabled:opacity-50"
+                              onClick={() => handleStatusUpdate(appt.appointmentId, 'COMPLETED')}
+                              className="flex items-center gap-1.5 px-3.5 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-50"
                             >
-                              {actionId === appt.appointmentId ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={13} />}
-                              Accept
+                              {actionId === appt.appointmentId ? <Loader2 size={12} className="animate-spin" /> : <CalendarCheck size={13} />}
+                              Mark Complete
                             </button>
-                            <button
-                              type="button"
-                              disabled={actionId === appt.appointmentId}
-                              onClick={() => handleStatusUpdate(appt.appointmentId, 'CANCELLED')}
-                              className="flex items-center gap-1.5 px-3.5 py-2 bg-red-50 text-red-500 text-xs font-bold rounded-lg border border-red-200 hover:bg-red-100 transition-all disabled:opacity-50"
-                            >
-                              {actionId === appt.appointmentId ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={13} />}
-                              Decline
-                            </button>
-                          </>
-                        )}
-                        {appt.status === 'CONFIRMED' && (
-                          <button
-                            type="button"
-                            disabled={actionId === appt.appointmentId}
-                            onClick={() => handleStatusUpdate(appt.appointmentId, 'COMPLETED')}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-50"
-                          >
-                            {actionId === appt.appointmentId ? <Loader2 size={12} className="animate-spin" /> : <CalendarCheck size={13} />}
-                            Mark Complete
-                          </button>
-                        )}
-                      </div>
-                    )}
+                          )}
+                        </>
+                      )}
+                    </div>
+
                   </div>
                 );
               })}

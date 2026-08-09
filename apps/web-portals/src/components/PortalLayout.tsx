@@ -47,7 +47,7 @@ export const PortalLayout: React.FC = () => {
         return [
           { label: 'Clinical Overview', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
           { label: 'Patient Directory', path: '/patients', icon: <Users size={18} /> },
-          { label: 'EHR Access Verification', path: '/ehr', icon: <ShieldAlert size={18} /> },
+          { label: 'Patient Records', path: '/ehr', icon: <ShieldAlert size={18} /> },
           { label: 'Session Logs', path: '/sessions', icon: <History size={18} /> },
           { label: 'Appointments', path: '/doctor-appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
@@ -107,7 +107,8 @@ export const PortalLayout: React.FC = () => {
       case '/patients':
         return { title: 'Patient Directory', subtitle: 'Clinical index parameters' };
       case '/ehr':
-        return { title: 'EHR OTP Gate', subtitle: 'Verify patient access keys' };
+        return { title: 'Patient Records', subtitle: 'View and manage clinical treatment logs and prescriptions' };
+
       case '/sessions':
         return { title: 'Clinical History', subtitle: 'Session logs and completed observations' };
       case '/inventory':

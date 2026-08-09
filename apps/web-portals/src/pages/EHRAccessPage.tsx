@@ -112,8 +112,9 @@ export const EHRAccessPage: React.FC = () => {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', color: '#00685f' }}>
           <ShieldAlert size={28} />
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>EHR Gate Verification</h3>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Patient Records</h3>
         </div>
+
 
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.5 }}>
           Select a patient to generate and send a 6-digit OTP code to their email, or enter an existing key to decrypt clinical records.

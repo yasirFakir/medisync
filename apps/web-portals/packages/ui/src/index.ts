@@ -15,7 +15,10 @@ export { Avatar } from './components/Avatar';
 export { Table } from './components/Table';
 
 export { PrescriptionResultModal, ConfidenceBadge } from './components/PrescriptionResultModal';
+export { CreatePrescriptionModal } from './components/CreatePrescriptionModal';
+export type { CreatePrescriptionModalProps } from './components/CreatePrescriptionModal';
 export type {
+
   Prescription,
   OCRResult,
   ValidationSummary,
