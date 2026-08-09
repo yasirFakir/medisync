@@ -226,9 +226,28 @@ export const createPrescription = async (req: AuthRequest, res: Response): Promi
   res.status(201).json({
     success: true,
     message: 'Prescription created successfully',
-    data: prescription,
+    data: normalizePrescriptionRow(prescription),
     timestamp: new Date().toISOString(),
   });
+};
+
+
+// ─── Helper to parse stringified JSON fields safely ───────────────────────────
+const normalizePrescriptionRow = (p: any) => {
+  if (!p) return p;
+  const parseJson = (val: any) => {
+    if (!val) return val;
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch { return val; }
+    }
+    return val;
+  };
+  return {
+    ...p,
+    medicines: parseJson(p.medicines) || [],
+    ocrResult: parseJson(p.ocrResult) || parseJson(p.ocr_result),
+    validationSummary: parseJson(p.validationSummary) || parseJson(p.validation_summary),
+  };
 };
 
 
@@ -267,7 +286,12 @@ export const listPrescriptions = async (req: AuthRequest, res: Response): Promis
   const params = patientId ? [patientId] : [];
   const prescriptions = await query(sql, params);
 
-  res.json({ success: true, message: 'Prescriptions retrieved', data: prescriptions, timestamp: new Date().toISOString() });
+  res.json({
+    success: true,
+    message: 'Prescriptions retrieved',
+    data: prescriptions.map(normalizePrescriptionRow),
+    timestamp: new Date().toISOString()
+  });
 };
 
 // ─── GET /api/prescriptions/:id ───────────────────────────────────────────────
@@ -289,8 +313,14 @@ export const getPrescriptionById = async (req: AuthRequest, res: Response): Prom
     throw new AppError('Access denied', 403);
   }
 
-  res.json({ success: true, message: 'Prescription retrieved', data: prescription, timestamp: new Date().toISOString() });
+  res.json({
+    success: true,
+    message: 'Prescription retrieved',
+    data: normalizePrescriptionRow(prescription),
+    timestamp: new Date().toISOString()
+  });
 };
+
 
 // ─── DELETE /api/prescriptions/:id ────────────────────────────────────────────
 export const deletePrescription = async (req: AuthRequest, res: Response): Promise<void> => {

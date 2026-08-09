@@ -46,6 +46,14 @@ router.post(
   ehrController.createRecord
 );
 
+// GET /api/ehr/records/my-sessions — Get my clinical session logs [PATIENT, DOCTOR, ADMIN]
+router.get(
+  '/records/my-sessions',
+  authenticate,
+  authorize('PATIENT', 'DOCTOR', 'ADMIN'),
+  ehrController.getMySessions
+);
+
 // GET /api/ehr/records/:patientId  — Get patient's EHR [PATIENT, DOCTOR, ADMIN]
 router.get(
   '/records/:patientId',
@@ -53,6 +61,7 @@ router.get(
   authorize('PATIENT', 'DOCTOR', 'ADMIN'),
   ehrController.getPatientRecords
 );
+
 
 // POST /api/ehr/generate-otp  — Patient generates OTP token [PATIENT]
 router.post(

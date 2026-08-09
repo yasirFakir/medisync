@@ -162,15 +162,19 @@ export const PrescriptionResultModal: React.FC<PrescriptionResultModalProps> = (
   type EditMed = { brandName: string; dosage: string; frequency: string; duration: string; isCustomDuration?: boolean };
 
   const [editMeds, setEditMeds] = useState<EditMed[]>(() => {
-    if (prescription.medicines?.length > 0) {
-      return prescription.medicines.map(m => ({
-        brandName: m.brandName || '',
-        dosage: m.dosage || '',
+    const rawMeds = typeof prescription.medicines === 'string'
+      ? (() => { try { return JSON.parse(prescription.medicines as unknown as string); } catch { return []; } })()
+      : prescription.medicines;
+
+    if (Array.isArray(rawMeds) && rawMeds.length > 0) {
+      return rawMeds.map(m => ({
+        brandName: m.brandName || m.brand_name?.value || '',
+        dosage: m.dosage || m.strength?.value || '',
         frequency: m.frequency || '',
         duration: m.duration || '',
       }));
     }
-    if (ocr?.medicines) {
+    if (ocr?.medicines && Array.isArray(ocr.medicines)) {
       return ocr.medicines.map((m: ParsedMedicine) => ({
         brandName: m.brand_name?.value || '',
         dosage: m.strength?.value || m.dosage?.value || '',
@@ -178,8 +182,9 @@ export const PrescriptionResultModal: React.FC<PrescriptionResultModalProps> = (
         duration: m.duration?.value || '',
       }));
     }
-    return [];
+    return [{ brandName: '', dosage: '', frequency: '', duration: '' }];
   });
+
 
   // ── Brand fast-search state ───────────────────────────────────────────────
   const [searchResults, setSearchResults] = useState<{ [idx: number]: MasterDrug[] }>({});

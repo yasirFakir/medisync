@@ -182,3 +182,50 @@ export const getPatientRecords = async (req: AuthRequest, res: Response): Promis
 
   res.json({ success: true, message: 'EHR records retrieved', data: records, timestamp: new Date().toISOString() });
 };
+
+// ─── GET /api/ehr/records/my-sessions  [DOCTOR, PATIENT, ADMIN] ─────────────
+export const getMySessions = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { userId, role } = req.user!;
+
+  let sql = '';
+  let params: any[] = [];
+
+  if (role === 'DOCTOR') {
+    sql = `
+      SELECT r.record_id AS "recordId", r.patient_id AS "patientId", u.full_name AS "patientName",
+             r.doctor_id AS "doctorId", r.diagnosis, r.observations,
+             r.follow_up_date AS "followUpDate", r.session_date AS "sessionDate"
+      FROM ehr_records r
+      JOIN users u ON u.user_id = r.patient_id
+      WHERE r.doctor_id = $1
+      ORDER BY r.session_date DESC`;
+    params = [userId];
+  } else if (role === 'PATIENT') {
+    sql = `
+      SELECT r.record_id AS "recordId", r.patient_id AS "patientId",
+             r.doctor_id AS "doctorId", u.full_name AS "doctorName",
+             r.diagnosis, r.observations, r.follow_up_date AS "followUpDate",
+             r.session_date AS "sessionDate"
+      FROM ehr_records r
+      JOIN users u ON u.user_id = r.doctor_id
+      WHERE r.patient_id = $1
+      ORDER BY r.session_date DESC`;
+    params = [userId];
+  } else {
+    sql = `
+      SELECT r.record_id AS "recordId", r.patient_id AS "patientId", pu.full_name AS "patientName",
+             r.doctor_id AS "doctorId", du.full_name AS "doctorName",
+             r.diagnosis, r.observations, r.follow_up_date AS "followUpDate",
+             r.session_date AS "sessionDate"
+      FROM ehr_records r
+      JOIN users pu ON pu.user_id = r.patient_id
+      JOIN users du ON du.user_id = r.doctor_id
+      ORDER BY r.session_date DESC LIMIT 100`;
+    params = [];
+  }
+
+  const sessions = await query(sql, params);
+
+  res.json({ success: true, message: 'Session records retrieved', data: sessions, timestamp: new Date().toISOString() });
+};
+

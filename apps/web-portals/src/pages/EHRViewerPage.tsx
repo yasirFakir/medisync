@@ -199,7 +199,14 @@ export const EHRViewerPage: React.FC = () => {
                     ? (() => { try { return JSON.parse(rx.ocrResult as unknown as string); } catch { return undefined; } })()
                     : rx.ocrResult;
                   const docName = rx.doctorName || ocr?.doctor_name?.value || 'Prescriber';
-                  const meds = rx.medicines || ocr?.medicines || [];
+                  const rawMeds = typeof rx.medicines === 'string'
+                    ? (() => { try { return JSON.parse(rx.medicines as unknown as string); } catch { return []; } })()
+                    : rx.medicines;
+                  const meds = Array.isArray(rawMeds) && rawMeds.length > 0
+                    ? rawMeds
+                    : (Array.isArray(ocr?.medicines) ? ocr.medicines : []);
+
+
 
                   return (
                     <Card key={`rx-${rx.prescriptionId || idx}`} className="animate-fade-in" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', padding: '24px', borderLeft: '4px solid #00685f' }}>

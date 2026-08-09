@@ -7,7 +7,9 @@ import { AuthRequest } from '../middleware/auth.middleware';
 export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   const user = await queryOne(
     `SELECT u.user_id AS id, u.full_name AS "fullName", u.email, u.role, u.phone_number AS "phoneNumber", u.created_at AS "createdAt",
-            dp.designation, dp.specialization, dp.qualifications, dp.area, dp.city
+            dp.designation, dp.specialization AS specialty, dp.qualifications AS degrees,
+            CONCAT(COALESCE(dp.area, ''), CASE WHEN dp.area IS NOT NULL AND dp.city IS NOT NULL THEN ', ' ELSE '' END, COALESCE(dp.city, '')) AS "clinicLocation",
+            dp.area, dp.city, dp.experience_years AS "experienceYears", dp.consultation_fee AS "consultationFee"
      FROM users u
      LEFT JOIN doctor_profiles dp ON dp.doctor_id = u.user_id
      WHERE u.user_id = $1`,
@@ -18,6 +20,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 
   res.json({ success: true, message: 'User profile retrieved', data: user, timestamp: new Date().toISOString() });
 };
+
 
 
 // ─── PATCH /api/users/me ──────────────────────────────────────────────────────
