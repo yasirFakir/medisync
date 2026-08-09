@@ -14,8 +14,20 @@ export { EmptyState } from './components/EmptyState';
 export { Avatar } from './components/Avatar';
 export { Table } from './components/Table';
 
+export { PrescriptionResultModal, ConfidenceBadge } from './components/PrescriptionResultModal';
+export type {
+  Prescription,
+  OCRResult,
+  ValidationSummary,
+  ParsedMedicine,
+  ConfidenceLevel,
+  MasterDrug,
+  PrescriptionResultModalProps,
+} from './components/PrescriptionResultModal';
+
 // API Client
 export { apiClient, setAuthToken } from './lib/apiClient';
 
 // Hooks
 export { useAuth } from './hooks/useAuth';
+
