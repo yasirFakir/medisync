@@ -8,7 +8,7 @@ import {
   ChevronRight, ShieldCheck, FileText, MessageSquareText, MapPin,
   AlarmClock, User, Users, Activity, Check, KeyRound, Key,
   CalendarCheck, CalendarX, Stethoscope, RefreshCw, AlertTriangle,
-  ArrowRight, CheckCircle2, ShieldAlert
+  ArrowRight, CheckCircle2, ShieldAlert, Store, BookOpen, DollarSign, TrendingUp
 } from 'lucide-react';
 import { parseFrequencySlots, fmt12h } from './AlertsPage';
 
@@ -303,6 +303,13 @@ export const DashboardPage: React.FC = () => {
 
   const nextUpcoming = getNextUpcomingAlert();
   const latestPrescription = prescriptions.length > 0 ? prescriptions[0] : null;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── PHARMACY DASHBOARD VIEW ───────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  if (user?.role === 'PHARMACY') {
+    return <PharmacyDashboardView user={user} navigate={navigate} />;
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // ── DOCTOR DASHBOARD VIEW ─────────────────────────────────────────────────
@@ -1055,3 +1062,279 @@ export const DashboardPage: React.FC = () => {
     </div>
   );
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── PHARMACY DASHBOARD VIEW COMPONENT ─────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+const PharmacyDashboardView: React.FC<{ user: any; navigate: any }> = ({ user, navigate }) => {
+  const [summary, setSummary] = useState({
+    today: { revenue: 0, cost: 0, profit: 0, orders: 0 },
+    month: { revenue: 0, cost: 0, profit: 0, orders: 0 },
+  });
+  const [recentSales, setRecentSales] = useState<any[]>([]);
+  const [lowStockList, setLowStockList] = useState<any[]>([]);
+  const [expiringList, setExpiringList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [quickOtp, setQuickOtp] = useState('');
+
+  useEffect(() => {
+    const loadPharmacyDashboard = async () => {
+      setLoading(true);
+      try {
+        const [sumRes, salesRes, lowRes, expRes] = await Promise.all([
+          apiClient.get('/pharmacy/sales/summary').catch(() => ({ data: { data: null } })),
+          apiClient.get('/pharmacy/sales', { params: { limit: 5 } }).catch(() => ({ data: { data: [] } })),
+          apiClient.get('/inventory/low-stock').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/inventory/expiring-soon').catch(() => ({ data: { data: [] } })),
+        ]);
+
+        if (sumRes.data.data) setSummary(sumRes.data.data);
+        setRecentSales(salesRes.data.data || []);
+        setLowStockList(lowRes.data.data || []);
+        setExpiringList(expRes.data.data || []);
+      } catch (err) {
+        console.error('Failed to load pharmacy dashboard', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPharmacyDashboard();
+  }, []);
+
+  const handleQuickOtpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickOtp) return;
+    navigate(`/dispenser?otp=${quickOtp}`);
+  };
+
+  return (
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-10">
+      {/* ── Banner Header ────────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-[#825100] to-[#F59E0B] text-white rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-wider font-bold text-white/90 mb-1 flex items-center gap-1.5">
+            <Store size={15} /> Store Overview & POS Command Center
+          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+            Welcome, {user?.fullName || 'Pharmacy Manager'}
+          </h1>
+          <p className="text-xs text-white/90 mt-1">
+            Track daily sales, dispense patient prescriptions via OTP, and manage inventory stock health.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/dispenser')}
+            className="bg-white text-[#825100] hover:bg-white/90 font-bold text-xs py-2.5 px-4 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
+          >
+            <Pill size={15} /> POS Sales Register
+          </button>
+          <button
+            onClick={() => navigate('/sales')}
+            className="bg-white/20 hover:bg-white/30 text-white font-bold text-xs py-2.5 px-4 rounded-xl flex items-center gap-1.5 backdrop-blur-sm transition-all border border-white/30"
+          >
+            <BookOpen size={15} /> Sales Ledger
+          </button>
+        </div>
+      </div>
+
+      {/* ── 4 KPI Stat Cards ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card style={{ padding: '20px' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">Today's Revenue</span>
+            <div className="p-2 bg-[#FEF3C7] text-[#D97706] rounded-xl">
+              <DollarSign size={18} />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-gray-900 mt-2">
+            ৳{summary.today.revenue.toFixed(2)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {summary.today.orders} orders processed today
+          </div>
+        </Card>
+
+        <Card style={{ padding: '20px' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">Monthly Gross Profit</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <TrendingUp size={18} />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-emerald-600 mt-2">
+            ৳{summary.month.profit.toFixed(2)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            Net profit across {summary.month.orders} orders
+          </div>
+        </Card>
+
+        <Card style={{ padding: '20px' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">Orders Today</span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-gray-900 mt-2">
+            {summary.today.orders}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            Completed transactions
+          </div>
+        </Card>
+
+        <Card style={{ padding: '20px' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">Stock Alerts</span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+              <AlertTriangle size={18} />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-amber-600 mt-2">
+            {lowStockList.length + expiringList.length}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {lowStockList.length} low stock • {expiringList.length} expiring soon
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Quick Prescription OTP Gate Banner ────────────────────────────────── */}
+      <Card style={{ padding: '20px', background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)', borderColor: '#FDE68A' }}>
+        <form onSubmit={handleQuickOtpSubmit} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#F59E0B] text-white rounded-xl shadow-sm">
+              <KeyRound size={22} />
+            </div>
+            <div>
+              <div className="font-extrabold text-gray-900 text-sm">Quick Prescription Verification Gate</div>
+              <div className="text-xs text-gray-600">Enter the patient's 6-digit OTP code to pull up their active prescription directly.</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Enter OTP (e.g. 123456)"
+              maxLength={6}
+              value={quickOtp}
+              onChange={e => setQuickOtp(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-xl font-bold text-xs bg-white w-44"
+              required
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              style={{ background: '#F59E0B' }}
+              icon={<ArrowRight size={15} />}
+            >
+              Load Rx
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {/* ── 2 Column Operational Dashboard Grid ────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left: Recent Sales Feed (7 cols) */}
+        <div className="lg:col-span-7">
+          <Card style={{ padding: '20px' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <BookOpen size={16} className="text-[#F59E0B]" />
+                Recent Sales Transactions
+              </h3>
+              <button
+                onClick={() => navigate('/sales')}
+                className="text-xs font-bold text-[#D97706] hover:underline flex items-center gap-1"
+              >
+                View All <ChevronRight size={14} />
+              </button>
+            </div>
+
+            {recentSales.length === 0 ? (
+              <div className="text-center py-8 text-xs text-gray-400">
+                No recent sales recorded today. Use Prescription Dispenser to process sales.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {recentSales.map(sale => (
+                  <div
+                    key={sale.saleId}
+                    className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between text-xs hover:border-[#F59E0B]/50 transition-colors"
+                  >
+                    <div>
+                      <div className="font-bold text-gray-900">{sale.invoiceNumber}</div>
+                      <div className="text-gray-500">{sale.customerName || sale.patientName || 'Walk-in'} • {new Date(sale.createdAt).toLocaleTimeString()}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-extrabold text-gray-900">৳{Number(sale.netTotal).toFixed(2)}</div>
+                      <Badge variant={sale.paymentMethod === 'CASH' ? 'yellow' : 'blue'}>
+                        {sale.paymentMethod}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Right: Low Stock & Expiring Alerts Feed (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          <Card style={{ padding: '20px' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <AlertTriangle size={16} className="text-amber-600" />
+                Low Stock & Expiry Feed
+              </h3>
+              <button
+                onClick={() => navigate('/update-stock')}
+                className="text-xs font-bold text-[#D97706] hover:underline"
+              >
+                + Restock
+              </button>
+            </div>
+
+            {lowStockList.length === 0 && expiringList.length === 0 ? (
+              <div className="text-center py-8 text-xs text-gray-400">
+                ✅ Stock is in healthy status! No low stock or expiring drugs.
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 text-xs">
+                {lowStockList.map(item => (
+                  <div key={item.inventoryId} className="p-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-red-900">{item.brandName} ({item.strength})</div>
+                      <div className="text-[11px] text-red-700">Remaining: <strong>{item.quantity} units</strong></div>
+                    </div>
+                    <button
+                      onClick={() => navigate('/update-stock')}
+                      className="px-2.5 py-1 bg-red-600 text-white rounded-lg font-bold text-[11px]"
+                    >
+                      Restock
+                    </button>
+                  </div>
+                ))}
+
+                {expiringList.map(item => (
+                  <div key={item.inventoryId} className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-amber-900">{item.brandName}</div>
+                      <div className="text-[11px] text-amber-700">Exp: {new Date(item.expiryDate).toLocaleDateString()}</div>
+                    </div>
+                    <Badge variant="yellow">Expiring Soon</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+

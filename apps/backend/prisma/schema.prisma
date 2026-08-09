@@ -44,11 +44,13 @@ model User {
 
   pharmacy         Pharmacy?
   prescriptions    Prescription[]
-  ehrAsPatient     EhrRecord[]       @relation("PatientEHR")
-  ehrAsDoctor      EhrRecord[]       @relation("DoctorEHR")
+  ehrAsPatient     EhrRecord[]                  @relation("PatientEHR")
+  ehrAsDoctor      EhrRecord[]                  @relation("DoctorEHR")
   totpSecret       PatientTotpSecret?
   triageSessions   TriageSession[]
   medicationAlerts MedicationAlert[]
+  pharmacySales    PharmacySale[]               @relation("PharmacySalePatient")
+  prescriptionAccesses PharmacyPrescriptionAccess[]
 
   @@map("users")
 }
@@ -88,8 +90,10 @@ model Pharmacy {
   isVerified    Boolean  @default(false) @map("is_verified")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  user      User               @relation(fields: [pharmacyId], references: [userId], onDelete: Cascade)
-  inventory PharmacyInventory[]
+  user                 User                         @relation(fields: [pharmacyId], references: [userId], onDelete: Cascade)
+  inventory            PharmacyInventory[]
+  sales                PharmacySale[]
+  prescriptionAccesses PharmacyPrescriptionAccess[]
 
   @@map("pharmacies")
 }
@@ -102,10 +106,16 @@ model PharmacyInventory {
   inStock      Boolean   @default(true) @map("in_stock")
   quantity     Int       @default(0)
   currentPrice Decimal?  @map("current_price") @db.Decimal(10, 2)
+  costPrice    Decimal?  @map("cost_price") @db.Decimal(10, 2)
+  batchNumber  String?   @map("batch_number") @db.VarChar(50)
+  expiryDate   DateTime? @map("expiry_date") @db.Date
+  rackLocation String?   @map("rack_location") @db.VarChar(50)
+  supplierName String?   @map("supplier_name") @db.VarChar(100)
   lastUpdated  DateTime  @default(now()) @map("last_updated") @db.Timestamptz
 
-  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [pharmacyId], onDelete: Cascade)
-  drug     Drug     @relation(fields: [drugId], references: [drugId], onDelete: Cascade)
+  pharmacy  Pharmacy           @relation(fields: [pharmacyId], references: [pharmacyId], onDelete: Cascade)
+  drug      Drug               @relation(fields: [drugId], references: [drugId], onDelete: Cascade)
+  saleItems PharmacySaleItem[]
 
   @@unique([pharmacyId, drugId])
   @@map("pharmacy_inventory")
@@ -120,8 +130,9 @@ model Prescription {
   digitizedNotes String?  @map("digitized_notes") @db.Text
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  patient    User        @relation(fields: [patientId], references: [userId], onDelete: Cascade)
-  ehrRecords EhrRecord[]
+  patient              User                         @relation(fields: [patientId], references: [userId], onDelete: Cascade)
+  ehrRecords           EhrRecord[]
+  prescriptionAccesses PharmacyPrescriptionAccess[]
 
   @@map("prescriptions")
 }
@@ -184,4 +195,66 @@ model MedicationAlert {
   patient User @relation(fields: [patientId], references: [userId], onDelete: Cascade)
 
   @@map("medication_alerts")
+}
+
+// ─── Pharmacy Sales Transactions ──────────────────────────────────────────────
+model PharmacySale {
+  saleId         String   @id @default(dbgenerated("uuid_generate_v4()")) @map("sale_id") @db.Uuid
+  pharmacyId     String   @map("pharmacy_id") @db.Uuid
+  patientId      String?  @map("patient_id") @db.Uuid
+  prescriptionId String?  @map("prescription_id") @db.Uuid
+  invoiceNumber  String   @unique @map("invoice_number") @db.VarChar(50)
+  subtotal       Decimal  @map("subtotal") @db.Decimal(10, 2)
+  discountAmount Decimal  @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  taxAmount      Decimal  @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  netTotal       Decimal  @map("net_total") @db.Decimal(10, 2)
+  costTotal      Decimal  @map("cost_total") @db.Decimal(10, 2)
+  paymentMethod  String   @map("payment_method") @db.VarChar(30)
+  pharmacistId   String?  @map("pharmacist_id") @db.Uuid
+  customerName   String?  @map("customer_name") @db.VarChar(150)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  pharmacy Pharmacy           @relation(fields: [pharmacyId], references: [pharmacyId])
+  patient  User?              @relation("PharmacySalePatient", fields: [patientId], references: [userId])
+  items    PharmacySaleItem[]
+
+  @@map("pharmacy_sales")
+}
+
+// ─── Pharmacy Sale Line Items ─────────────────────────────────────────────────
+model PharmacySaleItem {
+  itemId           String   @id @default(dbgenerated("uuid_generate_v4()")) @map("item_id") @db.Uuid
+  saleId           String   @map("sale_id") @db.Uuid
+  inventoryId      String?  @map("inventory_id") @db.Uuid
+  medicineName     String   @map("medicine_name") @db.VarChar(150)
+  genericName      String?  @map("generic_name") @db.VarChar(150)
+  dosageStrength   String?  @map("dosage_strength") @db.VarChar(50)
+  batchNumber      String?  @map("batch_number") @db.VarChar(50)
+  unitSellingPrice Decimal  @map("unit_selling_price") @db.Decimal(10, 2)
+  unitCostPrice    Decimal  @map("unit_cost_price") @db.Decimal(10, 2)
+  quantity         Int
+  durationDays     Int?     @map("duration_days")
+  dosageSchedule   String?  @map("dosage_schedule") @db.VarChar(20)
+  lineTotal        Decimal  @map("line_total") @db.Decimal(10, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  sale      PharmacySale       @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  inventory PharmacyInventory? @relation(fields: [inventoryId], references: [inventoryId])
+
+  @@map("pharmacy_sale_items")
+}
+
+// ─── Pharmacy Prescription Access Log ───────────────────────────────────────────
+model PharmacyPrescriptionAccess {
+  accessId       String   @id @default(dbgenerated("uuid_generate_v4()")) @map("access_id") @db.Uuid
+  pharmacyId     String   @map("pharmacy_id") @db.Uuid
+  patientId      String   @map("patient_id") @db.Uuid
+  prescriptionId String?  @map("prescription_id") @db.Uuid
+  accessedAt     DateTime @default(now()) @map("accessed_at") @db.Timestamptz
+
+  pharmacy     Pharmacy      @relation(fields: [pharmacyId], references: [pharmacyId])
+  patient      User          @relation(fields: [patientId], references: [userId])
+  prescription Prescription? @relation(fields: [prescriptionId], references: [prescriptionId])
+
+  @@map("pharmacy_prescription_access")
 }
