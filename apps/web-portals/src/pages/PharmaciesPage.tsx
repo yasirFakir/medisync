@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, Input, Button, Badge, Spinner, EmptyState, Modal, StatCard } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
+import { useAuthStore } from '../store/authStore';
+import { AdminPharmaciesView } from './AdminPharmaciesView';
 import { 
   Search, Building, MapPin, Phone, Mail, ShieldCheck, ChevronLeft, ChevronRight, Store, 
   Sparkles, Star, Map, Filter, CheckCircle2, Pill, Navigation, Layers
@@ -52,8 +54,13 @@ interface PaginationMeta {
 }
 
 export const PharmaciesPage: React.FC = () => {
+  const user = useAuthStore(state => state.user);
   const [searchParams] = useSearchParams();
   const initialSalt = searchParams.get('saltComposition') || '';
+
+  if (user?.role === 'ADMIN') {
+    return <AdminPharmaciesView />;
+  }
 
   // Active View Mode: 'locator' (Medicine Inventory Locator) or 'directory' (Store Directory)
   const [activeMode, setActiveMode] = useState<'locator' | 'directory'>(

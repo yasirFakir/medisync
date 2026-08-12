@@ -11,6 +11,7 @@ import {
   ArrowRight, CheckCircle2, ShieldAlert, Store, BookOpen, DollarSign, TrendingUp
 } from 'lucide-react';
 import { parseFrequencySlots, fmt12h } from './AlertsPage';
+import { AdminDashboardView } from './AdminDashboardView';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -303,6 +304,13 @@ export const DashboardPage: React.FC = () => {
 
   const nextUpcoming = getNextUpcomingAlert();
   const latestPrescription = prescriptions.length > 0 ? prescriptions[0] : null;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── ADMIN DASHBOARD VIEW ──────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  if (user?.role === 'ADMIN') {
+    return <AdminDashboardView user={user} navigate={navigate} />;
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // ── PHARMACY DASHBOARD VIEW ───────────────────────────────────────────────
