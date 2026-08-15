@@ -13,6 +13,8 @@ import { EHRViewerPage } from './pages/EHRViewerPage';
 import { SessionsPage } from './pages/SessionsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { UpdateStockPage } from './pages/UpdateStockPage';
+import { DispenserPage } from './pages/DispenserPage';
+import { SalesPage } from './pages/SalesPage';
 import { UsersPage } from './pages/UsersPage';
 import { DrugsPage } from './pages/DrugsPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -58,6 +60,8 @@ const App: React.FC = () => {
             {/* Pharmacy routes */}
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/update-stock" element={<UpdateStockPage />} />
+            <Route path="/dispenser" element={<DispenserPage />} />
+            <Route path="/sales" element={<SalesPage />} />
 
             {/* Admin routes */}
             <Route path="/users" element={<UsersPage />} />

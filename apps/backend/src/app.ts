@@ -26,6 +26,7 @@ import alternativesRouter from './routes/alternatives.routes';
 import pharmaciesRouter from './routes/pharmacies.routes';
 import availabilityRouter from './routes/availability.routes';
 import appointmentsRouter from './routes/appointments.routes';
+import pharmacyRouter from './routes/pharmacy.routes';
 
 const app = express();
 
@@ -104,6 +105,7 @@ app.use('/api/ehr', ehrRouter);
 app.use('/api/triage', triageRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/appointments', appointmentsRouter);
+app.use('/api/pharmacy', pharmacyRouter);
 
 // ─── SPA Route Fallback ───────────────────────────────────────────────────────
 app.get('*', (req, res, next) => {

@@ -13,8 +13,8 @@ router.get('/doctors/:doctorId/slots', authenticate, appointmentsController.getA
 router.get('/my', authenticate, appointmentsController.getMyAppointments);
 router.patch('/:appointmentId/status', authenticate, appointmentsController.updateAppointmentStatus);
 
-// PATIENT endpoints
-router.post('/', authenticate, authorize('PATIENT'), appointmentsController.bookAppointment);
+// PATIENT & AUTHENTICATED USER endpoints
+router.post('/', authenticate, authorize('PATIENT', 'DOCTOR', 'ADMIN'), appointmentsController.bookAppointment);
 
 // DOCTOR endpoints
 router.post('/doctor-entry', authenticate, authorize('DOCTOR'), appointmentsController.createDoctorAppointment);

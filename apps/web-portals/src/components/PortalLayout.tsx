@@ -34,20 +34,20 @@ export const PortalLayout: React.FC = () => {
       case 'PATIENT':
         return [
           { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
+          { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
           { label: 'AI Triage', path: '/triage', icon: <MessageSquareText size={18} /> },
+          { label: 'Book Appointment', path: '/appointments', icon: <CalendarDays size={18} /> },
           { label: 'Prescriptions', path: '/prescriptions', icon: <FileText size={18} /> },
+          { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
           { label: 'Medicine Alternatives', path: '/alternatives', icon: <GitCompare size={18} /> },
           { label: 'Pharmacies', path: '/pharmacies', icon: <Building size={18} /> },
-          { label: 'Find Medicines', path: '/availability', icon: <CheckCircle2 size={18} /> },
-          { label: 'Medication Alerts', path: '/alerts', icon: <AlarmClock size={18} /> },
-          { label: 'Book Appointment', path: '/appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'DOCTOR':
         return [
           { label: 'Clinical Overview', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
           { label: 'Patient Directory', path: '/patients', icon: <Users size={18} /> },
-          { label: 'EHR Access Verification', path: '/ehr', icon: <ShieldAlert size={18} /> },
+          { label: 'Patient Records', path: '/ehr', icon: <ShieldAlert size={18} /> },
           { label: 'Session Logs', path: '/sessions', icon: <History size={18} /> },
           { label: 'Appointments', path: '/doctor-appointments', icon: <CalendarDays size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
@@ -56,7 +56,9 @@ export const PortalLayout: React.FC = () => {
         return [
           { label: 'Store Overview', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
           { label: 'My Inventory', path: '/inventory', icon: <Store size={18} /> },
-          { label: 'Update Stock', path: '/update-stock', icon: <ClipboardEdit size={18} /> },
+          { label: 'Add / Restock', path: '/update-stock', icon: <ClipboardEdit size={18} /> },
+          { label: 'Sales Counter & POS', path: '/dispenser', icon: <Pill size={18} /> },
+          { label: 'Sales & Accounting', path: '/sales', icon: <CalendarDays size={18} /> },
           { label: 'Store Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'ADMIN':
@@ -107,13 +109,18 @@ export const PortalLayout: React.FC = () => {
       case '/patients':
         return { title: 'Patient Directory', subtitle: 'Clinical index parameters' };
       case '/ehr':
-        return { title: 'EHR OTP Gate', subtitle: 'Verify patient access keys' };
+        return { title: 'Patient Records', subtitle: 'View and manage clinical treatment logs and prescriptions' };
+
       case '/sessions':
         return { title: 'Clinical History', subtitle: 'Session logs and completed observations' };
       case '/inventory':
-        return { title: 'Inventory Catalogue', subtitle: 'Review active store listings' };
+        return { title: 'Inventory Maintenance', subtitle: 'Manage SKUs, batch tracking, expiry dates, and cost prices' };
       case '/update-stock':
-        return { title: 'Update Stock Status', subtitle: 'Modify drug availability and prices' };
+        return { title: 'Restock & Add Inventory', subtitle: 'Search master drug catalog and stage batch inventory entries' };
+      case '/dispenser':
+        return { title: 'POS Sales Register', subtitle: 'Instant Walk-In OTC sales counter, manual inventory search, and billing register' };
+      case '/sales':
+        return { title: 'Sales & Accounting Ledger', subtitle: 'Transaction logs, revenue metrics, gross profit, and receipt reprints' };
       case '/users':
         return { title: 'System Directory', subtitle: 'Admin user coordinates database' };
       case '/drugs':

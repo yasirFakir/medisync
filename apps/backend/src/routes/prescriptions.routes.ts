@@ -29,8 +29,12 @@ router.post(
 router.post('/validate', authenticate, prescriptionsController.validatePrescription);
 
 
+// POST /api/prescriptions — Manual prescription creation by doctor/patient [All authenticated roles]
+router.post('/', authenticate, prescriptionsController.createPrescription);
+
 // GET /api/prescriptions — list patient's prescriptions [All authenticated roles]
 router.get('/', authenticate, prescriptionsController.listPrescriptions);
+
 
 // GET /api/prescriptions/:id
 router.get('/:id', authenticate, prescriptionsController.getPrescriptionById);

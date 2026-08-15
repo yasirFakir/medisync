@@ -133,6 +133,129 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
   });
 };
 
+// ─── POST /api/prescriptions ──────────────────────────────────────────────────
+export const createPrescription = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { userId, role } = req.user!;
+  const {
+    patientId: targetPatientId,
+    doctorName,
+    doctorDegrees,
+    doctorSpecialty,
+    patientName,
+    patientAge,
+    patientGender,
+    hospitalName,
+    prescriptionDate,
+    clinicalDiagnosis,
+    clinicalTests,
+    notes,
+    medicines
+  } = req.body;
+
+  const patientId = targetPatientId || (role === 'PATIENT' ? userId : undefined);
+  if (!patientId) {
+    throw new AppError('Patient ID is required', 400);
+  }
+
+  const docName = doctorName || (req.user as any)?.fullName || 'Dr. Prescriber';
+  const rxDate = prescriptionDate || new Date().toLocaleDateString('en-GB');
+
+  const rawMeds = Array.isArray(medicines) ? medicines : [];
+  const rawTests: string[] = Array.isArray(clinicalTests)
+    ? clinicalTests
+    : (typeof clinicalTests === 'string' ? clinicalTests.split(',').map(s => s.trim()).filter(Boolean) : []);
+  const adviceNotes = notes || '';
+
+
+  const formattedInputs: ExtractedMedicineInput[] = rawMeds.map((m: any) => ({
+    brandName: m.brandName || m.brand_name || '',
+    genericName: m.saltComposition || m.genericName || '',
+    strength: m.dosage || m.strength || '',
+    dosage: m.dosage || m.strength || '',
+    frequency: m.frequency || '',
+    duration: m.duration || '',
+  }));
+
+  const validationSummary = await MedicineMatchingService.validatePrescriptionPayload(formattedInputs);
+
+  const highConf = 'high';
+  const ocrResult = {
+    raw_text: `Direct Doctor Prescription created on ${rxDate}.\nDiagnosis: ${clinicalDiagnosis || 'N/A'}${adviceNotes ? `\nNotes: ${adviceNotes}` : ''}`,
+    notes: adviceNotes,
+    doctor_name: { value: docName, confidence: highConf, score: 1.0 },
+
+    doctor_degrees: { value: doctorDegrees || '', confidence: highConf, score: 1.0 },
+    doctor_specialty: { value: doctorSpecialty || '', confidence: highConf, score: 1.0 },
+    hospital_name: { value: hospitalName || 'Medical Center', confidence: highConf, score: 1.0 },
+    patient_name: { value: patientName || 'Patient', confidence: highConf, score: 1.0 },
+    patient_age: { value: patientAge || '', confidence: highConf, score: 1.0 },
+    patient_gender: { value: patientGender || '', confidence: highConf, score: 1.0 },
+    prescription_date: { value: rxDate, confidence: highConf, score: 1.0 },
+    clinical_diagnosis: { value: clinicalDiagnosis || '', confidence: highConf, score: 1.0 },
+    clinical_tests: rawTests.map(t => ({ value: t, confidence: highConf, score: 1.0 })),
+
+    medicines: rawMeds.map((m: any) => ({
+      brand_name: { value: m.brandName || '', confidence: highConf, score: 1.0 },
+      strength: { value: m.dosage || '', confidence: highConf, score: 1.0 },
+      dosage: { value: m.dosage || '', confidence: highConf, score: 1.0 },
+      frequency: { value: m.frequency || '', confidence: highConf, score: 1.0 },
+      duration: { value: m.duration || '', confidence: highConf, score: 1.0 },
+      special_instructions: { value: m.specialInstructions || null, confidence: highConf, score: 1.0 }
+    })),
+    low_confidence_fields: [],
+    ocr_engine: 'manual-clinical-entry',
+    processing_time_ms: 0
+  };
+
+  const prescriptionId = uuidv4();
+  const [prescription] = await query(
+    `INSERT INTO prescriptions (prescription_id, patient_id, doctor_name, raw_image_url, digitized_notes, medicines, validation_summary, ocr_result, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+     RETURNING prescription_id AS "prescriptionId", patient_id AS "patientId", doctor_name AS "doctorName",
+               digitized_notes AS "digitizedNotes", medicines, validation_summary AS "validationSummary",
+               ocr_result AS "ocrResult", created_at AS "createdAt"`,
+    [
+      prescriptionId,
+      patientId,
+      docName,
+      '',
+      ocrResult.raw_text,
+      JSON.stringify(rawMeds),
+      JSON.stringify(validationSummary),
+      JSON.stringify(ocrResult)
+    ]
+  );
+
+  logger.info(`Prescription manually created: ${prescriptionId} for patient: ${patientId}`);
+
+  res.status(201).json({
+    success: true,
+    message: 'Prescription created successfully',
+    data: normalizePrescriptionRow(prescription),
+    timestamp: new Date().toISOString(),
+  });
+};
+
+
+// ─── Helper to parse stringified JSON fields safely ───────────────────────────
+const normalizePrescriptionRow = (p: any) => {
+  if (!p) return p;
+  const parseJson = (val: any) => {
+    if (!val) return val;
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch { return val; }
+    }
+    return val;
+  };
+  return {
+    ...p,
+    medicines: parseJson(p.medicines) || [],
+    ocrResult: parseJson(p.ocrResult) || parseJson(p.ocr_result),
+    validationSummary: parseJson(p.validationSummary) || parseJson(p.validation_summary),
+  };
+};
+
+
 // ─── POST /api/prescriptions/validate ────────────────────────────────────────
 export const validatePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
   const { medicines } = req.body;
@@ -168,7 +291,12 @@ export const listPrescriptions = async (req: AuthRequest, res: Response): Promis
   const params = patientId ? [patientId] : [];
   const prescriptions = await query(sql, params);
 
-  res.json({ success: true, message: 'Prescriptions retrieved', data: prescriptions, timestamp: new Date().toISOString() });
+  res.json({
+    success: true,
+    message: 'Prescriptions retrieved',
+    data: prescriptions.map(normalizePrescriptionRow),
+    timestamp: new Date().toISOString()
+  });
 };
 
 // ─── GET /api/prescriptions/:id ───────────────────────────────────────────────
@@ -190,8 +318,14 @@ export const getPrescriptionById = async (req: AuthRequest, res: Response): Prom
     throw new AppError('Access denied', 403);
   }
 
-  res.json({ success: true, message: 'Prescription retrieved', data: prescription, timestamp: new Date().toISOString() });
+  res.json({
+    success: true,
+    message: 'Prescription retrieved',
+    data: normalizePrescriptionRow(prescription),
+    timestamp: new Date().toISOString()
+  });
 };
+
 
 // ─── DELETE /api/prescriptions/:id ────────────────────────────────────────────
 export const deletePrescription = async (req: AuthRequest, res: Response): Promise<void> => {

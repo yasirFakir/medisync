@@ -45,12 +45,14 @@ export const config = {
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000', 10),
 
-  // Email
+  // Email / Nodemailer Configuration
   smtp: {
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    host: process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587', 10),
+    secure: (process.env.EMAIL_SECURE || 'false') === 'true',
+    user: process.env.EMAIL_USER || process.env.SMTP_USER || '',
+    pass: process.env.EMAIL_PASS || process.env.SMTP_PASS || '',
+    from: process.env.EMAIL_FROM || 'MediSync AI <no-reply@medisync.com>',
   },
 
   // Cloudinary

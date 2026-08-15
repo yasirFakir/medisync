@@ -56,10 +56,15 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const fmt12h = (t: string) => {
-  if (!t) return '';
-  const [h, m] = t.split(':').map(Number);
+  if (!t || typeof t !== 'string') return '';
+  const parts = t.trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+  if (isNaN(h)) return t;
+  const safeM = isNaN(m) ? 0 : Math.min(Math.max(m, 0), 59);
   const ampm = h >= 12 ? 'PM' : 'AM';
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(safeM).padStart(2, '0')} ${ampm}`;
 };
 
 const statusConfig: Record<string, { label: string; variant: 'yellow' | 'green' | 'red' | 'blue' | 'purple'; icon: React.ReactNode }> = {
@@ -263,11 +268,18 @@ export const AppointmentsPage: React.FC = () => {
   };
 
   // ── Open Booking Modal ────────────────────────────────────────────────────
-  const openBooking = (slot: DoctorSlot) => {
-    setBookingSlot(slot);
+  const openBooking = (slot?: DoctorSlot | null) => {
+    const activeSlot = slot || {
+      slotId: '',
+      locationName: selectedDoctor?.area ? `${selectedDoctor.area} Medical Chamber` : 'Main Consultation Suite',
+      address: selectedDoctor?.city || 'Main Clinic',
+      startTime: '09:00:00',
+      endTime: '12:00:00',
+    };
+    setBookingSlot(activeSlot);
     setBookingDate('');
-    setBookingStartTime(slot.startTime.slice(0, 5));
-    setBookingEndTime(slot.endTime.slice(0, 5));
+    setBookingStartTime(activeSlot.startTime ? activeSlot.startTime.slice(0, 5) : '09:00');
+    setBookingEndTime(activeSlot.endTime ? activeSlot.endTime.slice(0, 5) : '12:00');
     setBookingReason('');
     setBookingSuccess(false);
     setIsBookingOpen(true);
@@ -275,15 +287,15 @@ export const AppointmentsPage: React.FC = () => {
 
   // ── Submit Booking ────────────────────────────────────────────────────────
   const handleBook = async () => {
-    if (!selectedDoctor || !bookingSlot || !bookingDate) return;
+    if (!selectedDoctor || !bookingDate) return;
     setBookingLoading(true);
     try {
       await apiClient.post('/appointments', {
         doctorId: selectedDoctor.doctorId,
-        slotId: bookingSlot.slotId,
+        slotId: bookingSlot?.slotId || undefined,
         appointmentDate: bookingDate,
-        startTime: bookingStartTime,
-        endTime: bookingEndTime,
+        startTime: bookingStartTime || '09:00',
+        endTime: bookingEndTime || '10:00',
         reason: bookingReason,
       });
       setBookingSuccess(true);
@@ -679,8 +691,17 @@ export const AppointmentsPage: React.FC = () => {
               </h4>
 
               {selectedDoctor.slots.length === 0 ? (
-                <div className="text-center py-8 text-xs text-on-surface-variant border border-dashed border-outline-variant/40 rounded-xl">
-                  No availability slots configured yet.
+                <div className="text-center py-6 px-4 bg-surface-container-low border border-dashed border-outline-variant/40 rounded-xl space-y-3">
+                  <p className="text-xs text-on-surface-variant font-medium">
+                    No custom clinic slots listed. You can still request a general consultation appointment.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openBooking(null)}
+                    className="bg-primary text-on-primary text-xs font-bold py-2.5 px-5 rounded-lg hover:bg-primary/90 transition-all inline-flex items-center gap-1.5 shadow-sm"
+                  >
+                    <CalendarCheck size={14} /> Request General Consultation
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
