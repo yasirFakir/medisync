@@ -33,7 +33,7 @@ class GeminiProvider:
         except ImportError:
             try:
                 # Fallback to legacy google-generativeai SDK
-                import google.generativeai as legacy_genai
+                import google.generativeai as legacy_genai  # type: ignore
                 legacy_genai.configure(api_key=self.api_key)
                 self.client = legacy_genai.GenerativeModel('gemini-1.5-flash')
                 logger.info("Initialized legacy google.generativeai client successfully.")

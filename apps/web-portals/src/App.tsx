@@ -17,6 +17,7 @@ import { DispenserPage } from './pages/DispenserPage';
 import { SalesPage } from './pages/SalesPage';
 import { UsersPage } from './pages/UsersPage';
 import { DrugsPage } from './pages/DrugsPage';
+import { AdminTriageLogsPage } from './pages/AdminTriageLogsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AlternativesPage } from './pages/AlternativesPage';
 import { PharmaciesPage } from './pages/PharmaciesPage';
@@ -66,6 +67,7 @@ const App: React.FC = () => {
             {/* Admin routes */}
             <Route path="/users" element={<UsersPage />} />
             <Route path="/drugs" element={<DrugsPage />} />
+            <Route path="/admin/triage-logs" element={<AdminTriageLogsPage />} />
 
             {/* Shared Profile route */}
             <Route path="/profile" element={<ProfilePage />} />

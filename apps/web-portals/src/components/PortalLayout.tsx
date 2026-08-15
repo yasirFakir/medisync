@@ -65,7 +65,9 @@ export const PortalLayout: React.FC = () => {
         return [
           { label: 'System Overview', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
           { label: 'User Directory', path: '/users', icon: <Users size={18} /> },
+          { label: 'Pharmacy Network', path: '/pharmacies', icon: <Building size={18} /> },
           { label: 'Drug Catalogue', path: '/drugs', icon: <Pill size={18} /> },
+          { label: 'AI Triage Oversight', path: '/admin/triage-logs', icon: <MessageSquareText size={18} /> },
           { label: 'My Profile', path: '/profile', icon: <User size={18} /> },
         ];
       default:
