@@ -106,7 +106,7 @@ export const SalesPage: React.FC = () => {
             <BookOpen size={15} /> Financial Ledger & POS Analytics
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            Sales & Accounting Ledger
+            Accounting Ledger
           </h1>
           <p className="text-xs text-white/90 mt-1">
             Track daily/monthly revenue, net profit margins, itemized invoice history, and top-selling drugs.

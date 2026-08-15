@@ -55,10 +55,10 @@ export const PortalLayout: React.FC = () => {
       case 'PHARMACY':
         return [
           { label: 'Store Overview', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
+          { label: 'Sales Counter', path: '/dispenser', icon: <Pill size={18} /> },
           { label: 'My Inventory', path: '/inventory', icon: <Store size={18} /> },
           { label: 'Add / Restock', path: '/update-stock', icon: <ClipboardEdit size={18} /> },
-          { label: 'Sales Counter & POS', path: '/dispenser', icon: <Pill size={18} /> },
-          { label: 'Sales & Accounting', path: '/sales', icon: <CalendarDays size={18} /> },
+          { label: 'Accounting', path: '/sales', icon: <CalendarDays size={18} /> },
           { label: 'Store Profile', path: '/profile', icon: <User size={18} /> },
         ];
       case 'ADMIN':
@@ -122,7 +122,7 @@ export const PortalLayout: React.FC = () => {
       case '/dispenser':
         return { title: 'POS Sales Register', subtitle: 'Instant Walk-In OTC sales counter, manual inventory search, and billing register' };
       case '/sales':
-        return { title: 'Sales & Accounting Ledger', subtitle: 'Transaction logs, revenue metrics, gross profit, and receipt reprints' };
+        return { title: 'Accounting Ledger', subtitle: 'Transaction logs, revenue metrics, gross profit, and receipt reprints' };
       case '/users':
         return { title: 'System Directory', subtitle: 'Admin user coordinates database' };
       case '/drugs':

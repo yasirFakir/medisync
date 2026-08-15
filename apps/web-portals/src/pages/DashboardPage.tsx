@@ -1083,7 +1083,6 @@ const PharmacyDashboardView: React.FC<{ user: any; navigate: any }> = ({ user, n
   const [lowStockList, setLowStockList] = useState<any[]>([]);
   const [expiringList, setExpiringList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [quickOtp, setQuickOtp] = useState('');
 
   useEffect(() => {
     const loadPharmacyDashboard = async () => {
@@ -1108,12 +1107,6 @@ const PharmacyDashboardView: React.FC<{ user: any; navigate: any }> = ({ user, n
     };
     loadPharmacyDashboard();
   }, []);
-
-  const handleQuickOtpSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickOtp) return;
-    navigate(`/dispenser?otp=${quickOtp}`);
-  };
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto pb-10">
@@ -1209,41 +1202,6 @@ const PharmacyDashboardView: React.FC<{ user: any; navigate: any }> = ({ user, n
           </div>
         </Card>
       </div>
-
-      {/* ── Quick Prescription OTP Gate Banner ────────────────────────────────── */}
-      <Card style={{ padding: '20px', background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)', borderColor: '#FDE68A' }}>
-        <form onSubmit={handleQuickOtpSubmit} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-[#F59E0B] text-white rounded-xl shadow-sm">
-              <KeyRound size={22} />
-            </div>
-            <div>
-              <div className="font-extrabold text-gray-900 text-sm">Quick Prescription Verification Gate</div>
-              <div className="text-xs text-gray-600">Enter the patient's 6-digit OTP code to pull up their active prescription directly.</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Enter OTP (e.g. 123456)"
-              maxLength={6}
-              value={quickOtp}
-              onChange={e => setQuickOtp(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-xl font-bold text-xs bg-white w-44"
-              required
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              style={{ background: '#F59E0B' }}
-              icon={<ArrowRight size={15} />}
-            >
-              Load Rx
-            </Button>
-          </div>
-        </form>
-      </Card>
 
       {/* ── 2 Column Operational Dashboard Grid ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
