@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "tsx tests/index.ts"
   },
   "dependencies": {
     "@medisync/shared-types": "workspace:*",

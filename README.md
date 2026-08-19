@@ -205,7 +205,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/medisync_db
 
 ### 3. Initialize Schema & Seed Data
 ```bash
-# Initialize DB tables
+# Initialize DB tables (creates missing tables)
 npm run db:init
 
 # Seed initial users, pharmacies, and alerts
@@ -213,6 +213,16 @@ npm run db:seed
 
 # Seed master medicine database (80 drugs)
 npm run db:seed:drugs
+```
+
+### 🔄 Resetting the Database (Clean Wipe & Reseed)
+If you ever encounter table/schema mismatch errors or want a completely fresh database state:
+```bash
+# Option 1: Clean reset schema & re-seed everything automatically
+npm run db:reset:all
+
+# Option 2: Reset schema only (without seeding)
+npm run db:reset
 ```
 
 ### 🔑 Test User Credentials (Password for all: `password123`)

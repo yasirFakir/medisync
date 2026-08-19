@@ -4,7 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, queryOne } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { sendEhrOtpEmail } from '../services/email.service';
+import { sendEhrOtpEmail, sendEhrRecordAddedEmail } from '../services/email.service';
+import { sendNotification } from '../services/notification.service';
 
 // ─── POST /api/ehr/generate-otp  [PATIENT] ───────────────────────────────────
 export const generateOtp = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -154,6 +155,28 @@ export const createRecord = async (req: AuthRequest, res: Response): Promise<voi
                diagnosis, observations, follow_up_date AS "followUpDate", session_date AS "sessionDate"`,
     [uuidv4(), patientId, doctorId, diagnosis, observations, followUpDate || null, prescriptionId || null]
   );
+
+  if (record) {
+    // Notify patient
+    sendNotification(patientId, {
+      type: 'EHR_RECORD_ADDED',
+      title: 'New Medical Record Added',
+      message: 'A new health record has been added to your EHR.'
+    });
+
+    // Get doctor and patient info for email
+    const patientUser = await queryOne<{ email: string, full_name: string }>(`SELECT email, full_name FROM users WHERE user_id = $1`, [patientId]);
+    const doctorUser = await queryOne<{ full_name: string }>(`SELECT full_name FROM users WHERE user_id = $1`, [doctorId]);
+
+    if (patientUser && doctorUser && patientUser.email) {
+      sendEhrRecordAddedEmail(
+        patientUser.email,
+        patientUser.full_name,
+        doctorUser.full_name,
+        diagnosis
+      );
+    }
+  }
 
   res.status(201).json({ success: true, message: 'EHR record created', data: record, timestamp: new Date().toISOString() });
 };

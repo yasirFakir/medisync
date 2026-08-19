@@ -74,3 +74,69 @@ export const sendEhrOtpEmail = async (toEmail: string, patientName: string, otp:
     return false;
   }
 };
+
+/**
+ * Sends appointment-related notifications via email.
+ */
+export const sendAppointmentEmail = async (
+  toEmail: string,
+  recipientName: string,
+  subject: string,
+  bodyHtml: string
+): Promise<boolean> => {
+  if (!toEmail) return false;
+  const html = `
+    <div style="font-family: 'Plus Jakarta Sans', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+      <div style="text-align: center; padding-bottom: 16px; border-bottom: 2px solid #00685f;">
+        <h2 style="color: #00685f; margin: 0; font-size: 22px; font-weight: 800;">MediSync AI Health Portal</h2>
+        <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Appointment Notification</p>
+      </div>
+      <div style="padding: 24px 0;">
+        <p style="font-size: 14px; color: #1e293b;">Hello <strong>${recipientName}</strong>,</p>
+        ${bodyHtml}
+      </div>
+      <div style="text-align: center; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+        &copy; ${new Date().getFullYear()} MediSync AI Medical Systems. All rights reserved.
+      </div>
+    </div>
+  `;
+  try {
+    if (!config.smtp.user || !config.smtp.pass) {
+      logger.warn(`SMTP not configured. Skipping appointment email to ${toEmail}.`);
+      return false;
+    }
+    const info = await transporter.sendMail({ from: config.smtp.from, to: toEmail, subject, html });
+    logger.info(`📧 Appointment email sent to ${toEmail}. MessageID: ${info.messageId}`);
+    return true;
+  } catch (err: any) {
+    logger.error(`⚠️ Failed to send appointment email to ${toEmail}: ${err?.message || err}`);
+    return false;
+  }
+};
+
+/**
+ * Sends an EHR record-added notification email to a patient.
+ */
+export const sendEhrRecordAddedEmail = async (
+  toEmail: string,
+  patientName: string,
+  doctorName: string,
+  diagnosis: string
+): Promise<boolean> => {
+  const bodyHtml = `
+    <p style="font-size: 14px; color: #475569; line-height: 1.5;">
+      Dr. <strong>${doctorName}</strong> has added a new medical record to your Electronic Health Record (EHR).
+    </p>
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin: 20px 0;">
+      <div style="font-size: 12px; color: #166534; font-weight: 700; text-transform: uppercase;">Diagnosis / Notes</div>
+      <div style="font-size: 15px; font-weight: 600; color: #00685f; margin-top: 8px;">${diagnosis}</div>
+    </div>
+    <p style="font-size: 13px; color: #64748b;">You can review your full medical history on the MediSync portal.</p>
+  `;
+  return sendAppointmentEmail(
+    toEmail,
+    patientName,
+    `[MediSync] New Health Record Added by Dr. ${doctorName}`,
+    bodyHtml
+  );
+};

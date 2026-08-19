@@ -3,6 +3,8 @@ import { query, queryOne } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { v4 as uuidv4 } from 'uuid';
+import { sendNotification } from '../services/notification.service';
+import { sendAppointmentEmail } from '../services/email.service';
 
 export const getDoctors = async (req: AuthRequest, res: Response): Promise<void> => {
   const { city, designation, area, date, search, minFee, maxFee, page = '1', limit = '12' } = req.query;
@@ -227,6 +229,13 @@ export const bookAppointment = async (req: AuthRequest, res: Response): Promise<
     formattedStart, formattedEnd, locationName, address, reason || '', userRole
   ]);
 
+  // Send notification to doctor
+  sendNotification(doctorId, {
+    type: 'APPOINTMENT_REQUEST',
+    title: 'New Appointment Request',
+    message: `You have a new appointment request on ${appointmentDate} at ${formattedStart}`
+  });
+
   res.status(201).json({ 
     success: true, 
     message: 'Appointment booked successfully', 
@@ -289,7 +298,7 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
   const validStatuses = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'];
   if (!validStatuses.includes(status)) throw new AppError('Invalid status', 400);
 
-  const appt = await queryOne(`SELECT patient_id, doctor_id FROM appointments WHERE appointment_id = $1`, [appointmentId]);
+  const appt = await queryOne<{patient_id: string, doctor_id: string}>(`SELECT patient_id, doctor_id FROM appointments WHERE appointment_id = $1`, [appointmentId]);
   if (!appt) throw new AppError('Appointment not found', 404);
 
   if (role === 'PATIENT' && appt.patient_id !== userId) throw new AppError('Unauthorized', 403);
@@ -310,6 +319,23 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response): 
   params.push(appointmentId);
 
   const [updated] = await query(queryStr, params);
+
+  if (updated) {
+    if (status === 'CONFIRMED' && role === 'DOCTOR') {
+      sendNotification(appt.patient_id, {
+        type: 'APPOINTMENT_CONFIRMED',
+        title: 'Appointment Confirmed',
+        message: 'Your appointment has been confirmed by the doctor'
+      });
+    } else if (status === 'CANCELLED') {
+      const notifyId = role === 'PATIENT' ? appt.doctor_id : appt.patient_id;
+      sendNotification(notifyId, {
+        type: 'APPOINTMENT_CANCELLED',
+        title: 'Appointment Cancelled',
+        message: 'An appointment has been cancelled'
+      });
+    }
+  }
 
   res.json({ success: true, message: 'Appointment status updated', data: updated, timestamp: new Date().toISOString() });
 };
@@ -358,6 +384,12 @@ export const createDoctorAppointment = async (req: AuthRequest, res: Response): 
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMED', 'DOCTOR')
     RETURNING appointment_id AS "appointmentId", status
   `, [uuidv4(), actualPatientId, doctorId, slotId || null, appointmentDate, startTime, endTime, locationName, address, reason, notes]);
+
+  sendNotification(actualPatientId, {
+    type: 'APPOINTMENT_CONFIRMED',
+    title: 'Appointment Confirmed',
+    message: `Your appointment is confirmed for ${appointmentDate} at ${startTime}`
+  });
 
   res.status(201).json({ success: true, message: 'Appointment created successfully', data: appointment, timestamp: new Date().toISOString() });
 };

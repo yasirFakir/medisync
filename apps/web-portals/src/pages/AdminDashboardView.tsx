@@ -31,16 +31,8 @@ export const AdminDashboardView: React.FC<{ user: any; navigate: ReturnType<type
     fetchStats();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-20">
-        <Spinner size={32} />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-10">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-10 animate-fade-in">
       {/* ── Admin Header Banner ────────────────────────────────────────────── */}
       <div className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -55,12 +47,12 @@ export const AdminDashboardView: React.FC<{ user: any; navigate: ReturnType<type
           </p>
         </div>
         <div className="flex items-center gap-3">
-           <button
-             onClick={() => navigate('/pharmacies')}
-             className="bg-white text-[#8b5cf6] font-bold text-xs py-2.5 px-4 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
-           >
-             <AlertTriangle size={15} /> Pending Verifications ({stats?.unverifiedPharmacies || 0})
-           </button>
+          <button
+            onClick={() => navigate('/pharmacies')}
+            className="bg-white text-[#8b5cf6] font-bold text-xs py-2.5 px-4 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
+          >
+            <AlertTriangle size={15} /> Pending Verifications ({loading ? '...' : (stats?.unverifiedPharmacies || 0)})
+          </button>
         </div>
       </div>
 

@@ -22,10 +22,13 @@ import {
 import { useAuthStore } from '../store/authStore';
 
 import { ErrorBoundary } from './ErrorBoundary';
+import { useSSENotifications } from '../hooks/useSSENotifications';
+import { NotificationBell } from './NotificationBell';
 
 export const PortalLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const location = useLocation();
+  useSSENotifications();
 
   const getNavItems = () => {
     if (!user) return [];
@@ -150,9 +153,10 @@ export const PortalLayout: React.FC = () => {
           title={meta.title}
           subtitle={meta.subtitle}
           user={user}
+          notificationBell={<NotificationBell />}
         />
-        <main style={{ flex: 1, padding: '28px', overflowY: 'auto' }}>
-          <ErrorBoundary key={location.pathname}>
+        <main style={{ flex: 1, padding: '28px', overflowY: 'auto' }} className="animate-fade-in">
+          <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
         </main>

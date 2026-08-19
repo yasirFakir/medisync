@@ -11,7 +11,7 @@ interface NavItem {
 
 interface SidebarProps {
   navItems: NavItem[];
-  user: { fullName: string; email: string; role: string } | null;
+  user: { fullName: string; email: string; role: string; avatarUrl?: string | null } | null;
   onLogout: () => void;
   logo?: React.ReactNode;
   accentColor?: string;
@@ -61,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ navItems, user, onLogout }) =>
         {user && (
           <div className="flex items-center justify-between pt-1 w-full gap-2 overflow-hidden">
             <div className="flex items-center space-x-2 min-w-0 flex-1 overflow-hidden">
-              <Avatar name={user.fullName} size={30} />
+              <Avatar name={user.fullName} size={30} src={user.avatarUrl || undefined} />
               <div className="min-w-0 flex-1 overflow-hidden leading-tight">
                 <p className="text-[12px] font-semibold text-[#111c2d] truncate max-w-full" title={user.fullName}>
                   {user.fullName}

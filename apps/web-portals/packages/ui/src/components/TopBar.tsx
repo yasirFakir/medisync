@@ -1,17 +1,18 @@
 import React from 'react';
-import { Bell, Search, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Avatar } from './Avatar';
 
 interface TopBarProps {
   title?: string;
   subtitle?: string;
-  user?: { fullName: string; role: string } | null;
+  user?: { fullName: string; role: string; avatarUrl?: string | null } | null;
   actions?: React.ReactNode;
   showSearch?: boolean;
   onSearch?: (query: string) => void;
+  notificationBell?: React.ReactNode;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ user, actions, onSearch }) => (
+export const TopBar: React.FC<TopBarProps> = ({ user, actions, onSearch, notificationBell }) => (
   <header className="flex justify-between items-center w-full px-6 lg:px-12 h-16 bg-[#f9f9ff] border-b border-[#bcc9c6]/30 sticky top-0 z-10 font-sans">
     {/* Left: Mobile Title or Search bar */}
     <div className="flex items-center gap-4">
@@ -28,22 +29,19 @@ export const TopBar: React.FC<TopBarProps> = ({ user, actions, onSearch }) => (
       </div>
     </div>
 
-    {/* Right: Notifications, Settings, Profile */}
-    <div className="flex items-center gap-4 pr-4">
+    {/* Right: Notifications, Profile */}
+    <div className="flex items-center gap-3 pr-2">
       {actions}
-      <button className="text-[#3d4947] hover:text-[#00685f] transition-all relative cursor-pointer p-1.5 rounded-full hover:bg-gray-100">
-        <span className="material-symbols-outlined text-[24px]">notifications</span>
-        <span className="absolute top-1 right-1 w-2 h-2 bg-[#ba1a1a] rounded-full"></span>
-      </button>
-
-      <button className="text-[#3d4947] hover:text-[#00685f] transition-all cursor-pointer p-1.5 rounded-full hover:bg-gray-100">
-        <span className="material-symbols-outlined text-[24px]">settings</span>
-      </button>
+      {notificationBell}
 
       {user && (
-        <div className="w-8 h-8 rounded-full overflow-hidden border border-[#bcc9c6]/30 ml-2">
-          <Avatar name={user.fullName} size={32} />
-        </div>
+        <Link
+          to="/profile"
+          className="w-9 h-9 rounded-full overflow-hidden border border-[#bcc9c6]/40 hover:ring-2 hover:ring-[#00685f]/50 transition-all flex items-center justify-center ml-1"
+          title={`${user.fullName} (${user.role}) - View Profile`}
+        >
+          <Avatar name={user.fullName} size={36} src={user.avatarUrl || undefined} />
+        </Link>
       )}
     </div>
   </header>

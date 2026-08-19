@@ -1,12 +1,34 @@
 import { create } from 'zustand';
 import { setAuthToken } from '../../packages/ui/src/lib/apiClient';
 
-interface User {
+export interface User {
   id: string;
   fullName: string;
   email: string;
   role: 'PATIENT' | 'DOCTOR' | 'PHARMACY' | 'ADMIN';
   phoneNumber?: string | null;
+  avatarUrl?: string | null;
+  address?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  bloodGroup?: string | null;
+  emergencyContact?: string | null;
+  // Doctor profile fields
+  designation?: string | null;
+  specialty?: string | null;
+  degrees?: string | null;
+  clinicLocation?: string | null;
+  area?: string | null;
+  city?: string | null;
+  experienceYears?: number | null;
+  consultationFee?: number | null;
+  bio?: string | null;
+  // Pharmacy profile fields
+  storeName?: string | null;
+  licenseNumber?: string | null;
+  streetAddress?: string | null;
+  pharmacyCity?: string | null;
+  isVerified?: boolean;
 }
 
 interface AuthStore {
