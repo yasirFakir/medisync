@@ -34,14 +34,23 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- ─── Master Drug Catalog ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS master_pharmacy (
-  drug_id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  brand_name        VARCHAR(255) NOT NULL,
-  salt_composition  VARCHAR(255) NOT NULL,
-  strength          VARCHAR(50) NOT NULL,
-  estimated_price   NUMERIC(10, 2) NOT NULL,
-  is_generic        BOOLEAN DEFAULT false,
-  trust_rating      NUMERIC(3, 2) DEFAULT 5.00,
-  created_at        TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  drug_id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  brand_name            VARCHAR(255) NOT NULL,
+  salt_composition      VARCHAR(255) NOT NULL,
+  strength              VARCHAR(50) NOT NULL,
+  dosage_form           VARCHAR(100),
+  manufacturer          VARCHAR(255),
+  uses                  TEXT,
+  side_effects          TEXT,
+  contraindications     TEXT,
+  drug_interactions     TEXT,
+  storage_instructions  TEXT,
+  prescription_required BOOLEAN NOT NULL DEFAULT false,
+  estimated_price       NUMERIC(10, 2) NOT NULL,
+  is_generic            BOOLEAN DEFAULT false,
+  trust_rating          NUMERIC(3, 2) DEFAULT 5.00,
+  created_at            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at            TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_master_pharmacy_salt ON master_pharmacy (LOWER(salt_composition));
