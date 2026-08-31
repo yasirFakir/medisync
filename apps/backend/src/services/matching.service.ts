@@ -122,7 +122,10 @@ export class MedicineMatchingService {
   /**
    * Main matching function: matches an OCR extracted medicine record against master_pharmacy
    */
-  public static async matchMedicine(input: ExtractedMedicineInput): Promise<ValidatedMedicineResult> {
+  public static async matchMedicine(
+    input: ExtractedMedicineInput,
+    diagnosisContext: string = ''
+  ): Promise<ValidatedMedicineResult> {
     const rawBrand   = (input.brandName || input.rawText || '').trim();
     const cleanBrand = cleanBrandForMatching(rawBrand);          // strip OCR noise before DB lookup
     const rawGeneric = (input.genericName || '').trim();
@@ -183,57 +186,25 @@ export class MedicineMatchingService {
       }
     }
 
-    // 3. PostgreSQL Trigram / Fuzzy Match on Brand Name (handles OCR typos like Aztox -> Aztor, Vastaxel -> Vastarel)
-    // Use cleanBrand for fuzzy search so prefix noise ("1. Tab.") doesn't corrupt the LIKE queries
+    // 3. PostgreSQL Trigram Similarity Search on Brand Name (handles OCR typos directly in DB)
     const fuzzyBrand = cleanBrand || rawBrand;
     if (fuzzyBrand.length >= 2) {
-      const firstWord = fuzzyBrand.split(/\s+/)[0];
-      const p3 = firstWord.length >= 3 ? `${firstWord.substring(0, 3).toLowerCase()}%` : `${firstWord.toLowerCase()}%`;
-      const p2 = `${firstWord.substring(0, 2).toLowerCase()}%`;
-
-      // Query candidate drugs by substring OR 3-letter/2-letter prefix
-      let fuzzyBrandMatches = await query<MatchedDrug>(
-        `SELECT DISTINCT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
-                strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
+      const trigramBrandMatches = await query<MatchedDrug & { sm: number }>(
+        `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
+                strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice",
+                similarity(brand_name, $1) AS sm
          FROM master_pharmacy
-         WHERE LOWER(brand_name) LIKE LOWER($1)
+         WHERE similarity(brand_name, $1) >= 0.35
             OR LOWER(brand_name) LIKE LOWER($2)
-            OR LOWER(brand_name) LIKE LOWER($3)
-            OR LOWER(brand_name) LIKE LOWER($4)
-         LIMIT 200`,
-        [`%${fuzzyBrand}%`, `%${firstWord}%`, p3, p2]
+         ORDER BY sm DESC
+         LIMIT 10`,
+        [fuzzyBrand, `${fuzzyBrand}%`]
       );
 
-      // If no prefix match found, pull all master drugs to score Levenshtein similarity
-      if (fuzzyBrandMatches.length === 0) {
-        fuzzyBrandMatches = await query<MatchedDrug>(
-          `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
-                  strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
-           FROM master_pharmacy
-           LIMIT 500`
-        );
-      }
-
-      if (fuzzyBrandMatches.length > 0) {
-        let bestMatch: MatchedDrug | null = null;
-        let bestScore = 0;
-        const alts: MatchedDrug[] = [];
-
-        for (const item of fuzzyBrandMatches) {
-          const score = Math.max(
-            similarityScore(fuzzyBrand, item.brandName),
-            similarityScore(firstWord, item.brandName)
-          );
-          if (score > bestScore) {
-            if (bestMatch) alts.push(bestMatch);
-            bestMatch = item;
-            bestScore = score;
-          } else if (score >= 0.4) {
-            alts.push(item);
-          }
-        }
-
-        if (bestMatch && bestScore >= 0.50) {
+      if (trigramBrandMatches.length > 0) {
+        const bestMatch = trigramBrandMatches[0];
+        const bestScore = Number(bestMatch.sm) || similarityScore(fuzzyBrand, bestMatch.brandName);
+        if (bestScore >= 0.40) {
           return {
             input,
             matched: true,
@@ -242,61 +213,20 @@ export class MedicineMatchingService {
             matchedDrug: bestMatch,
             normalizedStrength: normStrength,
             strengthVerified,
-            alternatives: alts.slice(0, 4),
+            alternatives: trigramBrandMatches.slice(1, 5),
           };
         }
       }
     }
 
-    // 4. PostgreSQL Trigram / Partial Fuzzy Match on Generic Name
-    if (rawGeneric.length >= 3) {
-      const firstGenericWord = rawGeneric.split(/\s+/)[0];
-      const fuzzyGenericMatches = await query<MatchedDrug>(
-        `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
-                strength, dosage_form AS "dosageForm", manufacturer, estimated_price AS "estimatedPrice"
-         FROM master_pharmacy
-         WHERE LOWER(salt_composition) LIKE LOWER($1) OR LOWER(salt_composition) LIKE LOWER($2)
-         LIMIT 30`,
-        [`%${rawGeneric}%`, `%${firstGenericWord}%`]
+    // 4. Google Web Search & Pharmaceutical Grounding Pipeline (queries Google / Web knowledge for OCR correction)
+    if (rawBrand.length >= 2) {
+      const suggestedBrand = await WebSearchService.suggestCorrectDrugName(
+        rawBrand,
+        'Tab',
+        input.dosage || input.strength,
+        diagnosisContext
       );
-
-      if (fuzzyGenericMatches.length > 0) {
-        let bestMatch: MatchedDrug | null = null;
-        let bestScore = 0;
-        const alts: MatchedDrug[] = [];
-
-        for (const item of fuzzyGenericMatches) {
-          const score = Math.max(
-            similarityScore(rawGeneric, item.saltComposition),
-            similarityScore(firstGenericWord, item.saltComposition)
-          );
-          if (score > bestScore) {
-            if (bestMatch) alts.push(bestMatch);
-            bestMatch = item;
-            bestScore = score;
-          } else {
-            alts.push(item);
-          }
-        }
-
-        if (bestMatch && bestScore >= 0.4) {
-          return {
-            input,
-            matched: true,
-            matchType: 'FUZZY_GENERIC',
-            confidence: Math.round(bestScore * 85) / 100,
-            matchedDrug: bestMatch,
-            normalizedStrength: normStrength,
-            strengthVerified,
-            alternatives: alts.slice(0, 4),
-          };
-        }
-      }
-    }
-
-    // 4.5. Web / Google Search Grounding Drug Name Correction Pipeline
-    if (rawBrand.length >= 3) {
-      const suggestedBrand = await WebSearchService.suggestCorrectDrugName(rawBrand, 'Tab', input.dosage || input.strength);
       if (suggestedBrand) {
         const webMatches = await query<MatchedDrug>(
           `SELECT drug_id AS "drugId", brand_name AS "brandName", salt_composition AS "saltComposition",
@@ -344,7 +274,7 @@ export class MedicineMatchingService {
     let totalConfidenceSum = 0;
 
     for (const medInput of medicinesInput) {
-      const res = await MedicineMatchingService.matchMedicine(medInput);
+      const res = await MedicineMatchingService.matchMedicine(medInput, diagnosisText);
       results.push(res);
       if (res.matched) matchedCount++;
       totalConfidenceSum += res.confidence;

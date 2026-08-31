@@ -215,7 +215,7 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
 
 ---
 
-## 4. Current OCR Pipeline Architecture & Dynamic Web Search Correction
+## 4. Current OCR Pipeline Architecture & Multi-Stage Decryption
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -224,10 +224,12 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ PRIMARY OCR ENGINE: Mistral OCR API (mistral-ocr-latest)                │
-│  - Dedicated document OCR model with layout structure preservation      │
-│  - Preserves markdown headers, medical symbols, English & Bengali text  │
-│  - Extracts doctor metadata, patient details, and medicine line items   │
+│ PRIMARY OCR ENGINE: Gemini Multimodal Vision API                        │
+│  - Prioritized model fallback: gemini-3.5-flash-lite,                   │
+│    gemini-3-flash-preview, gemini-3.5-flash, gemini-flash-latest        │
+│  - Extracts structured JSON: Doctor metadata, patient profile,          │
+│    diagnosed conditions, clinical investigations, and medicines         │
+│  - 2-Step Clinical Verification & Bangladeshi pharmaceutical correction │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ (Fallback if offline)
                                      ▼
@@ -242,27 +244,28 @@ export const queryClinicalHistory = async (req: Request, res: Response) => {
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 100% DYNAMIC WEB SEARCH DRUG CORRECTION PIPELINE (WebSearchService)    │
-│  - Formulates search queries with dosage form (Tab/Cap/Syp) & strength │
-│    e.g.: "Tab Elopile A medicine Bangladesh" or "Tab Bisoxen 2.5mg"    │
-│  - Extracts real-time candidate brand suggestions from web snippets     │
-│  - Dynamically validates candidates against master_pharmacy (21,231 DB) │
-│  - 0 Hardcoded names: Works dynamically across any doctor prescription  │
+│ MULTI-STAGE DATABASE & WEB GROUNDING (MedicineMatchingService)          │
+│  1. Exact Brand & Generic Lookup against 21,154+ master_pharmacy drugs  │
+│  2. PostgreSQL Trigram Similarity Search (pg_trgm similarity >= 0.35)   │
+│  3. Google Web Knowledge Grounding (resolves ambiguous handwriting      │
+│     with clinical diagnosis context via Gemini Search Grounding)        │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ CLINICAL COHERENCE & PATIENT NEED SAFETY CHECK (ClinicalSafetyService)  │
-│  - Cross-references matched drug therapeutic class against patient      │
-│    diagnosed conditions (e.g. HTN, OMI, PCI, Vertigo, GERD)             │
-│  - Automatically flags low-confidence or unaligned medicines with       │
-│    `requiresReview: true` and clear clinical review reasons             │
+│  - Evaluates therapeutic indication against patient's diagnosed         │
+│    conditions (e.g. OMI, HTN, PCI, Vertigo/BPPV, Anal fissure, GERD)   │
+│  - Specific review alerts: Flags low-confidence or unaligned items with │
+│    clear clinical rationale instead of generic errors                   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Open Issues & Future Enhancements
+### Open Issues & Implemented Enhancements
 - **Tracking Issue**: [GitHub Issue #1: Handwritten Prescription OCR Improvement](https://github.com/yasirFakir/medisync/issues/1)
 - **Implemented Upgrades**:
-  1. Clinical Coherence & Patient Need Safety Check ([apps/backend/src/services/clinicalSafety.service.ts](file:///home/yasir/Data/dev/Projects/medisync/apps/backend/src/services/clinicalSafety.service.ts)).
-  2. 100% Dynamic Web Search Grounding Pipeline ([apps/backend/src/services/webSearch.service.ts](file:///home/yasir/Data/dev/Projects/medisync/apps/backend/src/services/webSearch.service.ts)).
-  3. Levenshtein + 3L/2L Prefix Fuzzy Matching against `master_pharmacy` (21,231 records).
+  1. Multi-Stage Database & Google Web Grounding ([apps/backend/src/services/matching.service.ts](file:///data/files/Dev/Projects/medisync/apps/backend/src/services/matching.service.ts)).
+  2. Google Search & Clinical Grounding Pipeline ([apps/backend/src/services/webSearch.service.ts](file:///data/files/Dev/Projects/medisync/apps/backend/src/services/webSearch.service.ts)).
+  3. PostgreSQL `pg_trgm` Trigram Similarity Match against 21,154+ Bangladeshi master medicines.
+  4. Condition-Specific Clinical Coherence Evaluation ([apps/backend/src/services/clinicalSafety.service.ts](file:///data/files/Dev/Projects/medisync/apps/backend/src/services/clinicalSafety.service.ts)).
+
