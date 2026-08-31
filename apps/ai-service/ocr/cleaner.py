@@ -45,7 +45,7 @@ _DOSAGE_FIXES = [
     (r'\b(?:I\+1\+1|1\+1\+1\-)\b',                                     '1+1+1'),
     (r'\b1/2\s*\+\s*0\s*\+\s*1/2\b',                                  '1/2+0+1/2'),
     # Common OCR garbled Bangladeshi prescription duration markers (b/br/bu -> 6 months, g -> 14 days, s -> 7 days)
-    (r'(?<=1\+0\+1)\s*[\-\s]*[b|br|bu|zrkmsy\-b]\b',   ' 1+0+1 - 6 months'),
+ (r'(?<=1\+0\+1)\s*[\-\s]*[b|br|bu|zrkmsy\-b]\b',   ' 1+0+1 - 6 months'),
     (r'(?<=0\+0\+1)\s*[\-\s]*[b|br|bu]\b',             ' 0+0+1 - 6 months'),
     (r'(?<=1\+0\+0)\s*[\-\s]*[b|br|bu]\b',             ' 1+0+0 - 6 months'),
     (r'(?<=2\+0\+0)\s*[\-\s]*[b|br|bu]\b',             ' 2+0+0 - 6 months'),

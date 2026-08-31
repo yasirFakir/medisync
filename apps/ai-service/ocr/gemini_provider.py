@@ -35,7 +35,7 @@ class GeminiProvider:
                 # Fallback to legacy google-generativeai SDK
                 import google.generativeai as legacy_genai  # type: ignore
                 legacy_genai.configure(api_key=self.api_key)
-                self.client = legacy_genai.GenerativeModel('gemini-1.5-flash')
+                self.client = legacy_genai.GenerativeModel('gemini-2.5-flash')
                 logger.info("Initialized legacy google.generativeai client successfully.")
             except ImportError:
                 logger.warning("Neither google-genai nor google-generativeai is installed.")
@@ -77,7 +77,7 @@ class GeminiProvider:
 
         # 2. Secondary Provider: Gemini SDK
         if self.client and hasattr(self.client, 'models'):
-            for model_name in ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest']:
+            for model_name in ['gemini-2.5-flash', 'gemini-2.0-flash-001', 'gemini-1.5-flash-latest', 'gemini-2.5-pro', 'gemini-flash-latest']:
                 try:
                     response = self.client.models.generate_content(
                         model=model_name,
@@ -91,7 +91,7 @@ class GeminiProvider:
         # 3. Tertiary Provider: Gemini REST HTTP
         try:
             import httpx
-            for model_name in ['gemini-1.5-flash', 'gemini-2.0-flash']:
+            for model_name in ['gemini-2.5-flash', 'gemini-2.0-flash-001', 'gemini-1.5-flash-latest', 'gemini-2.5-pro', 'gemini-flash-latest']:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
                 payload = {
                     "contents": [{
