@@ -76,6 +76,19 @@ interface DoctorAppointment {
   patientId?: string;
 }
 
+interface PatientAppointment {
+  appointmentId: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  locationName: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  reason?: string;
+  doctorName: string;
+  designation?: string;
+  specialization?: string;
+}
+
 interface PatientSummary {
   id: string;
   fullName: string;
@@ -93,10 +106,8 @@ export const DashboardPage: React.FC = () => {
   // Dynamic Data States for Patient Role
   const [alerts, setAlerts] = useState<MedicationAlert[]>([]);
   const [doseLogs, setDoseLogs] = useState<DoseLog[]>([]);
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [patientAppts, setPatientAppts] = useState<PatientAppointment[]>([]);
   const [loadingPatientData, setLoadingPatientData] = useState(true);
-  const [otp, setOtp] = useState<string | null>(null);
-  const [loadingOtp, setLoadingOtp] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   // Dynamic Data States for Doctor Role
@@ -114,14 +125,14 @@ export const DashboardPage: React.FC = () => {
   const fetchPatientData = useCallback(async () => {
     setLoadingPatientData(true);
     try {
-      const [alertsRes, logsRes, rxRes] = await Promise.all([
+      const [alertsRes, logsRes, apptsRes] = await Promise.all([
         apiClient.get('/alerts').catch(() => ({ data: { data: [] } })),
         apiClient.get('/alerts/dose-logs?days=1').catch(() => ({ data: { data: [] } })),
-        apiClient.get('/prescriptions').catch(() => ({ data: { data: [] } })),
+        apiClient.get('/appointments/my').catch(() => ({ data: { data: [] } })),
       ]);
       setAlerts(Array.isArray(alertsRes.data?.data) ? alertsRes.data.data : []);
       setDoseLogs(Array.isArray(logsRes.data?.data) ? logsRes.data.data : []);
-      setPrescriptions(Array.isArray(rxRes.data?.data) ? rxRes.data.data : []);
+      setPatientAppts(Array.isArray(apptsRes.data?.data) ? apptsRes.data.data : []);
     } catch (err) {
       console.error('Failed to load patient dashboard data', err);
     } finally {
@@ -153,19 +164,6 @@ export const DashboardPage: React.FC = () => {
       fetchPatientData();
     }
   }, [user?.role, fetchDoctorData, fetchPatientData]);
-
-  // Generate Patient EHR OTP
-  const generateOtp = async () => {
-    setLoadingOtp(true);
-    try {
-      const res = await apiClient.post('/ehr/generate-otp');
-      setOtp(res.data?.data?.otp || '123456');
-    } catch (err) {
-      console.error('Failed to generate EHR access OTP', err);
-    } finally {
-      setLoadingOtp(false);
-    }
-  };
 
   // Mark patient dose taken
   const handleMarkTaken = async (alertId: string, slotName?: string) => {
@@ -302,8 +300,30 @@ export const DashboardPage: React.FC = () => {
     return candidates[0];
   };
 
+  const getRelativeDateLabel = (dateStr: string) => {
+    const t = todayStr();
+    if (dateStr === t) return 'Today';
+    const todayDate = new Date(t);
+    const targetDate = new Date(dateStr);
+    const diffDays = Math.round((targetDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays > 1) return `In ${diffDays} days`;
+    return dateStr;
+  };
+
   const nextUpcoming = getNextUpcomingAlert();
-  const latestPrescription = prescriptions.length > 0 ? prescriptions[0] : null;
+
+  const upcomingPatientAppts = patientAppts.filter(a =>
+    (a.status === 'CONFIRMED' || a.status === 'PENDING') &&
+    a.appointmentDate >= today
+  );
+  upcomingPatientAppts.sort((a, b) => {
+    if (a.appointmentDate !== b.appointmentDate) {
+      return a.appointmentDate.localeCompare(b.appointmentDate);
+    }
+    return a.startTime.localeCompare(b.startTime);
+  });
+  const nextPatientAppt = upcomingPatientAppts.length > 0 ? upcomingPatientAppts[0] : null;
 
   // ══════════════════════════════════════════════════════════════════════════
   // ── ADMIN DASHBOARD VIEW ──────────────────────────────────────────────────
@@ -892,87 +912,106 @@ export const DashboardPage: React.FC = () => {
             )}
           </div>
 
-          {/* Active Prescription Summary Card */}
+          {/* Upcoming Follow-up & Doctor Appointment Card */}
           <div className="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/30 shadow-sm space-y-4">
             <div className="flex justify-between items-start flex-wrap gap-2">
               <div>
                 <h3 className="font-headline-md text-lg font-bold text-on-surface flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Active Prescription
+                  <CalendarCheck className="w-5 h-5 text-primary" />
+                  Upcoming Follow-up & Consultation
                 </h3>
                 <p className="text-xs text-on-surface-variant mt-0.5">
-                  {latestPrescription 
-                    ? `Added ${new Date(latestPrescription.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`
-                    : 'No active prescriptions scanned'}
+                  Scheduled doctor visits, clinic reviews, and follow-ups
                 </p>
               </div>
 
-              {latestPrescription && (
-                <Badge variant="green" icon={<ShieldCheck size={12} />}>
-                  Analysis Verified
+              {nextPatientAppt && (
+                <Badge
+                  variant={nextPatientAppt.status === 'CONFIRMED' ? 'green' : 'yellow'}
+                  icon={nextPatientAppt.status === 'CONFIRMED' ? <CheckCircle size={12} /> : <Clock size={12} />}
+                >
+                  {nextPatientAppt.status === 'CONFIRMED' ? 'Confirmed Visit' : 'Pending Confirmation'}
                 </Badge>
               )}
             </div>
 
-            {latestPrescription ? (
-              <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-black text-base flex items-center justify-center border border-primary/20 flex-shrink-0">
-                    Dr.
+            {nextPatientAppt ? (
+              <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-black text-base flex items-center justify-center border border-primary/20 flex-shrink-0">
+                      <Stethoscope size={22} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-on-surface">
+                        Dr. {nextPatientAppt.doctorName}
+                      </h4>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        {nextPatientAppt.designation || 'General Physician'}
+                        {nextPatientAppt.specialization ? ` • ${nextPatientAppt.specialization}` : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-on-surface">
-                      Dr. {latestPrescription.doctorName || latestPrescription.ocrResult?.doctor_name?.value || 'Prescriber'}
-                    </h4>
-                    <p className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
-                      <FileText size={12} className="text-primary" />
-                      Rx #{latestPrescription.prescriptionId.substring(0, 8)} • Verified Record
-                    </p>
-                  </div>
+
+                  <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full border border-primary/20">
+                    {getRelativeDateLabel(nextPatientAppt.appointmentDate)}
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
-                  <div className="text-left sm:text-right">
-                    <span className="text-xl font-black text-primary">
-                      {latestPrescription.medicines?.length || (latestPrescription.ocrResult?.medicines?.length || 0)}
+                <div className="flex flex-wrap items-center gap-4 text-xs text-on-surface-variant pt-2 border-t border-outline-variant/20">
+                  <span className="flex items-center gap-1.5 font-semibold text-primary">
+                    <Calendar size={14} />
+                    {new Date(nextPatientAppt.appointmentDate).toLocaleDateString(undefined, {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={14} />
+                    {fmt12h(nextPatientAppt.startTime)} – {fmt12h(nextPatientAppt.endTime)}
+                  </span>
+                  {nextPatientAppt.locationName && (
+                    <span className="flex items-center gap-1.5">
+                      <MapPin size={14} />
+                      {nextPatientAppt.locationName}
                     </span>
-                    <div className="text-[10px] font-bold text-outline uppercase tracking-wider">Medicines</div>
-                  </div>
+                  )}
                 </div>
+
+                {nextPatientAppt.reason && (
+                  <p className="text-xs text-on-surface-variant italic bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/20">
+                    "{nextPatientAppt.reason}"
+                  </p>
+                )}
               </div>
             ) : (
-              <div className="text-center py-6 text-xs text-on-surface-variant border border-dashed border-outline-variant/30 rounded-lg">
-                No active prescription found. Scan a prescription to digitize your medicines.
+              <div className="text-center py-6 text-xs text-on-surface-variant border border-dashed border-outline-variant/30 rounded-lg space-y-2">
+                <Calendar className="w-8 h-8 text-primary mx-auto opacity-50" />
+                <div className="font-semibold text-on-surface">No Upcoming Visits Scheduled</div>
+                <p className="text-[11px] max-w-sm mx-auto">
+                  Stay on top of your health by scheduling regular check-ups or follow-up consultations.
+                </p>
               </div>
             )}
 
             <div className="pt-2 flex justify-between items-center text-xs flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-on-surface flex items-center gap-1">
-                  <Key size={14} className="text-primary" /> EHR OTP:
-                </span>
-                {otp ? (
-                  <span className="font-mono font-black text-sm text-primary tracking-widest bg-primary/10 px-2 py-0.5 rounded">
-                    {otp}
-                  </span>
-                ) : (
-                  <button
-                    onClick={generateOtp}
-                    disabled={loadingOtp}
-                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                  >
-                    <Key size={12} /> {loadingOtp ? 'Generating...' : 'Get Access OTP'}
-                  </button>
-                )}
-              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => navigate('/appointments?tab=my')}
+                icon={<Calendar size={14} />}
+              >
+                View All Appointments
+              </Button>
 
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={() => navigate('/prescriptions')}
-                icon={<ChevronRight size={14} />}
+                onClick={() => navigate('/appointments')}
+                icon={<Plus size={14} />}
               >
-                View Details
+                Book Consultation
               </Button>
             </div>
           </div>

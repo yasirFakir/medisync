@@ -17,6 +17,7 @@ export const TriagePage: React.FC = () => {
   const [urgency, setUrgency] = useState<string | null>(null);
   const [historySessions, setHistorySessions] = useState<any[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionTitle, setActiveSessionTitle] = useState<string | null>(null);
   const [followUpText, setFollowUpText] = useState('');
 
   const symptomPresets = ['Fever', 'Headache', 'Cough', 'Sore Throat', 'Stomach Pain', 'Shortness of breath', 'Nausea'];
@@ -39,6 +40,7 @@ export const TriagePage: React.FC = () => {
   const loadPastSession = (session: any) => {
     setActiveSessionId(session.sessionId);
     setUrgency(session.urgencyLevel);
+    setActiveSessionTitle(session.title || (Array.isArray(session.symptoms) ? session.symptoms.join(', ') : session.symptoms) || 'Health Consultation');
 
     let parsedMessages: ChatMessage[] = [];
     try {
@@ -67,6 +69,7 @@ export const TriagePage: React.FC = () => {
 
   const handleStartNewChat = () => {
     setActiveSessionId(null);
+    setActiveSessionTitle(null);
     setMessages([]);
     setSymptoms([]);
     setUrgency(null);
@@ -98,7 +101,7 @@ export const TriagePage: React.FC = () => {
     setLoading(true);
     setActiveSessionId(null);
 
-    const userQuery = `I am experiencing: ${symptoms.join(', ')}. What medication or advice do you recommend?`;
+    const userQuery = `I am experiencing: ${symptoms.join(', ')}. What guidance and care steps do you recommend?`;
     const initialMessages: ChatMessage[] = [{ sender: 'user', text: userQuery, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }];
     setMessages(initialMessages);
 
@@ -108,8 +111,9 @@ export const TriagePage: React.FC = () => {
         additionalNotes: 'Triage session initiated from web portal.'
       });
       
-      const { sessionId, response, urgencyLevel } = res.data.data || res.data;
+      const { sessionId, title, response, urgencyLevel } = res.data.data || res.data;
       if (sessionId) setActiveSessionId(sessionId);
+      if (title) setActiveSessionTitle(title);
 
       setMessages(prev => [...prev, { sender: 'ai', text: response, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       setUrgency(urgencyLevel);
@@ -146,8 +150,9 @@ export const TriagePage: React.FC = () => {
         conversationHistory: historyPayload
       });
 
-      const { sessionId, response, urgencyLevel } = res.data.data || res.data;
+      const { sessionId, title, response, urgencyLevel } = res.data.data || res.data;
       if (sessionId) setActiveSessionId(sessionId);
+      if (title && !activeSessionTitle) setActiveSessionTitle(title);
 
       setMessages(prev => [...prev, { sender: 'ai', text: response, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       if (urgencyLevel) setUrgency(urgencyLevel);
@@ -183,6 +188,7 @@ export const TriagePage: React.FC = () => {
             historySessions.map((session, idx) => {
               const isActive = activeSessionId === session.sessionId;
               const symText = Array.isArray(session.symptoms) ? session.symptoms.join(', ') : session.symptoms || 'General Consultation';
+              const chatTitle = session.title || symText;
               return (
                 <div
                   key={idx}
@@ -194,7 +200,7 @@ export const TriagePage: React.FC = () => {
                   }`}
                 >
                   <div className="min-w-0 pr-2">
-                    <p className="truncate font-semibold">{symText}</p>
+                    <p className="truncate font-semibold">{chatTitle}</p>
                     <p className="text-[10px] text-gray-500 mt-0.5">{new Date(session.timestamp).toLocaleDateString()}</p>
                   </div>
                   <button
@@ -220,7 +226,9 @@ export const TriagePage: React.FC = () => {
               <span className="material-symbols-outlined text-xl">smart_toy</span>
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[#111c2d]">MediSync AI Assistant</h2>
+              <h2 className="text-base font-semibold text-[#111c2d]">
+                {activeSessionTitle || 'MediSync AI Assistant'}
+              </h2>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-[#10B981]"></span>
                 <span className="text-xs text-[#3d4947]">Online & Clinically Moderated</span>

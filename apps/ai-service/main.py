@@ -20,6 +20,7 @@ import uuid
 
 from ocr.router import router as ocr_router
 from ocr.gemini_provider import GeminiProvider, MEDICAL_SYSTEM_PROMPT
+from triage_service import generate_triage_response
 
 app = FastAPI(
     title="MediSync AI Service",
@@ -84,47 +85,30 @@ class PrescriptionExplainRequest(BaseModel):
 @app.post("/triage/chat")
 async def triage_chat(request: TriageRequest):
     """
-    AI symptom triage endpoint using Gemini Provider with fallback.
+    AI symptom triage endpoint using multi-LLM Medical Intelligence Engine (Grok / Groq / OpenAI fallback).
     """
     symptom_text = ", ".join(request.symptoms)
     print(f"🤖 [AI-SERVICE] Received POST /triage/chat request for patient: {request.patientId} (Session: {request.sessionId}, Symptoms: {symptom_text})")
 
-    # Format full conversation history if provided
-    history_text = ""
-    if request.conversationHistory and len(request.conversationHistory) > 0:
-        history_lines = [f"{msg.role.upper()}: {msg.content}" for msg in request.conversationHistory]
-        history_text = "\n\nPrevious Conversation History:\n" + "\n".join(history_lines)
+    # Convert conversationHistory models to dicts if present
+    history_dicts = None
+    if request.conversationHistory:
+        history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.conversationHistory]
 
-    prompt = (
-        f"Patient symptoms reported: {symptom_text}.\n"
-        f"Additional notes / latest user query: {request.additionalNotes or 'None'}.\n"
-        f"{history_text}\n\n"
-        "Provide a coherent, direct response taking into account the entire conversation history above. "
-        "Assess urgency (LOW, MEDIUM, HIGH, CRITICAL), explain educational precautions, and recommend next actions."
+    triage_result = await generate_triage_response(
+        symptoms=request.symptoms,
+        additional_notes=request.additionalNotes,
+        conversation_history=history_dicts
     )
-
-    ai_explanation = await gemini_provider.generate_explanation(
-        prompt=prompt,
-        system_instruction=MEDICAL_SYSTEM_PROMPT + "\nAssess urgency level clearly."
-    )
-
-    # Determine urgency keyword
-    urgency = "LOW"
-    upper_resp = ai_explanation.upper()
-    if "CRITICAL" in upper_resp or "EMERGENCY" in upper_resp:
-        urgency = "CRITICAL"
-    elif "HIGH" in upper_resp or "URGENT" in upper_resp:
-        urgency = "HIGH"
-    elif "MEDIUM" in upper_resp or "MODERATE" in upper_resp:
-        urgency = "MEDIUM"
 
     session_id = request.sessionId or str(uuid.uuid4())
 
     return {
         "sessionId": session_id,
-        "urgencyLevel": urgency,
-        "response": ai_explanation,
-        "recommendedAction": "Consult a healthcare provider or clinic for a physical assessment."
+        "title": triage_result.get("title", "Health Consultation"),
+        "urgencyLevel": triage_result.get("urgencyLevel", "LOW"),
+        "response": triage_result.get("response", ""),
+        "recommendedAction": triage_result.get("recommendedAction", "Consult a healthcare provider or clinic for a physical assessment.")
     }
 
 @app.post("/ai/explain-medicine")

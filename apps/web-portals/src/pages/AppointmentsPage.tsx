@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Modal, Button, Badge, Spinner } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
@@ -183,6 +184,7 @@ const DoctorCard: React.FC<{ doctor: Doctor; onViewProfile: (d: Doctor) => void 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export const AppointmentsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
 
@@ -197,7 +199,21 @@ export const AppointmentsPage: React.FC = () => {
 
   const [myAppointments, setMyAppointments] = useState<Appointment[]>([]);
   const [loadingMy, setLoadingMy] = useState(false);
-  const [activeTab, setActiveTab] = useState<'find' | 'my'>('find');
+  const [activeTab, setActiveTab] = useState<'find' | 'my'>(() => {
+    return searchParams.get('tab') === 'my' ? 'my' : 'find';
+  });
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'my' || tab === 'find') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: 'find' | 'my') => {
+    setActiveTab(tab);
+    setSearchParams(tab === 'my' ? { tab: 'my' } : {});
+  };
 
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -351,7 +367,7 @@ export const AppointmentsPage: React.FC = () => {
         <div className="flex gap-1 bg-surface-container-low border border-outline-variant/30 p-1 rounded-xl self-start md:self-auto">
           <button
             type="button"
-            onClick={() => setActiveTab('find')}
+            onClick={() => handleTabChange('find')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'find' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
             }`}
@@ -360,7 +376,7 @@ export const AppointmentsPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('my')}
+            onClick={() => handleTabChange('my')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'my' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
             }`}

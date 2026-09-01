@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS patient_totp_secrets (
 CREATE TABLE IF NOT EXISTS triage_sessions (
   session_id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   patient_id         UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  title              VARCHAR(255),
   symptoms           JSONB NOT NULL,
   urgency_level      urgency_level_enum NOT NULL DEFAULT 'LOW',
   ai_response        TEXT NOT NULL,
