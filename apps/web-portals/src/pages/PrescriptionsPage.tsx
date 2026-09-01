@@ -104,7 +104,8 @@ export const PrescriptionsPage: React.FC = () => {
       }, 600);
     } catch (err: any) {
       clearInterval(progressInterval.current!); setUploadProgress(0);
-      setError(err.response?.data?.message || 'OCR digitization failed. Please verify the image format.');
+      const serverMessage = err.response?.data?.message || err.response?.data?.detail || err.message;
+      setError(serverMessage || 'OCR digitization failed. Please verify the image format.');
       setUploading(false);
     }
     e.target.value = '';

@@ -36,6 +36,8 @@ async def extract_prescription(file: UploadFile = File(...)) -> OCRResult:
     try:
         result = await run_ocr_pipeline(content, content_type, filename)
         return result
+    except HTTPException:
+        raise
     except ImageValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -59,6 +61,8 @@ async def digitize_prescription_legacy(file: UploadFile = File(...)) -> dict:
 
     try:
         result = await run_ocr_pipeline(content, content_type, filename)
+    except HTTPException:
+        raise
     except ImageValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
