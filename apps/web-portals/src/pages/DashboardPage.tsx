@@ -657,24 +657,90 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* EHR Gate Banner */}
-            <div className="bg-gradient-to-br from-[#00685f] to-[#004d46] rounded-2xl p-5 text-white shadow-md space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/90">
-                <ShieldCheck size={16} />
-                <span>Security Access Protocol</span>
-              </div>
-              <h4 className="text-lg font-bold">HIPAA Compliant EHR Access</h4>
-              <p className="text-xs text-white/80 leading-relaxed">
-                Patient health timelines require a 6-digit OTP verification key generated from the patient's active session.
-              </p>
-              <button
-                type="button"
-                onClick={() => setOtpModalOpen(true)}
-                className="w-full bg-white text-[#00685f] font-bold text-xs py-2 px-3 rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <KeyRound size={14} /> Enter Verification Key
-              </button>
-            </div>
+            {/* Option 2: Today's Chamber Queue & Daily Flow */}
+            {(() => {
+              const completedCount = todayAppts.filter(a => a.status === 'COMPLETED').length;
+              const remainingCount = todayAppts.filter(a => a.status === 'CONFIRMED' || a.status === 'PENDING').length;
+              const nextPatient = todayAppts.find(a => a.status === 'CONFIRMED' || a.status === 'PENDING');
+
+              return (
+                <div className="bg-gradient-to-br from-[#00685f] to-[#004d46] rounded-2xl p-5 text-white shadow-md space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-teal-200">
+                      <Clock size={15} />
+                      <span>Today's Chamber Flow</span>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-[11px] bg-white/15 px-2.5 py-0.5 rounded-full font-semibold text-white">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Live Queue
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-bold">Chamber Queue & Consultations</h4>
+                    <p className="text-xs text-white/80 mt-0.5">
+                      Real-time tracking of today's patient queue, scheduled appointments, and session progress.
+                    </p>
+                  </div>
+
+                  {/* Summary Metric Badges */}
+                  <div className="grid grid-cols-3 gap-2 bg-black/15 p-2.5 rounded-xl text-center">
+                    <div>
+                      <div className="text-lg font-black text-white">{todayAppts.length}</div>
+                      <div className="text-[10px] text-teal-100 font-medium">Scheduled</div>
+                    </div>
+                    <div className="border-x border-white/10">
+                      <div className="text-lg font-black text-emerald-300">{completedCount}</div>
+                      <div className="text-[10px] text-teal-100 font-medium">Completed</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-black text-amber-300">{remainingCount}</div>
+                      <div className="text-[10px] text-teal-100 font-medium">Waiting</div>
+                    </div>
+                  </div>
+
+                  {/* Next Up Patient */}
+                  {nextPatient ? (
+                    <div className="bg-white/10 rounded-xl p-3 text-xs space-y-1 border border-white/10">
+                      <div className="text-[10px] font-bold text-teal-200 uppercase tracking-wider">Next in Chamber</div>
+                      <div className="font-bold text-white flex items-center justify-between">
+                        <span>{nextPatient.patientName || 'Scheduled Patient'}</span>
+                        <span className="text-[11px] font-mono bg-white/20 px-1.5 py-0.5 rounded text-teal-100">
+                          {nextPatient.startTime ? String(nextPatient.startTime).substring(0, 5) : 'Next'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/70 truncate">{nextPatient.reason || 'General Consultation'}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white/10 rounded-xl p-2.5 text-center text-xs text-teal-100 italic">
+                      No more waiting patients in today's queue.
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (nextPatient) {
+                        navigate(`/ehr/${nextPatient.patientId}`);
+                      } else {
+                        navigate('/doctor-appointments');
+                      }
+                    }}
+                    className="w-full bg-white text-[#00685f] hover:bg-white/95 font-bold text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    {nextPatient ? (
+                      <>
+                        <Activity size={14} /> Start Next Patient Consultation
+                      </>
+                    ) : (
+                      <>
+                        <Calendar size={14} /> View All Chamber Appointments
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Guidance Tip */}
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 space-y-1.5 shadow-sm">

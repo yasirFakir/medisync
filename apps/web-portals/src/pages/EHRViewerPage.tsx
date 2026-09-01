@@ -283,8 +283,8 @@ export const EHRViewerPage: React.FC = () => {
                 <div style={{ fontFamily: 'monospace', color: 'var(--text-secondary)', wordBreak: 'break-all', fontSize: '0.75rem', marginTop: 2 }}>{patientId}</div>
               </div>
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>HIPAA Record status:</div>
-                <Badge variant="green">Verified Access Active</Badge>
+                <div style={{ color: 'var(--text-muted)' }}>Session Access Status:</div>
+                <Badge variant="green">Verified Patient Session</Badge>
               </div>
               <div>
                 <div style={{ color: 'var(--text-muted)' }}>Prescriptions Recorded:</div>

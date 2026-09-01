@@ -52,6 +52,8 @@ export const ProfilePage: React.FC = () => {
   const [storeName, setStoreName] = useState(user?.storeName || '');
   const [streetAddress, setStreetAddress] = useState(user?.streetAddress || '');
   const [pharmacyCity, setPharmacyCity] = useState(user?.pharmacyCity || '');
+  const [licenseNumber, setLicenseNumber] = useState(user?.licenseNumber || '');
+  const [isVerified, setIsVerified] = useState<boolean>(user?.isVerified ?? false);
 
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -86,6 +88,8 @@ export const ProfilePage: React.FC = () => {
           setStoreName(u.storeName || '');
           setStreetAddress(u.streetAddress || '');
           setPharmacyCity(u.pharmacyCity || '');
+          setLicenseNumber(u.licenseNumber || '');
+          setIsVerified(Boolean(u.isVerified));
 
           if (token) {
             setAuth({ ...user, ...u }, token);
@@ -282,190 +286,62 @@ export const ProfilePage: React.FC = () => {
 
       {/* Main Profile Edit Form */}
       <form onSubmit={handleUpdate} className="space-y-6">
-        {/* Section 1: General Personal Details */}
-        <Card className="p-6 bg-white border border-[#bcc9c6]/30 shadow-sm rounded-2xl">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#bcc9c6]/20">
-            <UserIcon size={20} className="text-[#00685f]" />
-            <h3 className="text-base font-bold text-[#111c2d]">Personal Information</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <Input
-              label="Full Name *"
-              placeholder="e.g. Dr. John Doe / Sarah Connor"
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              required
-            />
-
-            <div>
-              <label className="block text-xs font-semibold text-[#475569] mb-1.5">Registered Email (Read-Only)</label>
-              <input
-                type="email"
-                value={user?.email || ''}
-                disabled
-                className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-[#64748b] cursor-not-allowed"
-              />
-            </div>
-
-            <Input
-              label="Contact Phone Number"
-              placeholder="+880 1700-000000"
-              value={phoneNumber}
-              onChange={e => setPhoneNumber(e.target.value)}
-            />
-
-            <Input
-              label="Residential Address"
-              placeholder="Street Address, City, Postal Code"
-              value={address}
-              onChange={e => setAddress(e.target.value)}
-            />
-
-            <Input
-              type="date"
-              label="Date of Birth"
-              value={dateOfBirth}
-              onChange={e => setDateOfBirth(e.target.value)}
-            />
-
-            <div>
-              <label className="block text-xs font-semibold text-[#475569] mb-1.5">Gender</label>
-              <select
-                value={gender}
-                onChange={e => setGender(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-[#bcc9c6] rounded-xl text-sm text-[#111c2d] focus:outline-none focus:border-[#00685f]"
-              >
-                <option value="">Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-                <option value="Prefer not to say">Prefer not to say</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#475569] mb-1.5">Blood Group</label>
-              <select
-                value={bloodGroup}
-                onChange={e => setBloodGroup(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-[#bcc9c6] rounded-xl text-sm text-[#111c2d] focus:outline-none focus:border-[#00685f]"
-              >
-                <option value="">Select Blood Group</option>
-                <option value="A+">A+</option>
-                <option value="A-">A-</option>
-                <option value="B+">B+</option>
-                <option value="B-">B-</option>
-                <option value="O+">O+</option>
-                <option value="O-">O-</option>
-                <option value="AB+">AB+</option>
-                <option value="AB-">AB-</option>
-              </select>
-            </div>
-
-            <Input
-              label="Emergency Contact (Name & Phone)"
-              placeholder="e.g. Spouse (+88017XXXXXXXX)"
-              value={emergencyContact}
-              onChange={e => setEmergencyContact(e.target.value)}
-            />
-          </div>
-        </Card>
-
-        {/* Section 2: Role-Specific Information (Doctor Profile) */}
-        {user?.role === 'DOCTOR' && (
+        {/* Pharmacy Profile View */}
+        {user?.role === 'PHARMACY' ? (
           <Card className="p-6 bg-white border border-[#bcc9c6]/30 shadow-sm rounded-2xl">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#bcc9c6]/20">
-              <GraduationCap size={20} className="text-[#00685f]" />
-              <h3 className="text-base font-bold text-[#111c2d]">Clinical & Practice Details</h3>
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#bcc9c6]/20">
+              <div className="flex items-center gap-2">
+                <Building size={20} className="text-[#00685f]" />
+                <h3 className="text-base font-bold text-[#111c2d]">Pharmacy Store & Business Details</h3>
+              </div>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${isVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                {isVerified ? '✓ Verified Pharmacy Partner' : 'Verification Pending'}
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input
-                label="Designation / Title"
-                placeholder="e.g. Associate Professor / Senior Consultant"
-                value={designation}
-                onChange={e => setDesignation(e.target.value)}
+                label="Pharmacy / Store Name *"
+                placeholder="e.g. MediCare Pharmacy"
+                value={storeName || fullName}
+                onChange={e => {
+                  setStoreName(e.target.value);
+                  setFullName(e.target.value);
+                }}
+                required
               />
 
-              <Input
-                label="Medical Specialty"
-                placeholder="e.g. Cardiologist, Neurologist, General Medicine"
-                value={specialty}
-                onChange={e => setSpecialty(e.target.value)}
-              />
+              <div>
+                <label className="block text-xs font-semibold text-[#475569] mb-1.5">Drug License Number (Registered)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={licenseNumber || 'LIC-DH-001'}
+                    disabled
+                    className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-mono text-[#64748b] cursor-not-allowed"
+                  />
+                </div>
+              </div>
 
-              <Input
-                label="Academic Degrees & Qualifications"
-                placeholder="e.g. MBBS, FCPS (Medicine), MD (Cardiology)"
-                value={degrees}
-                onChange={e => setDegrees(e.target.value)}
-              />
-
-              <Input
-                label="Years of Clinical Experience"
-                type="number"
-                min="0"
-                placeholder="e.g. 12"
-                value={experienceYears}
-                onChange={e => setExperienceYears(e.target.value)}
-              />
-
-              <Input
-                label="Consultation Fee (BDT)"
-                type="number"
-                min="0"
-                placeholder="e.g. 1000"
-                value={consultationFee}
-                onChange={e => setConsultationFee(e.target.value)}
-              />
-
-              <Input
-                label="Clinic / Chamber Area"
-                placeholder="e.g. Dhanmondi / Gulshan"
-                value={area}
-                onChange={e => setArea(e.target.value)}
-              />
-
-              <Input
-                label="City"
-                placeholder="e.g. Dhaka"
-                value={city}
-                onChange={e => setCity(e.target.value)}
-              />
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-[#475569] mb-1.5">Doctor Bio / Clinical Summary</label>
-                <textarea
-                  rows={3}
-                  placeholder="Share a short bio regarding your clinical focus, chamber timings, and areas of expertise..."
-                  value={bio}
-                  onChange={e => setBio(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-[#bcc9c6] rounded-xl text-sm text-[#111c2d] focus:outline-none focus:border-[#00685f]"
+              <div>
+                <label className="block text-xs font-semibold text-[#475569] mb-1.5">Official Store Email (Read-Only)</label>
+                <input
+                  type="email"
+                  value={user?.email || ''}
+                  disabled
+                  className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-[#64748b] cursor-not-allowed"
                 />
               </div>
-            </div>
-          </Card>
-        )}
 
-        {/* Section 3: Role-Specific Information (Pharmacy Profile) */}
-        {user?.role === 'PHARMACY' && (
-          <Card className="p-6 bg-white border border-[#bcc9c6]/30 shadow-sm rounded-2xl">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#bcc9c6]/20">
-              <Building size={20} className="text-[#00685f]" />
-              <h3 className="text-base font-bold text-[#111c2d]">Pharmacy Store Details</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <Input
-                label="Store Name"
-                placeholder="e.g. MedPlus Pharmacy"
-                value={storeName}
-                onChange={e => setStoreName(e.target.value)}
+                label="Store Helpline / Phone Number"
+                placeholder="+880 1700-000000"
+                value={phoneNumber}
+                onChange={e => setPhoneNumber(e.target.value)}
               />
 
               <Input
-                label="Store City"
+                label="Store City / Area"
                 placeholder="e.g. Dhaka"
                 value={pharmacyCity}
                 onChange={e => setPharmacyCity(e.target.value)}
@@ -473,14 +349,185 @@ export const ProfilePage: React.FC = () => {
 
               <div className="md:col-span-2">
                 <Input
-                  label="Street Address / Location"
-                  placeholder="e.g. House 12, Road 4, Sector 7, Uttara"
-                  value={streetAddress}
-                  onChange={e => setStreetAddress(e.target.value)}
+                  label="Store Street Address / Location"
+                  placeholder="e.g. 45 Green Road, Dhanmondi, Dhaka"
+                  value={streetAddress || address}
+                  onChange={e => {
+                    setStreetAddress(e.target.value);
+                    setAddress(e.target.value);
+                  }}
                 />
               </div>
             </div>
           </Card>
+        ) : (
+          <>
+            {/* Section 1: General Personal Details (Patients, Doctors, Admins) */}
+            <Card className="p-6 bg-white border border-[#bcc9c6]/30 shadow-sm rounded-2xl">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#bcc9c6]/20">
+                <UserIcon size={20} className="text-[#00685f]" />
+                <h3 className="text-base font-bold text-[#111c2d]">Personal Information</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <Input
+                  label="Full Name *"
+                  placeholder="e.g. Dr. John Doe / Sarah Connor"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  required
+                />
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#475569] mb-1.5">Registered Email (Read-Only)</label>
+                  <input
+                    type="email"
+                    value={user?.email || ''}
+                    disabled
+                    className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-[#64748b] cursor-not-allowed"
+                  />
+                </div>
+
+                <Input
+                  label="Contact Phone Number"
+                  placeholder="+880 1700-000000"
+                  value={phoneNumber}
+                  onChange={e => setPhoneNumber(e.target.value)}
+                />
+
+                <Input
+                  label="Residential Address"
+                  placeholder="Street Address, City, Postal Code"
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                />
+
+                <Input
+                  type="date"
+                  label="Date of Birth"
+                  value={dateOfBirth}
+                  onChange={e => setDateOfBirth(e.target.value)}
+                />
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#475569] mb-1.5">Gender</label>
+                  <select
+                    value={gender}
+                    onChange={e => setGender(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white border border-[#bcc9c6] rounded-xl text-sm text-[#111c2d] focus:outline-none focus:border-[#00685f]"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#475569] mb-1.5">Blood Group</label>
+                  <select
+                    value={bloodGroup}
+                    onChange={e => setBloodGroup(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white border border-[#bcc9c6] rounded-xl text-sm text-[#111c2d] focus:outline-none focus:border-[#00685f]"
+                  >
+                    <option value="">Select Blood Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <Input
+                  label="Emergency Contact (Name & Phone)"
+                  placeholder="e.g. Spouse (+88017XXXXXXXX)"
+                  value={emergencyContact}
+                  onChange={e => setEmergencyContact(e.target.value)}
+                />
+              </div>
+            </Card>
+
+            {/* Section 2: Role-Specific Information (Doctor Profile) */}
+            {user?.role === 'DOCTOR' && (
+              <Card className="p-6 bg-white border border-[#bcc9c6]/30 shadow-sm rounded-2xl">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#bcc9c6]/20">
+                  <GraduationCap size={20} className="text-[#00685f]" />
+                  <h3 className="text-base font-bold text-[#111c2d]">Clinical & Practice Details</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <Input
+                    label="Designation / Title"
+                    placeholder="e.g. Associate Professor / Senior Consultant"
+                    value={designation}
+                    onChange={e => setDesignation(e.target.value)}
+                  />
+
+                  <Input
+                    label="Medical Specialty"
+                    placeholder="e.g. Cardiologist, Neurologist, General Medicine"
+                    value={specialty}
+                    onChange={e => setSpecialty(e.target.value)}
+                  />
+
+                  <Input
+                    label="Academic Degrees & Qualifications"
+                    placeholder="e.g. MBBS, FCPS (Medicine), MD (Cardiology)"
+                    value={degrees}
+                    onChange={e => setDegrees(e.target.value)}
+                  />
+
+                  <Input
+                    label="Years of Clinical Experience"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 12"
+                    value={experienceYears}
+                    onChange={e => setExperienceYears(e.target.value)}
+                  />
+
+                  <Input
+                    label="Consultation Fee (BDT)"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 1000"
+                    value={consultationFee}
+                    onChange={e => setConsultationFee(e.target.value)}
+                  />
+
+                  <Input
+                    label="Clinic / Chamber Area"
+                    placeholder="e.g. Dhanmondi / Gulshan"
+                    value={area}
+                    onChange={e => setArea(e.target.value)}
+                  />
+
+                  <Input
+                    label="City"
+                    placeholder="e.g. Dhaka"
+                    value={city}
+                    onChange={e => setCity(e.target.value)}
+                  />
+
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold text-[#475569] mb-1.5">Doctor Bio / Clinical Summary</label>
+                    <textarea
+                      rows={3}
+                      placeholder="Share a short bio regarding your clinical focus, chamber timings, and areas of expertise..."
+                      value={bio}
+                      onChange={e => setBio(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-white border border-[#bcc9c6] rounded-xl text-sm text-[#111c2d] focus:outline-none focus:border-[#00685f]"
+                    />
+                  </div>
+                </div>
+              </Card>
+            )}
+          </>
         )}
 
         {/* Submit Actions */}
