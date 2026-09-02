@@ -16,10 +16,12 @@ export default defineConfig({
       '/api': {
         target: process.env.VITE_API_URL || 'http://127.0.0.1:3001',
         changeOrigin: true,
+        timeout: 120000,
       },
       '/health': {
         target: process.env.VITE_API_URL || 'http://127.0.0.1:3001',
         changeOrigin: true,
+        timeout: 120000,
       },
     },
   },
@@ -29,10 +31,12 @@ export default defineConfig({
       '/api': {
         target: process.env.VITE_API_URL || 'http://127.0.0.1:3001',
         changeOrigin: true,
+        timeout: 120000,
       },
       '/health': {
         target: process.env.VITE_API_URL || 'http://127.0.0.1:3001',
         changeOrigin: true,
+        timeout: 120000,
       },
     },
   },

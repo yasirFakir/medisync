@@ -39,7 +39,7 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
       form,
       {
         headers: form.getHeaders(),
-        timeout: 25000, // Allow PaddleOCR engine processing time
+        timeout: 45000, // Allow full OCR processing time
       }
     );
 
