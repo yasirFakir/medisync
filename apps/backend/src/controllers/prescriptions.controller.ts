@@ -39,7 +39,7 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
       form,
       {
         headers: form.getHeaders(),
-        timeout: 45000, // Allow full OCR processing time
+        timeout: 90000, // Allow full OCR processing time (Gemini Vision can take 30-60s)
       }
     );
 
