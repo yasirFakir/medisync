@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+import com.medisync.android.core.util.formatDoctorName
+
 class PrescriptionViewModel(
     private val prescriptionRepository: PrescriptionRepository
 ) : ViewModel() {
@@ -31,7 +33,7 @@ class PrescriptionViewModel(
                     _uiState.update {
                         it.copy(
                             isUploading = false,
-                            doctorName = data.doctorName ?: "Dr. A. Rahman",
+                            doctorName = formatDoctorName(data.doctorName ?: "Dr. A. Rahman"),
                             digitizedNotes = data.digitizedNotes ?: "General consultation notes",
                             detectedMedicines = data.medicines,
                             rawImageUrl = data.rawImageUrl,

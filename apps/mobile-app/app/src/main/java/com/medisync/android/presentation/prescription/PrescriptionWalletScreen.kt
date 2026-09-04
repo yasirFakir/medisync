@@ -36,6 +36,7 @@ import com.medisync.android.core.theme.OnPrimary
 import com.medisync.android.core.theme.OnSurface
 import com.medisync.android.core.theme.OnSurfaceVariant
 import com.medisync.android.core.theme.PrimaryTeal
+import com.medisync.android.core.util.formatDoctorName
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,7 +110,7 @@ fun PrescriptionWalletScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = prescription.doctorName ?: "Dr. A. Rahman",
+                                text = formatDoctorName(prescription.doctorName),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )

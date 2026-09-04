@@ -53,8 +53,6 @@ fun DoctorPatientListScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showOtpDialog by remember { mutableStateOf(false) }
-    var otpInput by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
 
     Scaffold(
@@ -87,17 +85,24 @@ fun DoctorPatientListScreen(
                 }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            val filteredPatients = if (searchQuery.isBlank()) {
+                uiState.patients
+            } else {
+                uiState.patients.filter {
+                    it.fullName.contains(searchQuery, ignoreCase = true) ||
+                    it.email.contains(searchQuery, ignoreCase = true)
+                }
+            }
 
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)
             ) {
-                items(uiState.patients, key = { it.patientId }) { patient ->
+                items(filteredPatients, key = { it.patientId }) { patient ->
                     ElevationCard(
                         onClick = {
                             viewModel.selectPatient(patient)
-                            showOtpDialog = true
+                            onNavigateToTimeline()
                         }
                     ) {
                         Row(
@@ -124,64 +129,9 @@ fun DoctorPatientListScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                            Icon(Icons.Default.Lock, contentDescription = "Unlock EHR", tint = PrimaryTeal)
+                            Icon(Icons.Default.Person, contentDescription = "View EHR", tint = PrimaryTeal)
                         }
                     }
-                }
-            }
-        }
-
-        // OTP Access Gate Sheet
-        if (showOtpDialog && uiState.selectedPatient != null) {
-            ModalBottomSheet(onDismissRequest = { showOtpDialog = false }) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp)
-                ) {
-                    Text(
-                        text = "Unlock Patient Medical Records",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Ask ${uiState.selectedPatient?.fullName} for their 6-digit dynamic passcode.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    MediSyncTextField(
-                        value = otpInput,
-                        onValueChange = { otpInput = it },
-                        label = "Patient 6-Digit OTP",
-                        placeholder = "e.g. 481920"
-                    )
-
-                    if (uiState.errorMessage != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = uiState.errorMessage ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = ErrorCrimson
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    MediSyncButton(
-                        text = "Verify & Access EHR Timeline",
-                        isLoading = uiState.isLoading,
-                        onClick = {
-                            viewModel.unlockEhrWithOtp(otpInput) {
-                                showOtpDialog = false
-                                otpInput = ""
-                                onNavigateToTimeline()
-                            }
-                        }
-                    )
                 }
             }
         }

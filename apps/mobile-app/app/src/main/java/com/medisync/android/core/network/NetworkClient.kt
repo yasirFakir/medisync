@@ -17,7 +17,9 @@ import kotlinx.serialization.json.Json
 
 object NetworkClient {
 
-    const val BASE_URL = "http://10.0.2.2:3000/api"
+    // For Waydroid: 192.168.240.1 (host default gateway)
+    // Direct Express backend runs on port 3001
+    const val BASE_URL = "http://192.168.240.1:3001/api"
 
     fun create(authTokenManager: AuthTokenManager? = null): HttpClient {
         return HttpClient(OkHttp) {

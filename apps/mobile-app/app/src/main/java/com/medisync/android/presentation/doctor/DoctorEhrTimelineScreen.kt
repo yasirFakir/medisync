@@ -101,7 +101,7 @@ fun DoctorEhrTimelineScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    StatusBadge(text = "OTP Authenticated", type = BadgeType.VERIFIED)
+                    StatusBadge(text = "Clinical Session Active", type = BadgeType.VERIFIED)
                 }
             }
 

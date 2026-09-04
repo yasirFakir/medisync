@@ -41,11 +41,12 @@ class DoctorViewModel(
         _uiState.update {
             it.copy(
                 selectedPatient = patient,
-                isEhrUnlocked = false,
+                isEhrUnlocked = true,
                 ehrTimeline = emptyList(),
                 errorMessage = null
             )
         }
+        loadTimeline(patient.patientId)
     }
 
     fun unlockEhrWithOtp(otp: String, onSuccess: () -> Unit) {

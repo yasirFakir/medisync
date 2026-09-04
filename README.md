@@ -247,6 +247,64 @@ cd apps/ai-service && ./venv/bin/python test_ocr.py
 
 ---
 
+## 📱 Mobile App (Android & Waydroid)
+
+The Android application is located in `apps/mobile-app` and built using **Kotlin**, **Jetpack Compose**, and **Ktor**.
+
+### 🛠️ Prerequisites for Compiling Android App (CachyOS / Arch Linux)
+Install JDK 21 and Android platform tools:
+```bash
+sudo pacman -S jdk21-openjdk android-tools
+```
+
+### 🔨 Building the Android APK
+```bash
+cd apps/mobile-app
+
+# Grant execution permission to Gradle wrapper (first time only)
+chmod +x gradlew
+
+# Build Debug APK
+./gradlew assembleDebug
+```
+The compiled APK will be at: `apps/mobile-app/app/build/outputs/apk/debug/app-debug.apk`
+
+---
+
+### 🤖 Running & Testing on Waydroid (CachyOS)
+
+Your Waydroid container is already running on CachyOS with default IP gateway `192.168.240.1` and container IP `192.168.240.112`.
+
+1. **Ensure `android-tools` (ADB) is installed:**
+   ```bash
+   sudo pacman -S android-tools
+   ```
+
+2. **Connect ADB to Waydroid:**
+   ```bash
+   adb connect 192.168.240.112:5555
+   # Verify device connection:
+   adb devices
+   ```
+
+3. **Install the Compiled APK into Waydroid:**
+   ```bash
+   adb install -r apps/mobile-app/app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+4. **Launch the Waydroid App:**
+   - Either open **MediSync** directly inside the Waydroid UI / application launcher.
+   - Or start it via ADB:
+   ```bash
+   adb shell monkey -p com.medisync.android.debug 1
+   ```
+
+5. **Waydroid Host Network Access:**
+   - The Android app is preconfigured to talk directly to the Express backend at `http://192.168.240.1:3001/api` (the default host gateway).
+   - Ensure your backend and AI services are running on the host (`./run_backend.sh`).
+
+---
+
 ## 📚 Related Documentation
 - [OCR Pipeline & RAG Guide](docs/OCR_RAG_GUIDE.md)
 - [Docker Configuration Guide](ISSUE_DOCKER_CONFIG.md)

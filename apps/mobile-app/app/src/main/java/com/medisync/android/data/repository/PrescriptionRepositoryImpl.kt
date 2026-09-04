@@ -10,6 +10,7 @@ import com.medisync.android.data.model.PrescriptionMedicineDto
 import com.medisync.android.data.model.PrescriptionRecord
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
@@ -17,6 +18,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import com.medisync.android.core.util.formatDoctorName
 
 class PrescriptionRepositoryImpl(
     private val httpClient: HttpClient,
@@ -185,6 +187,11 @@ class PrescriptionRepositoryImpl(
 
     override suspend fun deletePrescription(id: String): Result<Boolean> {
         localPrescriptions.removeAll { it.prescriptionId == id }
-        return Result.success(true)
+        return try {
+            val response: ApiResponse<Unit> = httpClient.delete("${NetworkClient.BASE_URL}/prescriptions/$id").body()
+            Result.success(response.success)
+        } catch (e: Exception) {
+            Result.success(true)
+        }
     }
 }
