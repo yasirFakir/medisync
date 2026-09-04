@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Input, Spinner, EmptyState, Button } from '../../packages/ui/src/index';
+import { Card, Badge, Input, Spinner, EmptyState, Button, formatDoctorName } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import { 
   Search, Building, MapPin, Package, AlertTriangle, DollarSign, 
@@ -336,7 +336,7 @@ export const AvailabilityPage: React.FC = () => {
               <option value="">-- Choose from your scanned prescriptions --</option>
               {prescriptions.map((rx) => (
                 <option key={rx.prescriptionId} value={rx.prescriptionId}>
-                  Dr. {rx.doctorName} ({rx.medicines?.length || 0} medicines) • {new Date(rx.createdAt).toLocaleDateString()}
+                  {formatDoctorName(rx.doctorName)} ({rx.medicines?.length || 0} medicines) • {new Date(rx.createdAt).toLocaleDateString()}
                 </option>
               ))}
             </select>

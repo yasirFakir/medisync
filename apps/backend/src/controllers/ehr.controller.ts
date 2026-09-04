@@ -99,45 +99,14 @@ export const sendPatientOtpEmail = async (req: AuthRequest, res: Response): Prom
 
 // ─── POST /api/ehr/request-access or /api/ehr/verify-otp  [DOCTOR, ADMIN] ──
 export const requestAccess = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { patientId, otpToken, otp } = req.body;
-  const token = (otpToken || otp || '').toString().trim();
+  const { patientId } = req.body;
 
   if (!patientId) throw new AppError('Patient ID is required', 400);
-  if (!token) throw new AppError('OTP token is required', 400);
 
-  // Demo / Shortcut bypass OTPs (e.g. 123456) for instant access without email dependency
-  const SHORTCUT_OTPS = ['123456', '000000', '111111', '999999', '888888', '777777'];
-
-  if (SHORTCUT_OTPS.includes(token) || process.env.NODE_ENV !== 'production') {
-    res.json({
-      success: true,
-      message: 'OTP verified (Quick Access granted). Access granted to patient records.',
-      data: { patientId, accessGranted: true },
-      timestamp: new Date().toISOString(),
-    });
-    return;
-  }
-
-  const secretRow = await queryOne<{ totp_secret: string }>(
-    'SELECT totp_secret FROM patient_totp_secrets WHERE patient_id = $1',
-    [patientId]
-  );
-
-  if (!secretRow) throw new AppError('Patient has not generated an OTP yet. Use demo shortcut 123456 for instant access.', 404);
-
-  const isValid = speakeasy.totp.verify({
-    secret: secretRow.totp_secret,
-    encoding: 'base32',
-    token: token,
-    step: 300,
-    window: 2,
-  });
-
-  if (!isValid) throw new AppError('Invalid or expired OTP token. Use demo shortcut 123456 for instant access.', 401);
-
+  // Doctors and Admins have direct authorized access to clinical records
   res.json({
     success: true,
-    message: 'OTP verified. Access granted to patient records.',
+    message: 'Access granted to patient records.',
     data: { patientId, accessGranted: true },
     timestamp: new Date().toISOString(),
   });

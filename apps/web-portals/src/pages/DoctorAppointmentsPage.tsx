@@ -207,14 +207,9 @@ export const DoctorAppointmentsPage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  // Auto-login & verify EHR access when doctor clicks on an appointment card
-  const handleAutoLoginEHR = async (pId: string) => {
+  // Direct EHR access when doctor clicks on patient records
+  const handleAutoLoginEHR = (pId: string) => {
     if (!pId) return;
-    try {
-      await apiClient.post('/ehr/request-access', { patientId: pId, otpToken: '123456' });
-    } catch {
-      /* silent fallback */
-    }
     navigate(`/ehr/${pId}`);
   };
 

@@ -85,11 +85,8 @@ export const SessionsPage: React.FC = () => {
     return list;
   }, [sessions, filter, search]);
 
-  const handleOpenEHR = async (patientId: string) => {
+  const handleOpenEHR = (patientId: string) => {
     if (!patientId) return;
-    try {
-      await apiClient.post('/ehr/request-access', { patientId, otpToken: '123456' });
-    } catch { /* silent */ }
     navigate(`/ehr/${patientId}`);
   };
 

@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS ehr_records (
   diagnosis       TEXT NOT NULL,
   observations    TEXT NOT NULL,
   follow_up_date  DATE,
-  prescription_id UUID REFERENCES prescriptions(prescription_id),
+  prescription_id UUID REFERENCES prescriptions(prescription_id) ON DELETE SET NULL,
   session_date    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

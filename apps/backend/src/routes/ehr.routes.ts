@@ -10,7 +10,7 @@ const otpRequestSchema = Joi.object({
   patientId: Joi.string().uuid().required(),
   otpToken: Joi.string().length(6).optional(),
   otp: Joi.string().length(6).optional(),
-}).or('otpToken', 'otp');
+});
 
 const createRecordSchema = Joi.object({
   patientId: Joi.string().uuid().required(),

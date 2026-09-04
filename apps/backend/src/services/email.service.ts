@@ -123,9 +123,15 @@ export const sendEhrRecordAddedEmail = async (
   doctorName: string,
   diagnosis: string
 ): Promise<boolean> => {
+  const formattedDoctor = (doctorName || 'Doctor')
+    .trim()
+    .replace(/^(?:(?:dr\.|dr|doctor)\s*)+/i, '')
+    .trim();
+  const docDisplayName = formattedDoctor ? `Dr. ${formattedDoctor}` : 'Your Doctor';
+
   const bodyHtml = `
     <p style="font-size: 14px; color: #475569; line-height: 1.5;">
-      Dr. <strong>${doctorName}</strong> has added a new medical record to your Electronic Health Record (EHR).
+      <strong>${docDisplayName}</strong> has added a new medical record to your Electronic Health Record (EHR).
     </p>
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin: 20px 0;">
       <div style="font-size: 12px; color: #166534; font-weight: 700; text-transform: uppercase;">Diagnosis / Notes</div>
@@ -136,7 +142,7 @@ export const sendEhrRecordAddedEmail = async (
   return sendAppointmentEmail(
     toEmail,
     patientName,
-    `[MediSync] New Health Record Added by Dr. ${doctorName}`,
+    `[MediSync] New Health Record Added by ${docDisplayName}`,
     bodyHtml
   );
 };

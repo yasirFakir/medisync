@@ -28,8 +28,9 @@ export type {
   PrescriptionResultModalProps,
 } from './components/PrescriptionResultModal';
 
-// API Client
+// API Client & Formatters
 export { apiClient, setAuthToken } from './lib/apiClient';
+export { formatDoctorName } from './lib/formatters';
 
 // Hooks
 export { useAuth } from './hooks/useAuth';

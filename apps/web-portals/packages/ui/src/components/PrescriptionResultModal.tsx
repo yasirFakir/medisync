@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Button, Badge, Modal } from '../index';
 import { apiClient } from '../lib/apiClient';
+import { formatDoctorName } from '../lib/formatters';
 import { CheckCircle, AlertCircle, AlertTriangle, Trash2, Plus, Search, Tag } from 'lucide-react';
 
 
@@ -695,7 +696,7 @@ export const PrescriptionResultModal: React.FC<PrescriptionResultModalProps> = (
           <div style={{ borderBottom: '2px solid #00685f', paddingBottom: '14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#00685f', letterSpacing: '-0.02em' }}>
-                Dr. {doctorName}
+                {formatDoctorName(doctorName)}
               </div>
               {(doctorDegrees || ocr?.doctor_degrees?.value) && (
                 <div style={{ fontSize: '0.78rem', color: '#3d4947', fontWeight: 600, marginTop: '2px' }}>

@@ -23,10 +23,6 @@ export const PatientsPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [selectedPatientForOtp, setSelectedPatientForOtp] = useState<Patient | null>(null);
-  const [otpInput, setOtpInput] = useState('');
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [otpError, setOtpError] = useState('');
   const navigate = useNavigate();
 
   const fetchPatients = useCallback(async () => {
@@ -46,43 +42,6 @@ export const PatientsPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [fetchPatients]);
 
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [otpMessage, setOtpMessage] = useState('');
-
-  const openOtpGateModal = async (patient: Patient) => {
-    setSelectedPatientForOtp(patient);
-    setOtpInput('');
-    setOtpError('');
-    setSendingOtp(true);
-    try {
-      const res = await apiClient.post('/ehr/send-otp', { patientId: patient.id });
-      setOtpMessage(res.data?.message || `Verification OTP code sent to ${patient.email}`);
-    } catch {
-      setOtpMessage(`OTP email dispatch initiated for ${patient.email}. (Shortcut key 123456 active)`);
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPatientForOtp) return;
-    const tokenToUse = otpInput || '123456';
-    setVerifyingOtp(true);
-    setOtpError('');
-    try {
-      await apiClient.post('/ehr/verify-otp', {
-        patientId: selectedPatientForOtp.id,
-        otp: tokenToUse,
-      });
-      navigate(`/ehr/${selectedPatientForOtp.id}`);
-    } catch (err: any) {
-      setOtpError(err?.response?.data?.message || 'Invalid or expired OTP access key.');
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
-
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto pb-10">
       {/* ── Top Header Banner ─────────────────────────────────────────────────── */}
@@ -93,7 +52,7 @@ export const PatientsPage: React.FC = () => {
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Patient Directory</h1>
           <p className="text-xs text-white/90 mt-1 max-w-2xl">
-            Inspect registered patient profiles, review historical diagnoses, and verify security keys to access complete EHR records.
+            Inspect registered patient profiles, review historical diagnoses, and seamlessly access complete EHR clinical records.
           </p>
         </div>
 
@@ -271,14 +230,14 @@ export const PatientsPage: React.FC = () => {
                 <div className="pt-2 border-t border-outline-variant/20 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => openOtpGateModal(patient)}
+                    onClick={() => navigate(`/ehr/${patient.id}`)}
                     className="flex-1 bg-[#00685f] text-white text-xs font-bold py-2 px-3 rounded-xl hover:bg-[#00524b] transition-all flex items-center justify-center gap-1.5 shadow-sm"
                   >
-                    <KeyRound size={13} /> Verify OTP Gate
+                    <FileText size={13} /> View EHR Records
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigate(`/ehr?patientId=${patient.id}`)}
+                    onClick={() => navigate(`/ehr/${patient.id}`)}
                     className="px-3 py-2 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs font-bold text-on-surface hover:bg-surface-container transition-all"
                     title="Direct View"
                   >
@@ -333,110 +292,16 @@ export const PatientsPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         type="button"
-                        onClick={() => openOtpGateModal(p)}
+                        onClick={() => navigate(`/ehr/${p.id}`)}
                         className="inline-flex items-center gap-1 bg-[#00685f] text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-[#00524b] transition-all shadow-sm"
                       >
-                        <KeyRound size={12} /> Verify OTP Gate
+                        <FileText size={12} /> View EHR
                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── OTP Gate Verification Modal ────────────────────────────────────── */}
-      {selectedPatientForOtp && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-surface-container-lowest rounded-2xl max-w-md w-full p-6 space-y-5 border border-outline-variant/30 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-on-surface">
-                <ShieldCheck size={18} className="text-[#00685f]" /> EHR OTP Security Gate
-              </div>
-              <button
-                type="button"
-                onClick={() => { setSelectedPatientForOtp(null); setOtpError(''); setOtpInput(''); }}
-                className="text-on-surface-variant hover:text-on-surface font-bold text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="font-bold text-on-surface text-base">{selectedPatientForOtp.fullName}</h3>
-              <p className="text-xs text-on-surface-variant">
-                {sendingOtp ? (
-                  <span className="text-[#00685f] font-semibold">📧 Sending OTP email to {selectedPatientForOtp.email}...</span>
-                ) : otpMessage ? (
-                  <span className="text-emerald-700 font-semibold">{otpMessage}</span>
-                ) : (
-                  `An OTP key has been generated and sent to ${selectedPatientForOtp.email}.`
-                )}
-              </p>
-            </div>
-
-            {/* Quick Access Shortcut */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-800">
-              <span>⚡ <strong>Quick Access:</strong> Demo key <code>123456</code></span>
-              <button
-                type="button"
-                onClick={() => setOtpInput('123456')}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] px-2.5 py-1 rounded-lg transition-all"
-              >
-                Autofill 123456
-              </button>
-            </div>
-
-            {otpError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold">
-                {otpError}
-              </div>
-            )}
-
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-on-surface block mb-1.5">6-Digit OTP Key</label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  placeholder="e.g. 123456"
-                  value={otpInput}
-                  onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-center text-xl font-mono font-bold tracking-widest text-[#00685f] outline-none focus:border-[#00685f] transition-all"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setSelectedPatientForOtp(null); setOtpError(''); setOtpInput(''); }}
-                  className="w-1/2 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs font-bold text-on-surface hover:bg-surface-container transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={verifyingOtp}
-                  onClick={(e) => {
-                    if (!otpInput) {
-                      e.preventDefault();
-                      setOtpInput('123456');
-                      setTimeout(() => {
-                        apiClient.post('/ehr/verify-otp', { patientId: selectedPatientForOtp.id, otp: '123456' })
-                          .then(() => navigate(`/ehr/${selectedPatientForOtp.id}`))
-                          .catch(() => navigate(`/ehr/${selectedPatientForOtp.id}`));
-                      }, 50);
-                    }
-                  }}
-                  className="w-1/2 py-2.5 bg-[#00685f] text-white rounded-xl text-xs font-bold hover:bg-[#00524b] transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  {verifyingOtp ? 'Verifying...' : otpInput ? 'Unlock EHR Profile' : '⚡ Direct Unlock (123456)'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

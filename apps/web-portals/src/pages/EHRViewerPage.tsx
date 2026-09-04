@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Button, Modal, Input, Spinner, Badge,
-  PrescriptionResultModal, CreatePrescriptionModal, type Prescription
+  PrescriptionResultModal, CreatePrescriptionModal, formatDoctorName, type Prescription
 } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import { Plus, Calendar, ArrowLeft, ClipboardList, Pill, Eye, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -55,7 +55,7 @@ export const EHRViewerPage: React.FC = () => {
       setRecords(recordsRes.data.data || []);
       setPrescriptions(rxRes.data.data || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Access expired or unauthorized. Please re-verify via OTP.');
+      setError(err.response?.data?.message || 'Unable to load clinical records for this patient.');
     } finally {
       setLoading(false);
     }
@@ -176,7 +176,7 @@ export const EHRViewerPage: React.FC = () => {
 
                         {rec.doctorName && (
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            Attending Doctor: <strong>Dr. {rec.doctorName}</strong>
+                            Attending Doctor: <strong>{formatDoctorName(rec.doctorName)}</strong>
                           </div>
                         )}
 
@@ -221,7 +221,7 @@ export const EHRViewerPage: React.FC = () => {
                               Prescription #{rx.prescriptionId.substring(0, 8)}
                             </h4>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                              Prescribed by <strong>Dr. {docName}</strong>
+                              Prescribed by <strong>{formatDoctorName(docName)}</strong>
                             </div>
                           </div>
                           <Badge variant="green">

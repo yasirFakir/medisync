@@ -12,7 +12,7 @@ interface ModalProps {
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md' }) => {
   if (!isOpen) return null;
   const maxW = size === 'sm' ? '400px' : size === 'lg' ? '720px' : size === 'xl' ? '1100px' : size === 'full' ? '96vw' : '560px';
-  const maxH = (size === 'xl' || size === 'full') ? '92vh' : 'auto';
+  const maxH = size === 'full' ? '96vh' : '90vh';
 
   return (
     <div style={{

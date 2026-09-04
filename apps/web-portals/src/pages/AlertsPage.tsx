@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Badge, Modal, Input, Spinner, EmptyState } from '../../packages/ui/src/index';
+import { Card, Button, Badge, Modal, Input, Spinner, EmptyState, formatDoctorName } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
   AlarmClock, Plus, Trash2, Bell, BellOff, Clock, Calendar, Pill,
@@ -869,7 +869,7 @@ export const AlertsPage: React.FC = () => {
                   <option value="">-- Select Prescription --</option>
                   {prescriptions.map(p => (
                     <option key={p.prescriptionId} value={p.prescriptionId}>
-                      Rx #{p.prescriptionId.substring(0, 8)} — Dr. {p.doctorName || p.ocrResult?.doctor_name?.value || 'Prescriber'} ({new Date(p.createdAt).toLocaleDateString()})
+                      Rx #{p.prescriptionId.substring(0, 8)} — {formatDoctorName(p.doctorName || p.ocrResult?.doctor_name?.value)} ({new Date(p.createdAt).toLocaleDateString()})
                     </option>
                   ))}
                 </select>
@@ -895,7 +895,7 @@ export const AlertsPage: React.FC = () => {
                   })) || []);
 
                   return (
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[48vh] overflow-y-auto pr-1.5">
                       {meds.map((med, idx) => {
                         const isChecked = selectedMeds[med.brandName] ?? true;
                         const slots = parseFrequencySlots(med.frequency || '1+0+1');

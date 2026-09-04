@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Card, Badge, Input, Button, Spinner, EmptyState, Modal, Table } from '../../packages/ui/src/index';
+import { Card, Badge, Input, Button, Spinner, EmptyState, Modal, Table, formatDoctorName } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
   Search,
@@ -253,7 +253,7 @@ export const AlternativesPage: React.FC = () => {
 
       selectedPrescriptions.forEach((rx) => {
         const dateStr = rx.createdAt ? new Date(rx.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent';
-        const docName = rx.ocrResult?.doctor_name?.value || rx.doctorName || 'Prescriber';
+        const docName = formatDoctorName(rx.ocrResult?.doctor_name?.value || rx.doctorName);
         const vsList = rx.validationSummary?.medicines || [];
 
         const medList = rx.medicines?.length > 0
@@ -616,7 +616,7 @@ export const AlternativesPage: React.FC = () => {
       label: 'Prescription & Doctor',
       render: (_val: any, row: PrescribedMedRow) => (
         <div>
-          <div className="font-bold text-on-surface text-sm">Dr. {row.doctorName}</div>
+          <div className="font-bold text-on-surface text-sm">{formatDoctorName(row.doctorName)}</div>
           <div className="text-xs text-on-surface-variant">Rx #{row.rxId.substring(0, 6)} • {row.rxDate}</div>
         </div>
       )

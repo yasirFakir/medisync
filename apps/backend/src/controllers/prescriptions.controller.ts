@@ -347,6 +347,10 @@ export const deletePrescription = async (req: AuthRequest, res: Response): Promi
     throw new AppError('Access denied', 403);
   }
 
+  // Safely nullify any foreign key references from EHR records and pharmacy sales
+  await query(`UPDATE ehr_records SET prescription_id = NULL WHERE prescription_id = $1`, [id]);
+  await query(`UPDATE pharmacy_sales SET prescription_id = NULL WHERE prescription_id = $1`, [id]);
+
   await query(`DELETE FROM prescriptions WHERE prescription_id = $1`, [id]);
   logger.info(`Prescription deleted: ${id}`);
 

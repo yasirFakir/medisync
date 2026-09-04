@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Button, Spinner, Input } from '../../packages/ui/src/index';
+import { Card, Badge, Button, Spinner, Input, formatDoctorName } from '../../packages/ui/src/index';
 import { apiClient } from '../../packages/ui/src/lib/apiClient';
 import {
   KeyRound, Search, Pill, Calculator, ShoppingCart, Check, X,
@@ -410,7 +410,7 @@ export const DispenserPage: React.FC = () => {
                           : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      Rx #{idx + 1} — {rx.doctorName || 'Dr. Prescribed'} ({new Date(rx.createdAt).toLocaleDateString()})
+                      Rx #{idx + 1} — {formatDoctorName(rx.doctorName, 'Prescribed Doctor')} ({new Date(rx.createdAt).toLocaleDateString()})
                     </button>
                   ))}
                 </div>
