@@ -1,0 +1,5 @@
+{
+  "name": "medisync-android-agents",
+  "description": "Autonomous multi-agent system for building the MediSync Android application with web product parity",
+  "version": "1.0.0"
+}
