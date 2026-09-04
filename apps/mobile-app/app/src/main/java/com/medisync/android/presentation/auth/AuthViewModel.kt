@@ -101,6 +101,48 @@ class AuthViewModel(
         }
     }
 
+    fun loadProfile() {
+        viewModelScope.launch {
+            val result = authRepository.getProfile()
+            result.onSuccess { profile ->
+                _uiState.update { it.copy(user = profile, selectedRole = profile.role) }
+            }
+        }
+    }
+
+    fun updateProfile(
+        request: com.medisync.android.data.model.UpdateProfileRequest,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val result = authRepository.updateProfile(request)
+            result.fold(
+                onSuccess = { updated ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            user = updated,
+                            selectedRole = updated.role,
+                            errorMessage = null
+                        )
+                    }
+                    onSuccess()
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message
+                        )
+                    }
+                    onError(error.message ?: "Failed to update profile")
+                }
+            )
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
@@ -116,3 +158,4 @@ class AuthViewModel(
         }
     }
 }
+

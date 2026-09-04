@@ -36,6 +36,15 @@ import com.medisync.android.presentation.totp.TotpViewModel
 import com.medisync.android.presentation.triage.TriageChatScreen
 import com.medisync.android.presentation.triage.TriageViewModel
 
+import com.medisync.android.admin.*
+import com.medisync.android.presentation.pharmacy.AvailabilityScreen
+import com.medisync.android.presentation.pharmacy.AvailabilityViewModel
+
+
+import com.medisync.android.presentation.appointments.AppointmentsScreen
+import com.medisync.android.presentation.appointments.AppointmentsViewModel
+import com.medisync.android.presentation.profile.ProfileScreen
+
 @Composable
 fun MediSyncNavGraph(
     navController: NavHostController,
@@ -45,10 +54,14 @@ fun MediSyncNavGraph(
     alternativesViewModel: AlternativesViewModel,
     pharmacyViewModel: PharmacyViewModel,
     alertsViewModel: AlertsViewModel,
+    appointmentsViewModel: AppointmentsViewModel,
     totpViewModel: TotpViewModel,
     doctorViewModel: DoctorViewModel,
     dispenserViewModel: DispenserViewModel,
-    notificationsViewModel: NotificationsViewModel
+    notificationsViewModel: NotificationsViewModel,
+    adminViewModel: AdminViewModel,
+    availabilityViewModel: AvailabilityViewModel,
+    pharmacyInventoryViewModel: com.medisync.android.presentation.pharmacy.PharmacyInventoryViewModel
 ) {
     val authState by authViewModel.uiState.collectAsState()
     val unreadCount by notificationsViewModel.unreadCount.collectAsState()
@@ -110,6 +123,9 @@ fun MediSyncNavGraph(
             DashboardScreen(
                 user = authState.user,
                 totpViewModel = totpViewModel,
+                alertsViewModel = alertsViewModel,
+                appointmentsViewModel = appointmentsViewModel,
+                prescriptionViewModel = prescriptionViewModel,
                 unreadNotificationCount = unreadCount,
                 onNavigateToNotifications = {
                     navController.navigate(Screen.Notifications.route)
@@ -126,11 +142,50 @@ fun MediSyncNavGraph(
                 onNavigateToReminders = {
                     navController.navigate(Screen.MedicationReminders.route)
                 },
+                onNavigateToAppointments = {
+                    navController.navigate(Screen.Appointments.route)
+                },
+                onNavigateToPharmacy = {
+                    navController.navigate(Screen.PharmacyLocator.createRoute(null))
+                },
+                onNavigateToAlternatives = {
+                    navController.navigate(Screen.Alternatives.createRoute("napa-extra"))
+                },
+                onNavigateToAvailability = {
+                    navController.navigate(Screen.Availability.route)
+                },
+                onNavigateToAdminDashboard = {
+                    navController.navigate(Screen.AdminDashboard.route)
+                },
+                onNavigateToAdminUsers = {
+                    navController.navigate(Screen.AdminUsers.route)
+                },
+                onNavigateToAdminDrugs = {
+                    navController.navigate(Screen.AdminDrugs.route)
+                },
+                onNavigateToAdminTriage = {
+                    navController.navigate(Screen.AdminTriage.route)
+                },
+                onNavigateToAdminPharmacies = {
+                    navController.navigate(Screen.AdminPharmacies.route)
+                },
+                onNavigateToProfile = {
+                    navController.navigate(Screen.Profile.route)
+                },
                 onNavigateToDoctorPortal = {
                     navController.navigate(Screen.DoctorPatientList.route)
                 },
+                onNavigateToSessions = {
+                    navController.navigate(Screen.ClinicalSessions.route)
+                },
                 onNavigateToPharmacyPortal = {
                     navController.navigate(Screen.PharmacyDispenser.route)
+                },
+                onNavigateToInventory = {
+                    navController.navigate(Screen.PharmacyInventory.route)
+                },
+                onNavigateToSales = {
+                    navController.navigate(Screen.PharmacySales.route)
                 },
                 onNavigateToDrugDetail = { drugId ->
                     navController.navigate(Screen.DrugDetail.createRoute(drugId))
@@ -245,6 +300,30 @@ fun MediSyncNavGraph(
             )
         }
 
+        composable(Screen.Appointments.route) {
+            AppointmentsScreen(
+                viewModel = appointmentsViewModel,
+                userRole = authState.user?.role ?: UserRole.PATIENT,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Profile.route) {
+            ProfileScreen(
+                user = authState.user,
+                authViewModel = authViewModel,
+                totpViewModel = totpViewModel,
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Welcome.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = true }
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+
         composable(Screen.DoctorPatientList.route) {
             DoctorPatientListScreen(
                 viewModel = doctorViewModel,
@@ -267,6 +346,62 @@ fun MediSyncNavGraph(
                 viewModel = dispenserViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+
+        composable(Screen.ClinicalSessions.route) {
+            com.medisync.android.presentation.doctor.ClinicalSessionsScreen(
+                viewModel = doctorViewModel,
+                onNavigateToEhr = { navController.navigate(Screen.DoctorEhrTimeline.route) },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.PharmacyInventory.route) {
+            com.medisync.android.presentation.pharmacy.InventoryScreen(
+                viewModel = pharmacyInventoryViewModel,
+                onNavigateToUpdateStock = { navController.navigate(Screen.PharmacyUpdateStock.route) },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.PharmacyUpdateStock.route) {
+            com.medisync.android.presentation.pharmacy.UpdateStockScreen(
+                viewModel = pharmacyInventoryViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.PharmacySales.route) {
+            com.medisync.android.presentation.pharmacy.SalesScreen(
+                viewModel = pharmacyInventoryViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.AdminDashboard.route) {
+            AdminDashboardScreen(
+                viewModel = adminViewModel,
+                onNavigateToUsers = { navController.navigate(Screen.AdminUsers.route) },
+                onNavigateToDrugs = { navController.navigate(Screen.AdminDrugs.route) },
+                onNavigateToTriage = { navController.navigate(Screen.AdminTriage.route) },
+                onNavigateToPharmacies = { navController.navigate(Screen.AdminPharmacies.route) },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.AdminUsers.route) {
+            AdminUsersScreen(viewModel = adminViewModel, onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Screen.AdminDrugs.route) {
+            AdminDrugsScreen(viewModel = adminViewModel, onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Screen.AdminTriage.route) {
+            AdminTriageScreen(viewModel = adminViewModel, onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Screen.AdminPharmacies.route) {
+            AdminPharmaciesScreen(viewModel = adminViewModel, onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Screen.Availability.route) {
+            AvailabilityScreen(viewModel = availabilityViewModel, onNavigateBack = { navController.popBackStack() })
         }
     }
 }

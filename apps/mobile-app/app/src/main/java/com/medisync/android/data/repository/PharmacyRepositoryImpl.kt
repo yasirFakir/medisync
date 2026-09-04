@@ -32,9 +32,10 @@ class PharmacyRepositoryImpl(
 
     override suspend fun searchPharmacies(query: String?, city: String?): Result<List<PharmacyDto>> {
         return try {
-            val response: ApiResponse<List<PharmacyDto>> = httpClient.get("${NetworkClient.BASE_URL}/pharmacies/search") {
-                query?.let { parameter("q", it) }
-                city?.let { parameter("city", it) }
+            val endpoint = if (query.isNullOrBlank()) "${NetworkClient.BASE_URL}/pharmacies" else "${NetworkClient.BASE_URL}/pharmacies/search"
+            val response: ApiResponse<List<PharmacyDto>> = httpClient.get(endpoint) {
+                if (!query.isNullOrBlank()) parameter("q", query.trim())
+                if (!city.isNullOrBlank()) parameter("city", city.trim())
             }.body()
 
             if (response.success && response.data != null) {

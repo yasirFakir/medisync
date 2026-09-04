@@ -38,6 +38,8 @@ import com.medisync.android.core.theme.OnSurfaceVariant
 import com.medisync.android.core.theme.PrimaryTeal
 import com.medisync.android.core.util.formatDoctorName
 
+import androidx.compose.runtime.LaunchedEffect
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrescriptionWalletScreen(
@@ -46,6 +48,10 @@ fun PrescriptionWalletScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadPrescriptions()
+    }
 
     Scaffold(
         topBar = {

@@ -40,6 +40,8 @@ class AlertsRepositoryImpl(
         return try {
             val response: ApiResponse<List<MedicationAlertDto>> = httpClient.get("${NetworkClient.BASE_URL}/alerts").body()
             if (response.success && response.data != null) {
+                localFallbackAlerts.clear()
+                localFallbackAlerts.addAll(response.data)
                 Result.success(response.data)
             } else {
                 Result.success(localFallbackAlerts.toList())
@@ -56,6 +58,7 @@ class AlertsRepositoryImpl(
             }.body()
 
             if (response.success && response.data != null) {
+                localFallbackAlerts.add(response.data)
                 Result.success(response.data)
             } else {
                 val newAlert = MedicationAlertDto(
@@ -88,6 +91,10 @@ class AlertsRepositoryImpl(
             val response: ApiResponse<Unit> = httpClient.patch("${NetworkClient.BASE_URL}/alerts/$alertId") {
                 setBody(mapOf("status" to status.name))
             }.body()
+            val index = localFallbackAlerts.indexOfFirst { it.alertId == alertId }
+            if (index != -1) {
+                localFallbackAlerts[index] = localFallbackAlerts[index].copy(status = status)
+            }
             Result.success(response.success)
         } catch (e: Exception) {
             val index = localFallbackAlerts.indexOfFirst { it.alertId == alertId }
@@ -101,9 +108,21 @@ class AlertsRepositoryImpl(
     override suspend fun deleteAlert(alertId: String): Result<Boolean> {
         return try {
             val response: ApiResponse<Unit> = httpClient.delete("${NetworkClient.BASE_URL}/alerts/$alertId").body()
+            localFallbackAlerts.removeAll { it.alertId == alertId }
             Result.success(response.success)
         } catch (e: Exception) {
             localFallbackAlerts.removeAll { it.alertId == alertId }
+            Result.success(true)
+        }
+    }
+
+    override suspend fun markDoseTaken(alertId: String, slotName: String): Result<Boolean> {
+        return try {
+            val response: ApiResponse<Unit> = httpClient.post("${NetworkClient.BASE_URL}/alerts/$alertId/taken") {
+                setBody(mapOf("slotName" to slotName))
+            }.body()
+            Result.success(response.success)
+        } catch (e: Exception) {
             Result.success(true)
         }
     }

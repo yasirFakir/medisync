@@ -9,6 +9,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.medisync.android.core.theme.MediSyncShapes
 import com.medisync.android.core.theme.OutlineVariant
@@ -17,6 +18,7 @@ import com.medisync.android.core.theme.SurfaceContainerLowest
 @Composable
 fun ElevationCard(
     modifier: Modifier = Modifier,
+    containerColor: Color = SurfaceContainerLowest,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -25,7 +27,7 @@ fun ElevationCard(
             onClick = onClick,
             modifier = modifier.fillMaxWidth(),
             shape = MediSyncShapes.large,
-            colors = CardDefaults.cardColors(containerColor = SurfaceContainerLowest),
+            colors = CardDefaults.cardColors(containerColor = containerColor),
             border = BorderStroke(1.dp, OutlineVariant.copy(alpha = 0.5f)),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -38,7 +40,7 @@ fun ElevationCard(
         Card(
             modifier = modifier.fillMaxWidth(),
             shape = MediSyncShapes.large,
-            colors = CardDefaults.cardColors(containerColor = SurfaceContainerLowest),
+            colors = CardDefaults.cardColors(containerColor = containerColor),
             border = BorderStroke(1.dp, OutlineVariant.copy(alpha = 0.5f)),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -49,3 +51,4 @@ fun ElevationCard(
         }
     }
 }
+

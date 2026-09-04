@@ -9,4 +9,5 @@ interface AlertsRepository {
     suspend fun createAlert(request: CreateAlertRequest): Result<MedicationAlertDto>
     suspend fun updateAlertStatus(alertId: String, status: AlertStatus): Result<Boolean>
     suspend fun deleteAlert(alertId: String): Result<Boolean>
+    suspend fun markDoseTaken(alertId: String, slotName: String = "Morning"): Result<Boolean>
 }

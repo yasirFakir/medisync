@@ -11,6 +11,8 @@ import com.medisync.android.data.repository.AlertsRepository
 import com.medisync.android.data.repository.AlertsRepositoryImpl
 import com.medisync.android.data.repository.AlternativesRepository
 import com.medisync.android.data.repository.AlternativesRepositoryImpl
+import com.medisync.android.data.repository.AppointmentsRepository
+import com.medisync.android.data.repository.AppointmentsRepositoryImpl
 import com.medisync.android.data.repository.AuthRepository
 import com.medisync.android.data.repository.AuthRepositoryImpl
 import com.medisync.android.data.repository.DispenserRepository
@@ -62,6 +64,9 @@ class MediSyncApplication : Application() {
     lateinit var alertsRepository: AlertsRepository
         private set
 
+    lateinit var appointmentsRepository: AppointmentsRepository
+        private set
+
     lateinit var totpRepository: TotpRepository
         private set
 
@@ -89,6 +94,7 @@ class MediSyncApplication : Application() {
         alternativesRepository = AlternativesRepositoryImpl(httpClient)
         pharmacyRepository = PharmacyRepositoryImpl(httpClient)
         alertsRepository = AlertsRepositoryImpl(httpClient)
+        appointmentsRepository = AppointmentsRepositoryImpl(httpClient)
         totpRepository = TotpRepositoryImpl(httpClient)
         ehrRepository = EhrRepositoryImpl(httpClient)
         dispenserRepository = DispenserRepositoryImpl(httpClient)

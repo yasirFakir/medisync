@@ -37,6 +37,9 @@ import com.medisync.android.core.theme.OnSurfaceVariant
 import com.medisync.android.core.theme.PrimaryTeal
 import com.medisync.android.core.theme.SecondarySkyBlue
 import com.medisync.android.data.model.UserRole
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import com.medisync.android.R
 
 @Composable
 fun WelcomeScreen(
@@ -55,22 +58,22 @@ fun WelcomeScreen(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(modifier = Modifier.height(20.dp))
             
-            // Brand Logo & Icon
+            // Official MediSync Brand Logo
             Box(
                 modifier = Modifier
-                    .size(72.dp)
-                    .background(PrimaryTeal.copy(alpha = 0.12f), shape = MaterialTheme.shapes.large),
+                    .size(80.dp)
+                    .background(Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.HealthAndSafety,
-                    contentDescription = "MediSync Icon",
-                    tint = PrimaryTeal,
-                    modifier = Modifier.size(44.dp)
+                    painter = painterResource(id = R.drawable.ic_medisync_logo),
+                    contentDescription = "MediSync Brand Logo",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(80.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = "MediSync",

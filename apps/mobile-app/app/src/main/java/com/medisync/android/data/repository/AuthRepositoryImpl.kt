@@ -6,10 +6,12 @@ import com.medisync.android.core.storage.AuthTokenManager
 import com.medisync.android.data.model.AuthResponseData
 import com.medisync.android.data.model.LoginRequest
 import com.medisync.android.data.model.RegisterRequest
+import com.medisync.android.data.model.UpdateProfileRequest
 import com.medisync.android.data.model.UserProfile
-import com.medisync.android.data.model.UserRole
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 
@@ -17,30 +19,6 @@ class AuthRepositoryImpl(
     private val httpClient: HttpClient,
     private val tokenManager: AuthTokenManager
 ) : AuthRepository {
-
-    private val demoUsers = mapOf(
-        "patient@medisync.com" to UserProfile(
-            id = "demo-patient-001",
-            fullName = "Rahim Ahmed",
-            email = "patient@medisync.com",
-            role = UserRole.PATIENT,
-            phoneNumber = "+8801700000001"
-        ),
-        "doctor@medisync.com" to UserProfile(
-            id = "demo-doctor-001",
-            fullName = "Dr. Sarah Khan, MBBS",
-            email = "doctor@medisync.com",
-            role = UserRole.DOCTOR,
-            phoneNumber = "+8801800000002"
-        ),
-        "pharmacy@medisync.com" to UserProfile(
-            id = "demo-pharmacy-001",
-            fullName = "Lazz Pharma (Dhanmondi)",
-            email = "pharmacy@medisync.com",
-            role = UserRole.PHARMACY,
-            phoneNumber = "+8801900000003"
-        )
-    )
 
     override suspend fun login(request: LoginRequest): Result<AuthResponseData> {
         return try {
@@ -53,10 +31,10 @@ class AuthRepositoryImpl(
                 tokenManager.saveUser(response.data.user)
                 Result.success(response.data)
             } else {
-                authenticateStandalone(request.email)
+                Result.failure(Exception(response.message ?: response.error ?: "Invalid email or password"))
             }
         } catch (e: Exception) {
-            authenticateStandalone(request.email)
+            Result.failure(Exception(e.message ?: "Network error. Unable to reach backend server."))
         }
     }
 
@@ -71,50 +49,46 @@ class AuthRepositoryImpl(
                 tokenManager.saveUser(response.data.user)
                 Result.success(response.data)
             } else {
-                createStandaloneSession(
-                    UserProfile(
-                        id = "usr-${System.currentTimeMillis()}",
-                        fullName = request.fullName,
-                        email = request.email,
-                        role = request.role,
-                        phoneNumber = request.phoneNumber
-                    )
-                )
+                Result.failure(Exception(response.message ?: response.error ?: "Registration failed"))
             }
         } catch (e: Exception) {
-            createStandaloneSession(
-                UserProfile(
-                    id = "usr-${System.currentTimeMillis()}",
-                    fullName = request.fullName,
-                    email = request.email,
-                    role = request.role,
-                    phoneNumber = request.phoneNumber
-                )
-            )
+            Result.failure(Exception(e.message ?: "Network error. Unable to reach backend server."))
         }
     }
 
-    private fun authenticateStandalone(email: String): Result<AuthResponseData> {
-        val emailLower = email.lowercase().trim()
-        val user = demoUsers[emailLower] ?: UserProfile(
-            id = "demo-user-${System.currentTimeMillis()}",
-            fullName = email.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() },
-            email = email,
-            role = if (emailLower.contains("doc")) UserRole.DOCTOR else if (emailLower.contains("pharm")) UserRole.PHARMACY else UserRole.PATIENT,
-            phoneNumber = "+8801700000000"
-        )
-        return createStandaloneSession(user)
+    override suspend fun getProfile(): Result<UserProfile> {
+        return try {
+            val response: ApiResponse<UserProfile> = httpClient.get("${NetworkClient.BASE_URL}/users/me").body()
+            if (response.success && response.data != null) {
+                tokenManager.saveUser(response.data)
+                Result.success(response.data)
+            } else {
+                val cached = tokenManager.getUser()
+                if (cached != null) Result.success(cached)
+                else Result.failure(Exception(response.message ?: "Failed to get user profile"))
+            }
+        } catch (e: Exception) {
+            val cached = tokenManager.getUser()
+            if (cached != null) Result.success(cached)
+            else Result.failure(Exception(e.message ?: "Network error. Unable to reach backend server."))
+        }
     }
 
-    private fun createStandaloneSession(user: UserProfile): Result<AuthResponseData> {
-        val authData = AuthResponseData(
-            accessToken = "standalone-mock-token-${System.currentTimeMillis()}",
-            refreshToken = "standalone-mock-refresh-${System.currentTimeMillis()}",
-            user = user
-        )
-        tokenManager.saveTokens(authData.accessToken, authData.refreshToken)
-        tokenManager.saveUser(authData.user)
-        return Result.success(authData)
+    override suspend fun updateProfile(request: UpdateProfileRequest): Result<UserProfile> {
+        return try {
+            val response: ApiResponse<UserProfile> = httpClient.patch("${NetworkClient.BASE_URL}/users/me") {
+                setBody(request)
+            }.body()
+
+            if (response.success && response.data != null) {
+                tokenManager.saveUser(response.data)
+                Result.success(response.data)
+            } else {
+                Result.failure(Exception(response.message ?: response.error ?: "Profile update failed"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Network error updating profile"))
+        }
     }
 
     override fun getCachedUser(): UserProfile? = tokenManager.getUser()
@@ -125,3 +99,4 @@ class AuthRepositoryImpl(
         tokenManager.clear()
     }
 }
+

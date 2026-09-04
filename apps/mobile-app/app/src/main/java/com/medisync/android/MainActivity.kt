@@ -26,6 +26,8 @@ import com.medisync.android.presentation.navigation.MediSyncNavGraph
 import com.medisync.android.presentation.notifications.NotificationsViewModel
 import com.medisync.android.presentation.pharmacy.PharmacyViewModel
 import com.medisync.android.presentation.prescription.PrescriptionViewModel
+import com.medisync.android.admin.AdminViewModel
+import com.medisync.android.presentation.pharmacy.AvailabilityViewModel
 import com.medisync.android.presentation.totp.TotpViewModel
 import com.medisync.android.presentation.triage.TriageViewModel
 
@@ -101,6 +103,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
+                val appointmentsViewModel: com.medisync.android.presentation.appointments.AppointmentsViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            return com.medisync.android.presentation.appointments.AppointmentsViewModel(app.appointmentsRepository) as T
+                        }
+                    }
+                )
                 val totpViewModel: TotpViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         @Suppress("UNCHECKED_CAST")
@@ -113,7 +123,7 @@ class MainActivity : ComponentActivity() {
                     factory = object : ViewModelProvider.Factory {
                         @Suppress("UNCHECKED_CAST")
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                            return DoctorViewModel(app.ehrRepository) as T
+                            return DoctorViewModel(app.ehrRepository, app.httpClient) as T
                         }
                     }
                 )
@@ -133,6 +143,32 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
+                val pharmacyInventoryViewModel: com.medisync.android.presentation.pharmacy.PharmacyInventoryViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            return com.medisync.android.presentation.pharmacy.PharmacyInventoryViewModel(app.httpClient) as T
+                        }
+                    }
+                )
+
+                
+                val adminViewModel: AdminViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            return AdminViewModel(app.httpClient) as T
+                        }
+                    }
+                )
+                val availabilityViewModel: AvailabilityViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            return AvailabilityViewModel(app.httpClient) as T
+                        }
+                    }
+                )
 
                 MediSyncNavGraph(
                     navController = navController,
@@ -142,10 +178,14 @@ class MainActivity : ComponentActivity() {
                     alternativesViewModel = alternativesViewModel,
                     pharmacyViewModel = pharmacyViewModel,
                     alertsViewModel = alertsViewModel,
+                    appointmentsViewModel = appointmentsViewModel,
                     totpViewModel = totpViewModel,
                     doctorViewModel = doctorViewModel,
                     dispenserViewModel = dispenserViewModel,
-                    notificationsViewModel = notificationsViewModel
+                    notificationsViewModel = notificationsViewModel,
+                    adminViewModel = adminViewModel,
+                    availabilityViewModel = availabilityViewModel,
+                    pharmacyInventoryViewModel = pharmacyInventoryViewModel
                 )
             }
         }

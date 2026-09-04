@@ -63,6 +63,8 @@ import com.medisync.android.core.theme.OnSurfaceVariant
 import com.medisync.android.core.theme.PrimaryTeal
 import com.medisync.android.data.model.AlertStatus
 
+import androidx.compose.runtime.LaunchedEffect
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MedicationRemindersScreen(
@@ -72,6 +74,10 @@ fun MedicationRemindersScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showAddSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadAlerts()
+    }
 
     var medicineName by remember { mutableStateOf("") }
     var dosage by remember { mutableStateOf("500 mg") }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -39,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -68,8 +70,8 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    var email by remember { mutableStateOf(if (initialRole == UserRole.DOCTOR) "doctor@medisync.com" else if (initialRole == UserRole.PHARMACY) "pharmacy@medisync.com" else "patient@medisync.com") }
-    var password by remember { mutableStateOf("demo1234") }
+    var email by remember { mutableStateOf(if (initialRole == UserRole.DOCTOR) "doctor@medisync.ai" else if (initialRole == UserRole.PHARMACY) "pharmacy@medisync.ai" else "patient@medisync.ai") }
+    var password by remember { mutableStateOf("password123") }
 
     LaunchedEffect(initialRole) {
         viewModel.selectRole(initialRole)
@@ -105,6 +107,27 @@ fun LoginScreen(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Brand Logo matching Web App
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = com.medisync.android.R.drawable.ic_medisync_logo),
+                        contentDescription = "MediSync Logo",
+                        tint = PrimaryTeal,
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "MediSync",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = PrimaryTeal,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 // Header
                 Text(
                     text = "Welcome Back",
@@ -153,8 +176,8 @@ fun LoginScreen(
                             selected = uiState.selectedRole == UserRole.PATIENT,
                             onClick = {
                                 viewModel.selectRole(UserRole.PATIENT)
-                                email = "patient@medisync.com"
-                                password = "demo"
+                                email = "patient@medisync.ai"
+                                password = "password123"
                                 viewModel.login(email, password)
                             },
                             label = { Text("Patient", fontSize = 12.sp) },
@@ -168,8 +191,8 @@ fun LoginScreen(
                             selected = uiState.selectedRole == UserRole.DOCTOR,
                             onClick = {
                                 viewModel.selectRole(UserRole.DOCTOR)
-                                email = "doctor@medisync.com"
-                                password = "demo"
+                                email = "doctor@medisync.ai"
+                                password = "password123"
                                 viewModel.login(email, password)
                             },
                             label = { Text("Doctor", fontSize = 12.sp) },
@@ -183,8 +206,8 @@ fun LoginScreen(
                             selected = uiState.selectedRole == UserRole.PHARMACY,
                             onClick = {
                                 viewModel.selectRole(UserRole.PHARMACY)
-                                email = "pharmacy@medisync.com"
-                                password = "demo"
+                                email = "pharmacy@medisync.ai"
+                                password = "password123"
                                 viewModel.login(email, password)
                             },
                             label = { Text("Pharmacy", fontSize = 12.sp) },

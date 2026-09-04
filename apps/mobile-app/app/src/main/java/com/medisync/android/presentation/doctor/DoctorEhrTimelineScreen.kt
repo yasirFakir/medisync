@@ -163,7 +163,7 @@ fun DoctorEhrTimelineScreen(
                         .padding(20.dp)
                 ) {
                     Text(
-                        text = "New Clinical Consultation Record",
+                        text = "Add Clinical Session",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -196,14 +196,27 @@ fun DoctorEhrTimelineScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     MediSyncButton(
-                        text = "Save Clinical Record",
+                        text = "Save Session",
                         enabled = diagnosis.isNotBlank(),
+                        isLoading = uiState.isLoading,
                         onClick = {
-                            viewModel.addClinicalRecord(diagnosis, observations, followUpDate)
-                            showAddRecordSheet = false
-                            diagnosis = ""
-                            observations = ""
+                            viewModel.addSession(
+                                patientId = uiState.selectedPatient?.patientId ?: "",
+                                diagnosis = diagnosis,
+                                observations = observations,
+                                followUpDate = followUpDate.ifBlank { null },
+                                onSuccess = {
+                                    showAddRecordSheet = false
+                                    diagnosis = ""
+                                    observations = ""
+                                    viewModel.loadTimeline(uiState.selectedPatient?.patientId ?: "")
+                                },
+                                onError = { error ->
+                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
                         }
                     )
                 }

@@ -88,4 +88,11 @@ class AlertsViewModel(
             loadAlerts()
         }
     }
+
+    fun markDoseTaken(alertId: String, slotName: String = "Morning") {
+        viewModelScope.launch {
+            alertsRepository.markDoseTaken(alertId, slotName)
+            loadAlerts()
+        }
+    }
 }
