@@ -176,6 +176,7 @@ model PatientTotpSecret {
 model TriageSession {
   sessionId         String       @id @default(dbgenerated("uuid_generate_v4()")) @map("session_id") @db.Uuid
   patientId         String       @map("patient_id") @db.Uuid
+  title             String?      @db.VarChar(255)
   symptoms          Json
   urgencyLevel      UrgencyLevel @default(LOW) @map("urgency_level")
   aiResponse        String       @map("ai_response") @db.Text

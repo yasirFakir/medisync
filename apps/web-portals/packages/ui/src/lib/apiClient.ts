@@ -8,7 +8,7 @@ console.log(`[MediSync API Client] Connecting to backend at: ${BASE_URL}/api`);
 export const apiClient = axios.create({
   baseURL: `${BASE_URL}/api`,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: 120000, // 120s timeout for heavy AI Vision OCR and RAG matching
 });
 
 // Attach JWT to every request

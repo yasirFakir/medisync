@@ -14,6 +14,7 @@ import asyncio
 import logging
 from concurrent.futures import ProcessPoolExecutor
 from typing import Tuple, List, Optional
+from fastapi import HTTPException
 
 from PIL import Image
 
@@ -241,25 +242,36 @@ Return ONLY valid raw JSON. Do not include markdown code block formatting.
         }
 
         models_to_try = [
-            "gemini-3.5-flash-lite",
-            "gemini-3-flash-preview",
+            "gemini-2.5-flash",
             "gemini-3.5-flash",
-            "gemini-flash-latest"
+            "gemini-3.6-flash",
         ]
 
         raw_resp = None
-        async with httpx.AsyncClient(timeout=35.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             for model_name in models_to_try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
                 try:
                     res = await client.post(url, json=payload)
                     if res.status_code == 200:
                         raw_resp = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                        logger.info(f"Gemini Vision OCR succeeded with model: {model_name}")
                         break
+                    elif res.status_code == 429:
+                        logger.warning(f"Gemini model {model_name} returned HTTP 429 Quota Exceeded")
+                        raise HTTPException(
+                            status_code=429,
+                            detail="Gemini OCR API rate limit/quota reached (HTTP 429). Please update GEMINI_API_KEY in .env."
+                        )
+                    elif res.status_code in (404, 403):
+                        logger.warning(f"Gemini model {model_name} returned {res.status_code}, skipping")
+                        continue
                     else:
-                        logger.warning(f"Gemini model {model_name} returned {res.status_code}")
+                        logger.warning(f"Gemini model {model_name} returned status {res.status_code}")
+                except HTTPException:
+                    raise
                 except Exception as model_err:
-                    logger.warning(f"Gemini model {model_name} failed: {model_err}")
+                    logger.warning(f"Gemini model {model_name} request failed: {model_err}")
 
         if raw_resp:
                 # Clean JSON markdown fences if present
@@ -332,6 +344,8 @@ Return ONLY valid raw JSON. Do not include markdown code block formatting.
                     processing_time_ms=0,
                 )
 
+    except HTTPException:
+        raise
     except Exception as err:
         logger.warning(f"Gemini Vision OCR failed, fallback to PaddleOCR: {err}")
 

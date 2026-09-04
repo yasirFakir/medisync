@@ -7,6 +7,7 @@
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ─── Enum Types ────────────────────────────────────────────────────────────────
 CREATE TYPE user_role_enum AS ENUM ('PATIENT', 'DOCTOR', 'ADMIN', 'PHARMACY');
@@ -76,12 +77,78 @@ CREATE TABLE IF NOT EXISTS pharmacy_inventory (
   drug_id       UUID NOT NULL REFERENCES master_pharmacy(drug_id) ON DELETE CASCADE,
   in_stock      BOOLEAN DEFAULT true,
   current_price NUMERIC(10, 2),
+  cost_price    NUMERIC(10, 2),
+  quantity      INTEGER DEFAULT 0,
+  batch_number  VARCHAR(100) DEFAULT 'DEFAULT',
+  expiry_date   DATE,
+  rack_location VARCHAR(100),
+  supplier_name VARCHAR(255),
   last_updated  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(pharmacy_id, drug_id)
+  CONSTRAINT uq_pharmacy_drug_batch UNIQUE (pharmacy_id, drug_id, batch_number)
 );
+
+ALTER TABLE pharmacy_inventory ADD COLUMN IF NOT EXISTS cost_price NUMERIC(10, 2);
+ALTER TABLE pharmacy_inventory ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 0;
+ALTER TABLE pharmacy_inventory ADD COLUMN IF NOT EXISTS batch_number VARCHAR(100) DEFAULT 'DEFAULT';
+ALTER TABLE pharmacy_inventory ADD COLUMN IF NOT EXISTS expiry_date DATE;
+ALTER TABLE pharmacy_inventory ADD COLUMN IF NOT EXISTS rack_location VARCHAR(100);
+ALTER TABLE pharmacy_inventory ADD COLUMN IF NOT EXISTS supplier_name VARCHAR(255);
 
 CREATE INDEX IF NOT EXISTS idx_inventory_drug ON pharmacy_inventory (drug_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_pharmacy ON pharmacy_inventory (pharmacy_id);
+
+-- ─── Pharmacy Prescription Access Logs ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pharmacy_prescription_access (
+  access_id    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  pharmacy_id  UUID NOT NULL REFERENCES pharmacies(pharmacy_id) ON DELETE CASCADE,
+  patient_id   UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  accessed_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pharma_access_patient ON pharmacy_prescription_access (patient_id);
+CREATE INDEX IF NOT EXISTS idx_pharma_access_pharmacy ON pharmacy_prescription_access (pharmacy_id);
+
+-- ─── Pharmacy Sales (Invoices / POS Orders) ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS pharmacy_sales (
+  sale_id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  pharmacy_id     UUID NOT NULL REFERENCES pharmacies(pharmacy_id) ON DELETE CASCADE,
+  patient_id      UUID REFERENCES users(user_id) ON DELETE SET NULL,
+  prescription_id UUID REFERENCES prescriptions(prescription_id) ON DELETE SET NULL,
+  invoice_number  VARCHAR(100) UNIQUE NOT NULL,
+  subtotal        NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  discount_amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  tax_amount      NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  net_total       NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  cost_total      NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  payment_method  VARCHAR(50) NOT NULL DEFAULT 'CASH',
+  pharmacist_id   UUID REFERENCES users(user_id) ON DELETE SET NULL,
+  customer_name   VARCHAR(255),
+  created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pharmacy_sales_pharma ON pharmacy_sales (pharmacy_id);
+CREATE INDEX IF NOT EXISTS idx_pharmacy_sales_patient ON pharmacy_sales (patient_id);
+CREATE INDEX IF NOT EXISTS idx_pharmacy_sales_created ON pharmacy_sales (created_at DESC);
+
+-- ─── Pharmacy Sale Line Items ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pharmacy_sale_items (
+  item_id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sale_id            UUID NOT NULL REFERENCES pharmacy_sales(sale_id) ON DELETE CASCADE,
+  inventory_id       UUID REFERENCES pharmacy_inventory(inventory_id) ON DELETE SET NULL,
+  medicine_name      VARCHAR(255) NOT NULL,
+  generic_name       VARCHAR(255),
+  dosage_strength    VARCHAR(100),
+  batch_number       VARCHAR(100),
+  unit_selling_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  unit_cost_price    NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  quantity           INTEGER NOT NULL DEFAULT 1,
+  duration_days      INTEGER,
+  dosage_schedule    VARCHAR(100),
+  line_total         NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  created_at         TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON pharmacy_sale_items (sale_id);
 
 -- ─── Prescriptions ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS prescriptions (
@@ -128,6 +195,7 @@ CREATE TABLE IF NOT EXISTS patient_totp_secrets (
 CREATE TABLE IF NOT EXISTS triage_sessions (
   session_id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   patient_id         UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  title              VARCHAR(255),
   symptoms           JSONB NOT NULL,
   urgency_level      urgency_level_enum NOT NULL DEFAULT 'LOW',
   ai_response        TEXT NOT NULL,

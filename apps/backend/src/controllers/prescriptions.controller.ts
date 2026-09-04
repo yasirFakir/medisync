@@ -39,7 +39,7 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
       form,
       {
         headers: form.getHeaders(),
-        timeout: 25000, // Allow PaddleOCR engine processing time
+        timeout: 90000, // Allow full OCR processing time (Gemini Vision can take 30-60s)
       }
     );
 
@@ -59,38 +59,41 @@ export const digitizePrescription = async (req: AuthRequest, res: Response): Pro
       duration:        m.duration?.value         || '',
     }));
 
-    logger.info(`[AI SERVICE] Prescription processed by PaddleOCR microservice`);
-  } catch (error) {
-    logger.warn('AI OCR service error/timeout, using fallback summary:', error instanceof Error ? error.message : '');
+    if (!medicines || medicines.length === 0) {
+      throw new AppError('OCR could not detect any readable medicines from the image. Please upload a clearer, higher-resolution prescription.', 422);
+    }
 
-    digitizedNotes = `[OCR Stub] Prescriptions scan recorded for file: ${req.file.originalname}`;
-    doctorName = 'Dr. Standard Prescriber';
-    medicines = [
-      {
-        brandName: "Napa",
-        saltComposition: "Paracetamol",
-        dosage: "500mg",
-        frequency: "Twice daily",
-        duration: "5 days"
+    logger.info(`[AI SERVICE] Prescription processed successfully (${medicines.length} medicines extracted)`);
+  } catch (error) {
+    logger.error('Prescription OCR processing error:', error instanceof Error ? error.message : error);
+
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    let userMsg = 'OCR digitization failed. Please upload a clearer, well-lit image.';
+    let statusCode = 422;
+
+    if (axios.isAxiosError(error)) {
+      const respData = error.response?.data;
+      const respDetail = typeof respData === 'string' ? respData : (respData?.detail || respData?.message || '');
+
+      if (error.response?.status === 429 || error.message?.includes('429') || respDetail.includes('429') || respDetail.includes('quota') || respDetail.includes('rate limit')) {
+        userMsg = 'Gemini OCR Quota Limit Reached (HTTP 429). Please provide or update your GEMINI_API_KEY in .env.';
+        statusCode = 429;
+      } else if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
+        userMsg = 'OCR Network Timeout: The AI service took too long to process the image. Please verify your internet connection and try again.';
+        statusCode = 504;
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ENETUNREACH' || error.message?.includes('Network Error')) {
+        userMsg = 'OCR Network Failure: Could not reach the AI microservice. Please check your connection or start the AI service.';
+        statusCode = 503;
+      } else if (respDetail) {
+        userMsg = `OCR Error: ${respDetail}`;
+        statusCode = error.response?.status || 422;
       }
-    ];
-    ocrResult = {
-      raw_text: digitizedNotes,
-      doctor_name: { value: doctorName, confidence: 'high', score: 1.0 },
-      doctor_degrees: { value: 'MBBS, FCPS', confidence: 'medium', score: 0.8 },
-      doctor_specialty: { value: 'General Medicine & Clinical Specialist', confidence: 'medium', score: 0.8 },
-      hospital_name: { value: 'Central Health Clinic', confidence: 'high', score: 1.0 },
-      patient_name: { value: 'Patient', confidence: 'medium', score: 0.7 },
-      prescription_date: { value: new Date().toLocaleDateString('en-GB'), confidence: 'high', score: 1.0 },
-      clinical_diagnosis: { value: '• Fever & Acute Symptoms', confidence: 'medium', score: 0.7 },
-      medicines: medicines.map(m => ({
-        brand_name: { value: m.brandName, confidence: 'high', score: 1.0 },
-        strength: { value: m.dosage, confidence: 'high', score: 1.0 },
-        dosage: { value: m.dosage, confidence: 'high', score: 1.0 },
-        frequency: { value: m.frequency, confidence: 'high', score: 1.0 },
-        duration: { value: m.duration, confidence: 'high', score: 1.0 },
-      }))
-    };
+    }
+
+    throw new AppError(userMsg, statusCode);
   }
 
 
